@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Application/Application.csproj" Id="026577cb-1106-4dea-9bb0-5ecc74d87bc6" />
+  <Project Path="Domain/Domain.csproj" Id="46c9e41d-642e-4013-8dd1-efc78c7f7364" />
+  <Project Path="Hajzzy/Hajzzy.csproj" />
+</Solution>

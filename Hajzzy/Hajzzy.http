@@ -1,0 +1,6 @@
+@Hajzzy_HostAddress = http://localhost:5063
+
+GET {{Hajzzy_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
