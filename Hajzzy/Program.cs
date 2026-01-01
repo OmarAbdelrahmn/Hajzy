@@ -54,6 +54,7 @@ RecurringJob.AddOrUpdate<INotinficationService>(
 
 
 
+
 app.UseCors();
 
 app.UseHttpsRedirection();
