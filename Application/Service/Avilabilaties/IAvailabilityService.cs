@@ -1,4 +1,5 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.SubUnit;
 using Domain.Entities;
 
 namespace Application.Service.Availability;
@@ -70,6 +71,7 @@ public interface IAvailabilityService
     /// Initialize default availability for a new subunit (all days available)
     /// </summary>
     Task<Result> InitializeDefaultAvailabilityAsync(int subUnitId, int daysAhead = 365);
+    Task<Result> InitializeUnitDefaultAvailabilityAsync(int UnitId, int daysAhead = 365);
 
     /// <summary>
     /// Get calendar view of availability
@@ -109,7 +111,7 @@ public record BlockDatesRequest(
     string UpdatedByUserId
 );
 
-public record SetSpecialPricingRequest(
+public record SetSpecialPricingRequests(
     int SubUnitId,
     List<SpecialPriceRange> PriceRanges,
     string UpdatedByUserId
@@ -126,15 +128,15 @@ public record SpecialPriceRange(
 
 // ============= RESPONSE MODELS =============
 
-public record AvailabilityResponse(
-    int Id,
-    DateTime StartDate,
-    DateTime EndDate,
-    bool IsAvailable,
-    string? Reason,
-    decimal? SpecialPrice,
-    decimal? WeekendPrice
-);
+//public record AvailabilityResponse(
+//    int Id,
+//    DateTime StartDate,
+//    DateTime EndDate,
+//    bool IsAvailable,
+//    string? Reason,
+//    decimal? SpecialPrice,
+//    decimal? WeekendPrice
+//);
 
 public record DayAvailability(
     DateTime Date,

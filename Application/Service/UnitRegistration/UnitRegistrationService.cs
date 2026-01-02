@@ -2,6 +2,7 @@
 using Application.Abstraction.Consts;
 using Application.Contracts.UnitRegisteration;
 using Application.Helpers;
+using Application.Service.Availability;
 using Application.Service.S3Image;
 using Domain;
 using Domain.Consts;
@@ -24,7 +25,8 @@ public class UnitRegistrationService(
     IEmailSender emailSender,
     IHttpContextAccessor httpContextAccessor,
     ILogger<UnitRegistrationService> logger,
-    IConfiguration configuration) : IUnitRegistrationService
+    IConfiguration configuration ,
+    IAvailabilityService service) : IUnitRegistrationService
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly UserManager<ApplicationUser> _userManager = userManager;
@@ -32,6 +34,7 @@ public class UnitRegistrationService(
     private readonly IEmailSender _emailSender = emailSender;
     private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
     private readonly ILogger<UnitRegistrationService> _logger = logger;
+    private readonly IAvailabilityService service = service;
 
 
     // ============= PUBLIC METHODS =============
@@ -295,6 +298,8 @@ public class UnitRegistrationService(
             };
 
             await _context.Units.AddAsync(unit);
+            var availabilityInit = await service.InitializeDefaultAvailabilityAsync(unit.Id, 365);
+
             await _context.SaveChangesAsync();
 
             // Assign user as Unit Admin

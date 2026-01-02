@@ -1,6 +1,7 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.SubUnit;
 using Application.Contracts.Unit;
+using Application.Service.Availability;
 using Application.Service.S3Image;
 using Application.Service.SubUnitImage;
 using Domain;
@@ -14,11 +15,13 @@ namespace Application.Service.SubUnit;
 public class SubUnitService(
     ApplicationDbcontext context,
     ISubUnitImageService s3Service,
-    ILogger<SubUnitService> logger) : ISubUnitService
+    ILogger<SubUnitService> logger,
+    IAvailabilityService service) : ISubUnitService
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly ISubUnitImageService _s3Service = s3Service;
     private readonly ILogger<SubUnitService> _logger = logger;
+    private readonly IAvailabilityService service = service;
 
     #region CRUD
 
@@ -108,6 +111,8 @@ public class SubUnitService(
             };
 
             await _context.SubUnits.AddAsync(subUnit);
+            var availabilityInit = await service.InitializeDefaultAvailabilityAsync(subUnit.Id, 365);
+
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 

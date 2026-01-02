@@ -1,4 +1,5 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.SubUnit;
 using Domain;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -467,4 +468,16 @@ public class AvailabilityService(
                 new Error("CalendarFailed", "Failed to get calendar", 500));
         }
     }
+
+    Task<Result<List<AvailabilityResponse>>> IAvailabilityService.GetUnitAvailabilityAsync(int unitId, DateTime startDate, DateTime endDate)
+    {
+        throw new NotImplementedException();
+    }
+
+    Task<Result<List<AvailabilityResponse>>> IAvailabilityService.GetSubUnitAvailabilityAsync(int subUnitId, DateTime startDate, DateTime endDate)
+    {
+        throw new NotImplementedException();
+    }
+
+
 }

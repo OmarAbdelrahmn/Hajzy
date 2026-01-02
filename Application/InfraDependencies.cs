@@ -8,8 +8,10 @@ using Application.Notifications;
 using Application.Roles;
 using Application.Service.Amenity;
 using Application.Service.Availability;
+using Application.Service.Booking;
 using Application.Service.Department;
 using Application.Service.Policy;
+using Application.Service.Report;
 using Application.Service.S3Image;
 using Application.Service.SubUnit;
 using Application.Service.SubUnitAmenity;
@@ -71,6 +73,8 @@ public static class InfraDependencies
         Services.AddScoped<IAvailabilityService, AvailabilityService>();
         Services.AddScoped<IAmenityService, AmenityService>();
         Services.AddScoped<IUnitTypeService, UnitTypeService>();
+        Services.AddScoped<IBookingService, BookingService>();
+        Services.AddScoped<IReportService,ReportService>();
         Services.AddProblemDetails();
 
 
