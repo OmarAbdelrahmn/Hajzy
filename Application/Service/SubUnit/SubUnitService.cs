@@ -467,7 +467,7 @@ public class SubUnitService(
 
     public async Task<Result> SetSpecialPricingAsync(
         int subUnitId,
-        SetSpecialPricingRequest request)
+        SetSpecialPricingRequestsss request)
     {
         var availability = await _context.Set<SubUnitAvailability>()
             .FirstOrDefaultAsync(a => a.SubUnitId == subUnitId &&

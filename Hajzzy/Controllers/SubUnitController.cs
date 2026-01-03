@@ -212,7 +212,7 @@ public class SubUnitController(ISubUnitService service) : ControllerBase
  
     public async Task<IActionResult> SetSpecialPricing(
         int subUnitId,
-        [FromBody] SetSpecialPricingRequest request)
+        [FromBody] SetSpecialPricingRequestsss request)
     {
         var result = await _service.SetSpecialPricingAsync(subUnitId, request);
         return result.IsSuccess

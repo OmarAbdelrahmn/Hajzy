@@ -73,7 +73,7 @@ public record SetAvailabilityRequest
     public string? UpdatedByUserId { get; init; }
 }
 
-public record SetSpecialPricingRequest
+public record SetSpecialPricingRequestsss
 {
     [Required]
     public DateTime StartDate { get; init; }

@@ -1,4 +1,5 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.Availability;
 using Application.Contracts.SubUnit;
 using Domain;
 using Domain.Entities;
@@ -70,24 +71,33 @@ public class AvailabilityService(
         DateTime startDate,
         DateTime endDate)
     {
-        var availabilities = await _context.Set<UnitAvailability>()
-            .Where(a => a.UnitId == unitId &&
-                       a.StartDate >= startDate &&
-                       a.EndDate <= endDate)
-            .AsNoTracking()
-            .ToListAsync();
+        try
+        {
+            var availabilities = await _context.Set<UnitAvailability>()
+                .Where(a => a.UnitId == unitId &&
+                           a.StartDate >= startDate &&
+                           a.EndDate <= endDate)
+                .AsNoTracking()
+                .ToListAsync();
 
-        var responses = availabilities.Select(a => new AvailabilityResponse(
-            a.Id,
-            a.StartDate,
-            a.EndDate,
-            a.IsAvailable,
-            a.Reason?.ToString(),
-            null,
-            null
-        )).ToList();
+            var responses = availabilities.Select(a => new AvailabilityResponse(
+                a.Id,
+                a.StartDate,
+                a.EndDate,
+                a.IsAvailable,
+                a.Reason?.ToString(),
+                null, // SpecialPrice not applicable for Unit
+                null  // WeekendPrice not applicable for Unit
+            )).ToList();
 
-        return Result.Success(responses);
+            return Result.Success(responses);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting unit availability");
+            return Result.Failure<List<AvailabilityResponse>>(
+                new Error("GetFailed", "Failed to get availability", 500));
+        }
     }
 
     public async Task<Result<bool>> IsUnitAvailableAsync(
@@ -190,24 +200,33 @@ public class AvailabilityService(
         DateTime startDate,
         DateTime endDate)
     {
-        var availabilities = await _context.Set<SubUnitAvailability>()
-            .Where(a => a.SubUnitId == subUnitId &&
-                       a.StartDate >= startDate &&
-                       a.EndDate <= endDate)
-            .AsNoTracking()
-            .ToListAsync();
+        try
+        {
+            var availabilities = await _context.Set<SubUnitAvailability>()
+                .Where(a => a.SubUnitId == subUnitId &&
+                           a.StartDate >= startDate &&
+                           a.EndDate <= endDate)
+                .AsNoTracking()
+                .ToListAsync();
 
-        var responses = availabilities.Select(a => new AvailabilityResponse(
-            a.Id,
-            a.StartDate,
-            a.EndDate,
-            a.IsAvailable,
-            a.Reason?.ToString(),
-            a.SpecialPrice,
-            a.WeekendPrice
-        )).ToList();
+            var responses = availabilities.Select(a => new AvailabilityResponse(
+                a.Id,
+                a.StartDate,
+                a.EndDate,
+                a.IsAvailable,
+                a.Reason?.ToString(),
+                a.SpecialPrice,
+                a.WeekendPrice
+            )).ToList();
 
-        return Result.Success(responses);
+            return Result.Success(responses);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting subunit availability");
+            return Result.Failure<List<AvailabilityResponse>>(
+                new Error("GetFailed", "Failed to get availability", 500));
+        }
     }
 
     public async Task<Result<bool>> IsSubUnitAvailableAsync(
@@ -289,7 +308,7 @@ public class AvailabilityService(
         }
     }
 
-    public async Task<Result> SetSpecialPricingAsync(SetSpecialPricingRequest request)
+    public async Task<Result> SetSpecialPricingAsync(SetSpecialPricingRequests request)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -347,6 +366,8 @@ public class AvailabilityService(
         }
     }
 
+    // ============= INITIALIZATION =============
+
     public async Task<Result> InitializeDefaultAvailabilityAsync(int subUnitId, int daysAhead = 365)
     {
         try
@@ -387,6 +408,49 @@ public class AvailabilityService(
         {
             _logger.LogError(ex, "Error initializing default availability");
             return Result.Failure(new Error("InitFailed", "Failed to initialize availability", 500));
+        }
+    }
+
+    public async Task<Result> InitializeUnitDefaultAvailabilityAsync(int unitId, int daysAhead = 365)
+    {
+        try
+        {
+            var unit = await _context.Units
+                .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+
+            if (unit == null)
+                return Result.Failure(new Error("NotFound", "Unit not found", 404));
+
+            // Check if already initialized
+            var hasAvailability = await _context.Set<UnitAvailability>()
+                .AnyAsync(a => a.UnitId == unitId);
+
+            if (hasAvailability)
+                return Result.Success(); // Already initialized
+
+            // Create a single availability record for the next year
+            var availability = new UnitAvailability
+            {
+                UnitId = unitId,
+                StartDate = DateTime.UtcNow.Date,
+                EndDate = DateTime.UtcNow.Date.AddDays(daysAhead),
+                IsAvailable = true,
+                CreatedAt = DateTime.UtcNow.AddHours(3)
+            };
+
+            await _context.Set<UnitAvailability>().AddAsync(availability);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Initialized default availability for unit {UnitId} for {Days} days",
+                unitId, daysAhead);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error initializing unit default availability");
+            return Result.Failure(new Error("InitFailed", "Failed to initialize unit availability", 500));
         }
     }
 
@@ -468,16 +532,4 @@ public class AvailabilityService(
                 new Error("CalendarFailed", "Failed to get calendar", 500));
         }
     }
-
-    Task<Result<List<AvailabilityResponse>>> IAvailabilityService.GetUnitAvailabilityAsync(int unitId, DateTime startDate, DateTime endDate)
-    {
-        throw new NotImplementedException();
-    }
-
-    Task<Result<List<AvailabilityResponse>>> IAvailabilityService.GetSubUnitAvailabilityAsync(int subUnitId, DateTime startDate, DateTime endDate)
-    {
-        throw new NotImplementedException();
-    }
-
-
 }

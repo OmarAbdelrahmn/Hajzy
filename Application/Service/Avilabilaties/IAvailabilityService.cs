@@ -1,4 +1,5 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.Availability;
 using Application.Contracts.SubUnit;
 using Domain.Entities;
 
@@ -65,7 +66,7 @@ public interface IAvailabilityService
     /// <summary>
     /// Set special pricing for multiple dates (e.g., holiday season)
     /// </summary>
-    Task<Result> SetSpecialPricingAsync(SetSpecialPricingRequest request);
+    Task<Result> SetSpecialPricingAsync(SetSpecialPricingRequests request);
 
     /// <summary>
     /// Initialize default availability for a new subunit (all days available)
@@ -82,67 +83,4 @@ public interface IAvailabilityService
         int month);
 }
 
-// ============= REQUEST MODELS =============
 
-public record SetUnitAvailabilityRequest(
-    int UnitId,
-    DateTime StartDate,
-    DateTime EndDate,
-    bool IsAvailable,
-    UnavailabilityReason? Reason,
-    string? UpdatedByUserId
-);
-
-public record SetSubUnitAvailabilityRequest(
-    int SubUnitId,
-    DateTime StartDate,
-    DateTime EndDate,
-    bool IsAvailable,
-    UnavailabilityReason? Reason,
-    decimal? SpecialPrice,
-    decimal? WeekendPrice,
-    string? UpdatedByUserId
-);
-
-public record BlockDatesRequest(
-    int SubUnitId,
-    List<DateRange> DateRanges,
-    UnavailabilityReason Reason,
-    string UpdatedByUserId
-);
-
-public record SetSpecialPricingRequests(
-    int SubUnitId,
-    List<SpecialPriceRange> PriceRanges,
-    string UpdatedByUserId
-);
-
-public record DateRange(DateTime StartDate, DateTime EndDate);
-
-public record SpecialPriceRange(
-    DateTime StartDate,
-    DateTime EndDate,
-    decimal? WeekdayPrice,
-    decimal? WeekendPrice
-);
-
-// ============= RESPONSE MODELS =============
-
-//public record AvailabilityResponse(
-//    int Id,
-//    DateTime StartDate,
-//    DateTime EndDate,
-//    bool IsAvailable,
-//    string? Reason,
-//    decimal? SpecialPrice,
-//    decimal? WeekendPrice
-//);
-
-public record DayAvailability(
-    DateTime Date,
-    bool IsAvailable,
-    bool IsBooked,
-    decimal? Price,
-    bool IsWeekend,
-    UnavailabilityReason? Reason
-);

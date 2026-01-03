@@ -1,0 +1,191 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Booking Cancellation</title>
+    <style type="text/css" rel="stylesheet" media="all">
+        @import url("https://fonts.googleapis.com/css?family=Nunito+Sans:400,700&display=swap");
+
+        body {
+            width: 100% !important;
+            height: 100%;
+            margin: 0;
+            background-color: #f2f4f6;
+            color: #51545e;
+            font-family: "Nunito Sans", Helvetica, Arial, sans-serif;
+        }
+
+        a {
+            color: #3869d4;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #333333;
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        p {
+            margin: 0.4em 0 1.1875em;
+            font-size: 16px;
+            line-height: 1.625;
+        }
+
+        .button {
+            background-color: #3869d4;
+            border: 10px solid #3869d4;
+            display: inline-block;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 3px;
+            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.16);
+        }
+
+        .warning-box {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border: 1px solid #ffeeba;
+        }
+
+        .info-box {
+            background-color: #f4f4f7;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        .info-row {
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #666;
+        }
+
+        .email-wrapper {
+            width: 100%;
+            background-color: #f2f4f6;
+        }
+
+        .email-masthead {
+            padding: 25px 0;
+            text-align: center;
+        }
+
+        .email-masthead_name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #a8aaaf;
+            text-decoration: none;
+        }
+
+        .email-body_inner {
+            width: 570px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+
+        .content-cell {
+            padding: 45px;
+        }
+
+        .body-action {
+            width: 100%;
+            margin: 30px auto;
+            text-align: center;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .email-body_inner {
+                width: 100% !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <table class="email-wrapper" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+            <td align="center">
+                <table class="email-content" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="email-masthead">
+                            <a href="https://hujjzy.com" class="email-masthead_name">Hujjzy</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="email-body" width="570">
+                            <table class="email-body_inner" align="center" width="570" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td class="content-cell">
+                                        <h1>Booking Cancellation Confirmed</h1>
+                                        <p>Dear {{name}},</p>
+                                        <p>We're sorry to see you go. Your booking has been successfully cancelled.</p>
+
+                                        <div class="warning-box">
+                                            <h2 style="margin-top: 0;">Booking #{{booking_number}}</h2>
+                                            <p style="margin-bottom: 0;"><strong>Status:</strong> Cancelled</p>
+                                        </div>
+
+                                        <div class="info-box">
+                                            <h3 style="margin-top: 0;">📍 Cancelled Booking Details</h3>
+                                            <div class="info-row">
+                                                <span class="info-label">Property:</span> {{unit_name}}
+                                            </div>
+                                            <div class="info-row">
+                                                <span class="info-label">Check-in Date:</span> {{check_in_date}}
+                                            </div>
+                                            <div class="info-row">
+                                                <span class="info-label">Check-out Date:</span> {{check_out_date}}
+                                            </div>
+                                            <div class="info-row">
+                                                <span class="info-label">Cancelled On:</span> {{cancelled_date}}
+                                            </div>
+                                        </div>
+
+                                        <div class="info-box">
+                                            <h3 style="margin-top: 0;">💰 Refund Information</h3>
+                                            <div class="info-row">
+                                                <span class="info-label">Original Amount:</span> ${{total_price}}
+                                            </div>
+                                            <div class="info-row">
+                                                <span class="info-label">Refund Amount:</span> ${{refund_amount}}
+                                            </div>
+                                            <p style="margin-top: 15px; margin-bottom: 0;">{{refund_message}}</p>
+                                        </div>
+
+                                        <div class="info-box">
+                                            <h3 style="margin-top: 0;">📝 Cancellation Reason</h3>
+                                            <p style="margin-bottom: 0;">{{cancellation_reason}}</p>
+                                        </div>
+
+                                        <table class="body-action" align="center" width="100%" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td align="center">
+                                                    <a href="{{dashboard_url}}" class="button" target="_blank">View Details</a>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <p><strong>We'd Love to Have You Back!</strong><br>We hope this cancellation was just a change of plans, and we look forward to hosting you in the future.</p>
+
+                                        <p>If you have any questions about this cancellation or the refund process, please don't hesitate to contact us.</p>
+
+                                        <p>Best regards,<br />The Hujjzy Team</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

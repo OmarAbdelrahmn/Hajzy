@@ -1,5 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.SubUnit;
+using Application.Service.Availability;
 using Microsoft.AspNetCore.Http;
 
 namespace Application.Service.SubUnit;
@@ -35,7 +36,7 @@ public interface ISubUnitService
     Task<Result> SetPrimaryImageAsync(int subUnitId, int imageId);
 
     // ============= PRICING =============
-    Task<Result> SetSpecialPricingAsync(int subUnitId, SetSpecialPricingRequest request);
+    Task<Result> SetSpecialPricingAsync(int subUnitId, SetSpecialPricingRequestsss request);
     Task<Result<decimal>> CalculatePriceAsync(
         int subUnitId,
         DateTime checkIn,

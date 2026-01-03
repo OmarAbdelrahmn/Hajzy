@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Hangfire;
 using System.Text;
+using Application.Contracts.Bookin;
 
 namespace Application.Service.Booking;
 

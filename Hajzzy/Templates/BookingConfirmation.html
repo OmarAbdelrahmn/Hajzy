@@ -1,0 +1,215 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Booking Confirmation</title>
+    <style type="text/css" rel="stylesheet" media="all">
+        @import url("https://fonts.googleapis.com/css?family=Nunito+Sans:400,700&display=swap");
+
+        body {
+            width: 100% !important;
+            height: 100%;
+            margin: 0;
+            background-color: #f2f4f6;
+            color: #51545e;
+            font-family: "Nunito Sans", Helvetica, Arial, sans-serif;
+        }
+
+        a {
+            color: #3869d4;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #333333;
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #22bc66;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        p {
+            margin: 0.4em 0 1.1875em;
+            font-size: 16px;
+            line-height: 1.625;
+        }
+
+        .button {
+            background-color: #22bc66;
+            border: 10px solid #22bc66;
+            display: inline-block;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 3px;
+            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.16);
+        }
+
+        .success-box {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border: 1px solid #c3e6cb;
+        }
+
+        .info-box {
+            background-color: #f4f4f7;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        .info-row {
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #666;
+        }
+
+        .email-wrapper {
+            width: 100%;
+            background-color: #f2f4f6;
+        }
+
+        .email-masthead {
+            padding: 25px 0;
+            text-align: center;
+        }
+
+        .email-masthead_name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #a8aaaf;
+            text-decoration: none;
+        }
+
+        .email-body_inner {
+            width: 570px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+
+        .content-cell {
+            padding: 45px;
+        }
+
+        .body-action {
+            width: 100%;
+            margin: 30px auto;
+            text-align: center;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .email-body_inner {
+                width: 100% !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <table class="email-wrapper" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+            <td align="center">
+                <table class="email-content" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="email-masthead">
+                            <a href="https://hujjzy.com" class="email-masthead_name">Hujjzy</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="email-body" width="570">
+                            <table class="email-body_inner" align="center" width="570" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td class="content-cell">
+                                        <h1>🎉 Booking Confirmed!</h1>
+                                        <p>Dear {{name}},</p>
+                                        <p>Thank you for your booking! We're excited to host you.</p>
+
+                                        <div class="success-box">
+                                            <h2 style="margin-top: 0;">Booking #{{booking_number}}</h2>
+                                            <p style="margin-bottom: 0;"><strong>Status:</strong> {{status}}</p>
+                                        </div>
+
+                                        <div class="info-box">
+                                            <h2 style="margin-top: 0;">📍 Property Details</h2>
+                                            <div class="info-row">
+                                                <span class="info-label">Property:</span> {{unit_name}}
+                                            </div>
+                                            <div class="info-row">
+                                                <span class="info-label">Address:</span> {{unit_address}}
+                                            </div>
+                                        </div>
+
+                                        <div class="info-box">
+                                            <h2 style="margin-top: 0;">📅 Stay Details</h2>
+                                            <div class="info-row">
+                                                <span class="info-label">Check-in:</span> {{check_in_date}}
+                                            </div>
+                                            <div class="info-row">
+                                                <span class="info-label">Check-out:</span> {{check_out_date}}
+                                            </div>
+                                            <div class="info-row">
+                                                <span class="info-label">Nights:</span> {{number_of_nights}}
+                                            </div>
+                                            <div class="info-row">
+                                                <span class="info-label">Guests:</span> {{number_of_guests}}
+                                            </div>
+                                        </div>
+
+                                        <div class="info-box">
+                                            <h2 style="margin-top: 0;">🏠 Room Details</h2>
+                                            <p>{{room_details}}</p>
+                                        </div>
+
+                                        <div class="info-box">
+                                            <h2 style="margin-top: 0;">💰 Payment Summary</h2>
+                                            <div class="info-row">
+                                                <span class="info-label">Total Amount:</span> ${{total_price}}
+                                            </div>
+                                        </div>
+
+                                        <table class="body-action" align="center" width="100%" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td align="center">
+                                                    <a href="{{dashboard_url}}" class="button" target="_blank">View Booking Details</a>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <p><strong>Note:</strong> You will receive a confirmation email once your booking is approved by the property.</p>
+
+                                        <p>If you have any questions or need to make changes, please contact us.</p>
+
+                                        <p>Best regards,<br />The Hujjzy Team</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <table class="email-footer" align="center" width="570" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td class="content-cell" align="center">
+                                        <p style="color: #a8aaaf; font-size: 13px;">Hujjzy<br />Jeddah, Saudi Arabia</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

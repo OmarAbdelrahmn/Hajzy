@@ -297,10 +297,20 @@ public class UnitRegistrationService(
                 CreatedAt = DateTime.UtcNow.AddHours(3)
             };
 
-            await _context.Units.AddAsync(unit);
-            var availabilityInit = await service.InitializeDefaultAvailabilityAsync(unit.Id, 365);
+            var availabilityInit = await service.InitializeUnitDefaultAvailabilityAsync(unit.Id, 365);
 
+
+            await _context.Units.AddAsync(unit);
             await _context.SaveChangesAsync();
+
+
+            if (!availabilityInit.IsSuccess)
+            {
+                _logger.LogWarning(
+                    "Failed to initialize availability for unit {UnitId}: {Error}",
+                    unit.Id, availabilityInit.Error.Description);
+            }
+
 
             // Assign user as Unit Admin
             var unitAdmin = new UniteAdmin

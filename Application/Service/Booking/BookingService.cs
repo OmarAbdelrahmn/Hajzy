@@ -1,4 +1,6 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.Bookin;
+using Application.Helpers;
 using Domain;
 using Domain.Entities;
 using Hangfire;
@@ -15,7 +17,8 @@ namespace Application.Service.Booking;
 public class BookingService(
     ApplicationDbcontext context,
     IEmailSender emailSender,
-    ILogger<BookingService> logger) : IBookingService
+    ILogger<BookingService> logger
+    ) : IBookingService
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly IEmailSender _emailSender = emailSender;
@@ -707,7 +710,104 @@ public class BookingService(
 
     #region EMAIL NOTIFICATIONS
 
+    //public async Task SendBookingConfirmationEmailAsync(int bookingId)
+    //{
+    //    try
+    //    {
+    //        var booking = await _context.Bookings
+    //            .Include(b => b.Unit)
+    //            .Include(b => b.User)
+    //            .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+    //        if (booking == null) return;
+
+    //        var emailBody = $@"
+    //            <h2>Booking Confirmation - {booking.BookingNumber}</h2>
+    //            <p>Dear {booking.User?.FullName},</p>
+    //            <p>Your booking has been received successfully!</p>
+                
+    //            <h3>Booking Details:</h3>
+    //            <ul>
+    //                <li>Booking Number: <strong>{booking.BookingNumber}</strong></li>
+    //                <li>Unit: {booking.Unit?.Name}</li>
+    //                <li>Check-in: {booking.CheckInDate:MMM dd, yyyy}</li>
+    //                <li>Check-out: {booking.CheckOutDate:MMM dd, yyyy}</li>
+    //                <li>Nights: {booking.NumberOfNights}</li>
+    //                <li>Guests: {booking.NumberOfGuests}</li>
+    //                <li>Total Amount: ${booking.TotalPrice:F2}</li>
+    //            </ul>
+                
+    //            <p>Status: <strong>{booking.Status}</strong></p>
+                
+    //            <p>We'll notify you once your booking is confirmed.</p>
+                
+    //            <p>Best regards,<br>The Hajzzy Team</p>
+    //        ";
+
+    //        await _emailSender.SendEmailAsync(
+    //            booking.User!.Email!,
+    //            $"Booking Confirmation - {booking.BookingNumber}",
+    //            emailBody);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Failed to send booking confirmation email for booking {BookingId}", bookingId);
+    //    }
+    //}
+
+
+
     public async Task SendBookingConfirmationEmailAsync(int bookingId)
+    {
+        try
+        {
+            var booking = await _context.Bookings
+                .Include(b => b.Unit)
+                .Include(b => b.User)
+                .Include(b => b.BookingRooms)
+                    .ThenInclude(br => br.Room)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null) return;
+
+            var origin = "Hujjzy.com";
+
+            var roomDetails = booking.BookingRooms
+                .Select(br => $"Room {br.Room.RoomNumber} - ${br.PricePerNight}/night")
+                .ToList();
+
+            var emailBody = EmailBodyBuilder.GenerateEmailBody("BookingConfirmation",
+                new Dictionary<string, string>
+                {
+                { "{{name}}", booking.User?.FullName ?? "Guest" },
+                { "{{booking_number}}", booking.BookingNumber },
+                { "{{unit_name}}", booking.Unit?.Name ?? "" },
+                { "{{unit_address}}", booking.Unit?.Address ?? "" },
+                { "{{check_in_date}}", booking.CheckInDate.ToString("MMMM dd, yyyy") },
+                { "{{check_out_date}}", booking.CheckOutDate.ToString("MMMM dd, yyyy") },
+                { "{{number_of_nights}}", booking.NumberOfNights.ToString() },
+                { "{{number_of_guests}}", booking.NumberOfGuests.ToString() },
+                { "{{total_price}}", booking.TotalPrice.ToString("F2") },
+                { "{{status}}", booking.Status.ToString() },
+                { "{{room_details}}", string.Join("<br>", roomDetails) },
+                { "{{dashboard_url}}", $"{origin}/bookings/{booking.BookingNumber}" }
+                });
+
+            BackgroundJob.Enqueue(() =>
+                _emailSender.SendEmailAsync(
+                    booking.User!.Email!,
+                    $"Booking Confirmation - {booking.BookingNumber}",
+                    emailBody));
+
+            _logger.LogInformation("Booking confirmation email queued for booking {BookingId}", bookingId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send booking confirmation email for booking {BookingId}", bookingId);
+        }
+    }
+
+    public async Task SendBookingStatusEmailAsync(int bookingId, string newStatus)
     {
         try
         {
@@ -718,63 +818,188 @@ public class BookingService(
 
             if (booking == null) return;
 
-            var emailBody = $@"
-                <h2>Booking Confirmation - {booking.BookingNumber}</h2>
-                <p>Dear {booking.User?.FullName},</p>
-                <p>Your booking has been received successfully!</p>
-                
-                <h3>Booking Details:</h3>
-                <ul>
-                    <li>Booking Number: <strong>{booking.BookingNumber}</strong></li>
-                    <li>Unit: {booking.Unit?.Name}</li>
-                    <li>Check-in: {booking.CheckInDate:MMM dd, yyyy}</li>
-                    <li>Check-out: {booking.CheckOutDate:MMM dd, yyyy}</li>
-                    <li>Nights: {booking.NumberOfNights}</li>
-                    <li>Guests: {booking.NumberOfGuests}</li>
-                    <li>Total Amount: ${booking.TotalPrice:F2}</li>
-                </ul>
-                
-                <p>Status: <strong>{booking.Status}</strong></p>
-                
-                <p>We'll notify you once your booking is confirmed.</p>
-                
-                <p>Best regards,<br>The Hajzzy Team</p>
-            ";
+            var origin = "Hujjzy.com";
 
-            await _emailSender.SendEmailAsync(
-                booking.User!.Email!,
-                $"Booking Confirmation - {booking.BookingNumber}",
-                emailBody);
+            string statusMessage = newStatus switch
+            {
+                "Confirmed" => "Your booking has been confirmed! We're looking forward to welcoming you.",
+                "CheckedIn" => "You've been checked in. Enjoy your stay!",
+                "Completed" => "Thank you for staying with us. We hope you had a wonderful experience!",
+                _ => $"Your booking status has been updated to {newStatus}."
+            };
+
+            string nextSteps = newStatus switch
+            {
+                "Confirmed" => "Please arrive at the property on your check-in date. If you have any special requests, feel free to contact us.",
+                "CheckedIn" => "If you need anything during your stay, please don't hesitate to reach out to our staff.",
+                "Completed" => "We'd love to hear about your experience. Please consider leaving a review!",
+                _ => ""
+            };
+
+            var emailBody = EmailBodyBuilder.GenerateEmailBody("BookingStatusUpdate",
+                new Dictionary<string, string>
+                {
+                { "{{name}}", booking.User?.FullName ?? "Guest" },
+                { "{{booking_number}}", booking.BookingNumber },
+                { "{{unit_name}}", booking.Unit?.Name ?? "" },
+                { "{{new_status}}", newStatus },
+                { "{{status_message}}", statusMessage },
+                { "{{next_steps}}", nextSteps },
+                { "{{check_in_date}}", booking.CheckInDate.ToString("MMMM dd, yyyy") },
+                { "{{check_out_date}}", booking.CheckOutDate.ToString("MMMM dd, yyyy") },
+                { "{{dashboard_url}}", $"{origin}/bookings/{booking.BookingNumber}" }
+                });
+
+            BackgroundJob.Enqueue(() =>
+                _emailSender.SendEmailAsync(
+                    booking.User!.Email!,
+                    $"Booking Update - {booking.BookingNumber}",
+                    emailBody));
+
+            _logger.LogInformation("Booking status email queued for booking {BookingId}: {Status}",
+                bookingId, newStatus);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send booking confirmation email for booking {BookingId}", bookingId);
+            _logger.LogError(ex, "Failed to send booking status email for booking {BookingId}", bookingId);
         }
-    }
-
-    public async Task SendBookingStatusEmailAsync(int bookingId, string newStatus)
-    {
-        // Similar implementation for status updates
-        _logger.LogInformation("Sending booking status email for {BookingId}: {Status}", bookingId, newStatus);
     }
 
     public async Task SendCheckoutEmailAsync(int bookingId)
     {
-        // Implementation for checkout email with review request
-        _logger.LogInformation("Sending checkout email for booking {BookingId}", bookingId);
+        try
+        {
+            var booking = await _context.Bookings
+                .Include(b => b.Unit)
+                .Include(b => b.User)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null) return;
+
+            var origin = "Hujjzy.com";
+
+            var emailBody = EmailBodyBuilder.GenerateEmailBody("CheckoutEmail",
+                new Dictionary<string, string>
+                {
+                { "{{name}}", booking.User?.FullName ?? "Guest" },
+                { "{{booking_number}}", booking.BookingNumber },
+                { "{{unit_name}}", booking.Unit?.Name ?? "" },
+                { "{{check_in_date}}", booking.CheckInDate.ToString("MMMM dd, yyyy") },
+                { "{{check_out_date}}", booking.CheckOutDate.ToString("MMMM dd, yyyy") },
+                { "{{number_of_nights}}", booking.NumberOfNights.ToString() },
+                { "{{total_paid}}", booking.PaidAmount.ToString("F2") },
+                { "{{review_url}}", $"{origin}/bookings/{booking.BookingNumber}/review" },
+                { "{{dashboard_url}}", $"{origin}/bookings/{booking.BookingNumber}" }
+                });
+
+            BackgroundJob.Enqueue(() =>
+                _emailSender.SendEmailAsync(
+                    booking.User!.Email!,
+                    $"Thank You for Your Stay - {booking.BookingNumber}",
+                    emailBody));
+
+            _logger.LogInformation("Checkout email queued for booking {BookingId}", bookingId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send checkout email for booking {BookingId}", bookingId);
+        }
     }
 
     public async Task SendCancellationEmailAsync(int bookingId, decimal refundAmount)
     {
-        // Implementation for cancellation email
-        _logger.LogInformation("Sending cancellation email for booking {BookingId}", bookingId);
+        try
+        {
+            var booking = await _context.Bookings
+                .Include(b => b.Unit)
+                .Include(b => b.User)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null) return;
+
+            var origin = "Hujjzy.com";
+
+            string refundMessage = refundAmount > 0
+                ? $"A refund of ${refundAmount:F2} will be processed to your original payment method within 5-10 business days."
+                : "No refund is applicable based on the cancellation policy and timing.";
+
+            var emailBody = EmailBodyBuilder.GenerateEmailBody("CancellationEmail",
+                new Dictionary<string, string>
+                {
+                { "{{name}}", booking.User?.FullName ?? "Guest" },
+                { "{{booking_number}}", booking.BookingNumber },
+                { "{{unit_name}}", booking.Unit?.Name ?? "" },
+                { "{{check_in_date}}", booking.CheckInDate.ToString("MMMM dd, yyyy") },
+                { "{{check_out_date}}", booking.CheckOutDate.ToString("MMMM dd, yyyy") },
+                { "{{cancellation_reason}}", booking.CancellationReason ?? "No reason provided" },
+                { "{{refund_amount}}", refundAmount.ToString("F2") },
+                { "{{refund_message}}", refundMessage },
+                { "{{total_price}}", booking.TotalPrice.ToString("F2") },
+                { "{{cancelled_date}}", (booking.CancelledAt ?? DateTime.UtcNow).ToString("MMMM dd, yyyy") },
+                { "{{dashboard_url}}", $"{origin}/bookings/{booking.BookingNumber}" }
+                });
+
+            BackgroundJob.Enqueue(() =>
+                _emailSender.SendEmailAsync(
+                    booking.User!.Email!,
+                    $"Booking Cancelled - {booking.BookingNumber}",
+                    emailBody));
+
+            _logger.LogInformation("Cancellation email queued for booking {BookingId}", bookingId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send cancellation email for booking {BookingId}", bookingId);
+        }
     }
 
     public async Task SendPaymentConfirmationEmailAsync(int bookingId, decimal amount)
     {
-        // Implementation for payment confirmation
-        _logger.LogInformation("Sending payment confirmation for booking {BookingId}", bookingId);
+        try
+        {
+            var booking = await _context.Bookings
+                .Include(b => b.Unit)
+                .Include(b => b.User)
+                .Include(b => b.Payments)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null) return;
+
+            var origin = "Hujjzy.com";
+
+            var remainingAmount = booking.TotalPrice - booking.PaidAmount;
+            var paymentStatus = remainingAmount <= 0 ? "Fully Paid" : "Partially Paid";
+
+            var emailBody = EmailBodyBuilder.GenerateEmailBody("PaymentConfirmation",
+                new Dictionary<string, string>
+                {
+                { "{{name}}", booking.User?.FullName ?? "Guest" },
+                { "{{booking_number}}", booking.BookingNumber },
+                { "{{unit_name}}", booking.Unit?.Name ?? "" },
+                { "{{payment_amount}}", amount.ToString("F2") },
+                { "{{payment_date}}", DateTime.UtcNow.ToString("MMMM dd, yyyy HH:mm") },
+                { "{{total_price}}", booking.TotalPrice.ToString("F2") },
+                { "{{paid_amount}}", booking.PaidAmount.ToString("F2") },
+                { "{{remaining_amount}}", remainingAmount.ToString("F2") },
+                { "{{payment_status}}", paymentStatus },
+                { "{{check_in_date}}", booking.CheckInDate.ToString("MMMM dd, yyyy") },
+                { "{{dashboard_url}}", $"{origin}/bookings/{booking.BookingNumber}" }
+                });
+
+            BackgroundJob.Enqueue(() =>
+                _emailSender.SendEmailAsync(
+                    booking.User!.Email!,
+                    $"Payment Confirmed - {booking.BookingNumber}",
+                    emailBody));
+
+            _logger.LogInformation("Payment confirmation email queued for booking {BookingId}", bookingId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send payment confirmation email for booking {BookingId}", bookingId);
+        }
     }
+
 
     public async Task<Result<decimal>> CalculateBookingPriceAsync(CalculateBookingPriceRequest request)
     {
@@ -800,118 +1025,3 @@ public class BookingService(
 
 // ============= REQUEST & RESPONSE MODELS =============
 
-public record CreateBookingRequest
-{
-    public int UnitId { get; init; }
-    public string UserId { get; init; } = string.Empty;
-    public DateTime CheckInDate { get; init; }
-    public DateTime CheckOutDate { get; init; }
-    public int NumberOfGuests { get; init; }
-    public int NumberOfRooms { get; init; }
-    public string? SpecialRequests { get; init; }
-}
-
-public record ProcessPaymentRequest
-{
-    public string TransactionId { get; init; } = string.Empty;
-    public decimal Amount { get; init; }
-    public PaymentMethod PaymentMethod { get; init; }
-    public string? Notes { get; init; }
-}
-
-public record BookingFilter
-{
-    public BookingStatus? Status { get; init; }
-    public PaymentStatus? PaymentStatus { get; init; }
-    public DateTime? StartDate { get; init; }
-    public DateTime? EndDate { get; init; }
-    public int Page { get; init; } = 1;
-    public int PageSize { get; init; } = 10;
-}
-
-public record BookingStatisticsFilter
-{
-    public DateTime? StartDate { get; init; }
-    public DateTime? EndDate { get; init; }
-    public int? UnitId { get; init; }
-    public BookingStatus? Status { get; init; }
-}
-
-public record CalculateBookingPriceRequest
-{
-    public int UnitId { get; init; }
-    public DateTime CheckInDate { get; init; }
-    public DateTime CheckOutDate { get; init; }
-    public int NumberOfRooms { get; init; }
-}
-
-public class BookingResponse
-{
-    public int Id { get; set; }
-    public string BookingNumber { get; set; } = string.Empty;
-    public int UnitId { get; set; }
-    public string UnitName { get; set; } = string.Empty;
-    public string UserId { get; set; } = string.Empty;
-    public string UserName { get; set; } = string.Empty;
-    public DateTime CheckInDate { get; set; }
-    public DateTime CheckOutDate { get; set; }
-    public int NumberOfGuests { get; set; }
-    public int NumberOfNights { get; set; }
-    public decimal TotalPrice { get; set; }
-    public decimal PaidAmount { get; set; }
-    public BookingStatus Status { get; set; }
-    public PaymentStatus PaymentStatus { get; set; }
-    public DateTime CreatedAt { get; set; }
-}
-
-public class BookingDetailsResponse : BookingResponse
-{
-    public string UnitAddress { get; set; } = string.Empty;
-    public string UserEmail { get; set; } = string.Empty;
-    public string? UserPhone { get; set; }
-    public string? SpecialRequests { get; set; }
-    public string? CancellationReason { get; set; }
-    public DateTime? CancelledAt { get; set; }
-    public List<BookingRoomInfo> Rooms { get; set; } = new();
-    public List<PaymentInfo> Payments { get; set; } = new();
-    public DateTime? UpdatedAt { get; set; }
-}
-
-public record BookingRoomInfo
-{
-    public int RoomId { get; init; }
-    public string RoomNumber { get; init; } = string.Empty;
-    public decimal PricePerNight { get; init; }
-    public int NumberOfNights { get; init; }
-}
-
-public record PaymentInfo
-{
-    public int Id { get; init; }
-    public decimal Amount { get; init; }
-    public string PaymentMethod { get; init; } = string.Empty;
-    public string Status { get; init; } = string.Empty;
-    public DateTime PaymentDate { get; init; }
-}
-
-public class BookingStatisticsResponse
-{
-    public int TotalBookings { get; set; }
-    public int PendingBookings { get; set; }
-    public int ConfirmedBookings { get; set; }
-    public int CheckedInBookings { get; set; }
-    public int CompletedBookings { get; set; }
-    public int CancelledBookings { get; set; }
-    public decimal TotalRevenue { get; set; }
-    public decimal PendingRevenue { get; set; }
-    public decimal AverageBookingValue { get; set; }
-    public double AverageNightsPerBooking { get; set; }
-    public Dictionary<string, int> BookingsByStatus { get; set; } = new();
-    public Dictionary<string, MonthlyBookingStats> BookingsByMonth { get; set; } = new();
-}
-
-public class MonthlyBookingStats
-{
-    public int Count { get; set; }
-    public decimal Revenue { get; set; }
-}
