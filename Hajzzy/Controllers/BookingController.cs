@@ -1,4 +1,5 @@
-﻿using Application.Service.Booking;
+﻿using Application.Contracts.Bookin;
+using Application.Service.Booking;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
