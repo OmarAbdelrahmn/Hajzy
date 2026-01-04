@@ -131,6 +131,16 @@ public class SubUnitImageResponse
     public bool IsPrimary { get; init; }
     public int DisplayOrder { get; init; }
 }
+public class SubUnitImageResponses
+{
+    public int Id { get; init; }
+    public string ImageUrl { get; init; } = string.Empty;
+    public string? ThumbnailUrl { get; init; }
+    public string? MediumUrl { get; init; }
+    public bool IsPrimary { get; init; }
+    public int DisplayOrder { get; init; }
+    public string Caption { get; init; }
+}
 
 public record AvailabilityResponse(
     int Id,

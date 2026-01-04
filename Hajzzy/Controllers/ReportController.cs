@@ -10,7 +10,7 @@ public class ReportController(IReportService service) : ControllerBase
 {
     private readonly IReportService service = service;
 
-    [HttpGet("revenue")]
+    [HttpPost("revenue")]
     public async Task<IActionResult> GenerateRevenueReportAsync(ReportFilter filter)
     {
         var result = await service.GenerateRevenueReportAsync(filter);
@@ -18,7 +18,7 @@ public class ReportController(IReportService service) : ControllerBase
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
    
-    [HttpGet("booking")]
+    [HttpPost("booking")]
     public async Task<IActionResult> GenerateBookingReportAsync(ReportFilter filter)
     {
         var result = await service.GenerateBookingReportAsync(filter);
@@ -26,7 +26,7 @@ public class ReportController(IReportService service) : ControllerBase
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
     
-    [HttpGet("unit-performance")]
+    [HttpPost("unit-performance")]
     public async Task<IActionResult> GenerateUnitPerformanceReportAsync(ReportFilter filter)
     {
         var result = await service.GenerateUnitPerformanceReportAsync(filter);
@@ -34,28 +34,28 @@ public class ReportController(IReportService service) : ControllerBase
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
-    [HttpGet("user-performance")]
+    [HttpPost("user-performance")]
     public async Task<IActionResult> GenerateUserActivityReportAsync(ReportFilter filter)
     {
         var result = await service.GenerateUserActivityReportAsync(filter);
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
-    [HttpGet("occupancy")]
+    [HttpPost("occupancy")]
     public async Task<IActionResult> GenerateOccupancyReportAsync(ReportFilter filter)
     {
         var result = await service.GenerateOccupancyReportAsync(filter);
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
-    [HttpGet("department")]
+    [HttpPost("department")]
     public async Task<IActionResult> GenerateDepartmentReportAsync(ReportFilter filter)
     {
         var result = await service.GenerateDepartmentReportAsync(filter);
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
-    [HttpGet("dashboard")]
+    [HttpPost("dashboard")]
     public async Task<IActionResult> GenerateDashboardReportAsync(ReportFilter filter)
     {
         var result = await service.GenerateDashboardReportAsync(filter);

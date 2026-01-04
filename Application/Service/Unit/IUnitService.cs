@@ -12,7 +12,21 @@ public interface IUnitService
 {
     Task<Result<UnitResponse>> GetByIdAsync(int unitId);
     Task<Result<UnitDetailsResponse>> GetDetailsAsync(int unitId);
-    Task<Result<IEnumerable<UnitResponse>>> GetAllAsync(UnitFilter filter);
+  //  Task<Result<IEnumerable<UnitResponse>>> GetAllAsync(UnitFilter filter);
+
+    Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetAllComprehensiveAsync(UnitFilter filter);
+
+    /// <summary>
+    /// Get all units for a specific user's department (for CityAdmin role)
+    /// </summary>
+    Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetAllByUserDepartmentAsync(string userId, UnitFilter filter);
+
+    /// <summary>
+    /// Get all units managed by a specific hotel admin
+    /// </summary>
+    Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetAllByHotelAdminAsync(string userId, UnitFilter filter);
+
+
     Task<Result<UnitResponse>> UpdateAsync(int unitId, UpdateUnitRequest request);
     Task<Result> DeleteAsync(int unitId, bool softDelete = true);
     Task<Result> RestoreAsync(int unitId);

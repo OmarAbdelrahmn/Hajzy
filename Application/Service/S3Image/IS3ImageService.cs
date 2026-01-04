@@ -12,7 +12,7 @@ public interface IS3ImageService
         List<IFormFile> images,
         int requestId);
 
-    Task<Result> MoveImagesToUnitAsync(
+    Task<Result<List<string>>> MoveImagesToUnitAsync(
         List<string> tempS3Keys,
         int unitId);
 

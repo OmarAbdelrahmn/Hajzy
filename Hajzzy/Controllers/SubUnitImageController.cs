@@ -39,17 +39,17 @@ public class SubUnitImageController(ISubUnitImageService service) : ControllerBa
     /// <summary>
     /// Move images from temporary location to subunit's permanent location
     /// </summary>
-    [HttpPost("move")]
-    public async Task<IActionResult> MoveImages(
-        int subUnitId,
-        [FromBody] MoveImagesRequest request)
-    {
-        var result = await _service.MoveImagesToSubUnitAsync(request.TempS3Keys, subUnitId);
+    //[HttpPost("move")]
+    //public async Task<IActionResult> MoveImages(
+    //    int subUnitId,
+    //    [FromBody] MoveImagesRequest request)
+    //{
+    //    var result = await _service.MoveImagesToSubUnitAsync(request.TempS3Keys, subUnitId);
 
-        return result.IsSuccess
-            ? Ok(new { Message = "Images moved successfully" })
-            : result.ToProblem();
-    }
+    //    return result.IsSuccess
+    //        ? Ok(new { Message = "Images moved successfully" })
+    //        : result.ToProblem();
+    //}
 
     /// <summary>
     /// Delete specific images by S3 keys
@@ -99,19 +99,19 @@ public class SubUnitImageController(ISubUnitImageService service) : ControllerBa
 
     /// <summary>
     /// Reorder images
-    /// </summary>
-    [HttpPut("reorder")]
+    ///// </summary>
+    //[HttpPut("reorder")]
  
-    public async Task<IActionResult> ReorderImages(
-        int subUnitId,
-        [FromBody] ReorderImagesRequest request)
-    {
-        var result = await _service.ReorderImagesAsync(subUnitId, request.S3KeysInOrder);
+    //public async Task<IActionResult> ReorderImages(
+    //    int subUnitId,
+    //    [FromBody] ReorderImagesRequest request)
+    //{
+    //    var result = await _service.ReorderImagesAsync(subUnitId, request.S3KeysInOrder);
 
-        return result.IsSuccess
-            ? Ok(new { Message = "Images reordered successfully" })
-            : result.ToProblem();
-    }
+    //    return result.IsSuccess
+    //        ? Ok(new { Message = "Images reordered successfully" })
+    //        : result.ToProblem();
+    //}
 }
 
 // ============= REQUEST MODELS =============

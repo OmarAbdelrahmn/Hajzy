@@ -28,7 +28,7 @@ public interface ISubUnitService
         DateTime checkOut);
 
     // ============= IMAGE MANAGEMENT =============
-    Task<Result<List<SubUnitImageResponse>>> UploadImagesAsync(
+    Task<Result<List<SubUnitImageResponses>>> UploadImagesAsync(
         int subUnitId,
         List<IFormFile> images,
         string userId);

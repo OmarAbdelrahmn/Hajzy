@@ -71,6 +71,17 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
             : result.ToProblem();
     }
 
+    [HttpGet("department-admin/list")]
+    public async Task<IActionResult> GetAllRequests(
+        string userId)
+    {
+        var result = await _service.GetAllRequestsAsync(userId);
+
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
+
     /// <summary>
     /// Get a specific registration request (Admin only)
     /// </summary>

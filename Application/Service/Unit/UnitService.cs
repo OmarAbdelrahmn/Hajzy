@@ -65,14 +65,31 @@ public class UnitService(
         return Result.Success(MapToDetailsResponse(unit));
     }
 
-    public async Task<Result<IEnumerable<UnitResponse>>> GetAllAsync(UnitFilter filter)
+    public async Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetAllComprehensiveAsync(UnitFilter filter)
     {
         var query = _context.Units
             .Include(u => u.City)
             .Include(u => u.UnitType)
             .Include(u => u.CancellationPolicy)
             .Include(u => u.Admins.Where(a => a.IsActive))
-            .Include(u => u.Images.Where(i => !i.IsDeleted && i.IsPrimary))
+                .ThenInclude(a => a.User)
+
+            // Unit Images
+            .Include(u => u.Images.Where(i => !i.IsDeleted))
+
+            // Unit Amenities
+            .Include(u => u.UnitAmenities)
+                .ThenInclude(ua => ua.Amenity)
+
+            // SubUnits with full details
+            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                .ThenInclude(r => r.SubUnitImages.Where(i => !i.IsDeleted))
+            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                .ThenInclude(r => r.SubUnitAmenities)
+                .ThenInclude(sa => sa.Amenity)
+            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                .ThenInclude(r => r.SubUnitAvailabilities)
+
             .AsQueryable();
 
         // Apply filters
@@ -112,17 +129,292 @@ public class UnitService(
         query = ApplySorting(query, filter.SortBy, filter.SortDirection);
 
         // Pagination
-        var totalCount = await query.CountAsync();
         var skip = (filter.Page - 1) * filter.PageSize;
 
         var units = await query
             .Skip(skip)
             .Take(filter.PageSize)
+            .AsNoTracking()
             .ToListAsync();
 
-        var responses = units.Select(MapToResponse).ToList();
+        // Get general policies for each unit
+        var unitIds = units.Select(u => u.Id).ToList();
+        var generalPolicies = await _context.GeneralPolicies
+            .Include(p => p.CancellationPolicy)
+            .Where(p => unitIds.Contains(p.UnitId.Value) && p.IsActive)
+            .AsNoTracking()
+            .ToListAsync();
 
-        return Result.Success<IEnumerable<UnitResponse>>(responses);
+        var responses = units.Select(u => MapToComprehensiveResponse(u,
+            generalPolicies.Where(p => p.UnitId == u.Id).ToList())).ToList();
+
+        return Result.Success<IEnumerable<UnitComprehensiveResponse>>(responses);
+    }
+
+    public async Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetAllByUserDepartmentAsync(
+    string userId,
+    UnitFilter filter)
+    {
+        // Find user's department
+        var userDepartment = await _context.Set<DepartmentAdmin>()
+            .Where(da => da.UserId == userId && da.IsActive)
+            .Select(da => da.CityId)
+            .FirstOrDefaultAsync();
+
+        if (userDepartment == 0)
+            return Result.Failure<IEnumerable<UnitComprehensiveResponse>>(
+                new Error("NoDepartment", "User is not assigned to any department", 404));
+
+        // Create a new filter with CityId set, preserving other properties
+        var filterWithCity = new UnitFilter
+        {
+            Name = filter.Name,
+            CityId = userDepartment,
+            UnitTypeId = filter.UnitTypeId,
+            IsActive = filter.IsActive,
+            IsVerified = filter.IsVerified,
+            IsDeleted = filter.IsDeleted,
+            MinPrice = filter.MinPrice,
+            MaxPrice = filter.MaxPrice,
+            MinRating = filter.MinRating,
+            MinGuests = filter.MinGuests,
+            SortBy = filter.SortBy,
+            SortDirection = filter.SortDirection,
+            Page = filter.Page,
+            PageSize = filter.PageSize
+        };
+
+        return await GetAllComprehensiveAsync(filterWithCity);
+    }
+
+    /// <summary>
+    /// Get all units managed by a specific hotel admin
+    /// </summary>
+    public async Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetAllByHotelAdminAsync(
+        string userId,
+        UnitFilter filter)
+    {
+        var query = _context.Units
+            .Include(u => u.City)
+            .Include(u => u.UnitType)
+            .Include(u => u.CancellationPolicy)
+            .Include(u => u.Admins.Where(a => a.IsActive))
+                .ThenInclude(a => a.User)
+            .Include(u => u.Images.Where(i => !i.IsDeleted))
+            .Include(u => u.UnitAmenities)
+                .ThenInclude(ua => ua.Amenity)
+            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                .ThenInclude(r => r.SubUnitImages.Where(i => !i.IsDeleted))
+            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                .ThenInclude(r => r.SubUnitAmenities)
+                .ThenInclude(sa => sa.Amenity)
+            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                .ThenInclude(r => r.SubUnitAvailabilities)
+            .Where(u => u.Admins.Any(a => a.UserId == userId && a.IsActive))
+            .AsQueryable();
+
+        // Apply remaining filters
+        if (!string.IsNullOrWhiteSpace(filter.Name))
+            query = query.Where(u => u.Name.Contains(filter.Name));
+
+        if (filter.IsActive.HasValue)
+            query = query.Where(u => u.IsActive == filter.IsActive.Value);
+
+        if (filter.IsDeleted.HasValue)
+            query = query.Where(u => u.IsDeleted == filter.IsDeleted.Value);
+        else
+            query = query.Where(u => !u.IsDeleted);
+
+        query = ApplySorting(query, filter.SortBy, filter.SortDirection);
+
+        var skip = (filter.Page - 1) * filter.PageSize;
+        var units = await query
+            .Skip(skip)
+            .Take(filter.PageSize)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var unitIds = units.Select(u => u.Id).ToList();
+        var generalPolicies = await _context.GeneralPolicies
+            .Include(p => p.CancellationPolicy)
+            .Where(p => unitIds.Contains(p.UnitId.Value) && p.IsActive)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var responses = units.Select(u => MapToComprehensiveResponse(u,
+            generalPolicies.Where(p => p.UnitId == u.Id).ToList())).ToList();
+
+        return Result.Success<IEnumerable<UnitComprehensiveResponse>>(responses);
+    }
+
+    private static UnitComprehensiveResponse MapToComprehensiveResponse(
+    Domain.Entities.Unit unit,
+    List<GeneralPolicy> generalPolicies)
+    {
+        // Map admins
+        var admins = unit.Admins?.Select(a => new UnitAdminInfo(
+            a.UserId,
+            a.User?.FullName ?? "N/A",
+            a.User?.Email ?? "N/A",
+            a.User?.PhoneNumber,
+            a.IsActive,
+            a.AssignedAt
+        )).ToList() ?? new List<UnitAdminInfo>();
+
+        // Map images
+        var images = unit.Images?.Where(i => !i.IsDeleted)
+            .Select(i => new UnitImageDetail
+            {
+                Id = i.Id,
+                ImageUrl = i.ImageUrl,
+                ThumbnailUrl = i.ThumbnailUrl,
+                MediumUrl = i.MediumUrl,
+                IsPrimary = i.IsPrimary,
+                DisplayOrder = i.DisplayOrder,
+                Caption = i.Caption,
+                AltText = i.AltText,
+                ImageType = i.ImageType.ToString(),
+                Width = i.Width,
+                Height = i.Height,
+                FileSizeBytes = i.FileSizeBytes
+            })
+            .OrderBy(i => i.DisplayOrder)
+            .ToList() ?? new List<UnitImageDetail>();
+
+        // Map amenities
+        var amenities = unit.UnitAmenities?.Select(ua => new AmenityDetail
+        {
+            Id = ua.AmenityId,
+            Name = ua.Amenity?.Name.ToString() ?? "",
+            Description = ua.Amenity?.Description,
+            Category = ua.Amenity?.Category.ToString() ?? "",
+            IsAvailable = ua.IsAvailable
+        }).ToList() ?? new List<AmenityDetail>();
+
+        // Map general policies
+        var policies = generalPolicies.Select(p => new GeneralPolicyDetail
+        {
+            Id = p.Id,
+            Title = p.Title,
+            Description = p.Description,
+            PolicyType = p.PolicyType.ToString(),
+            PolicyCategory = p.PolicyCategory?.ToString(),
+            CustomPolicyName = p.CustomPolicyName,
+            IsMandatory = p.IsMandatory,
+            IsHighlighted = p.IsHighlighted,
+            CancellationPolicyName = p.CancellationPolicy?.Name
+        }).ToList();
+
+        // Map cancellation policy
+        CancellationPolicyDetail? cancellationPolicy = null;
+        if (unit.CancellationPolicy != null)
+        {
+            cancellationPolicy = new CancellationPolicyDetail
+            {
+                Id = unit.CancellationPolicy.Id,
+                Name = unit.CancellationPolicy.Name,
+                Description = unit.CancellationPolicy.Description,
+                FullRefundDays = unit.CancellationPolicy.FullRefundDays,
+                PartialRefundDays = unit.CancellationPolicy.PartialRefundDays,
+                PartialRefundPercentage = unit.CancellationPolicy.PartialRefundPercentage
+            };
+        }
+
+        // Map subunits
+        var subUnits = unit.Rooms?.Where(r => !r.IsDeleted).Select(r => new SubUnitComprehensiveDetail
+        {
+            Id = r.Id,
+            RoomNumber = r.RoomNumber,
+            Type = r.Type.ToString(),
+            PricePerNight = r.PricePerNight,
+            MaxOccupancy = r.MaxOccupancy,
+            Bedrooms = r.Bedrooms,
+            Bathrooms = r.Bathrooms,
+            Size = r.Size,
+            Description = r.Description,
+            IsAvailable = r.IsAvailable,
+
+            Images = r.SubUnitImages?.Where(i => !i.IsDeleted)
+                .Select(i => new SubUnitImageDetail
+                {
+                    Id = i.Id,
+                    ImageUrl = i.ImageUrl,
+                    ThumbnailUrl = i.ThumbnailUrl,
+                    SmallUrl = i.ImageUrl,
+                    MediumUrl = i.MediumUrl,
+                    IsPrimary = i.IsPrimary,
+                    DisplayOrder = i.DisplayOrder,
+                    Caption = i.Caption,
+                    ImageType = i.ImageType.ToString()
+                })
+                .OrderBy(i => i.DisplayOrder)
+                .ToList() ?? new List<SubUnitImageDetail>(),
+
+            Amenities = r.SubUnitAmenities?.Select(sa => new AmenityDetail
+            {
+                Id = sa.AmenityId,
+                Name = sa.Amenity?.Name.ToString() ?? "",
+                Description = sa.Amenity?.Description,
+                Category = sa.Amenity?.Category.ToString() ?? "",
+                IsAvailable = sa.IsAvailable
+            }).ToList() ?? new List<AmenityDetail>(),
+
+            CurrentAvailability = r.SubUnitAvailabilities?
+                .Where(a => a.StartDate <= DateTime.UtcNow && a.EndDate >= DateTime.UtcNow)
+                .Select(a => new AvailabilityInfo
+                {
+                    StartDate = a.StartDate,
+                    EndDate = a.EndDate,
+                    IsAvailable = a.IsAvailable,
+                    Reason = a.Reason?.ToString(),
+                    SpecialPrice = a.SpecialPrice,
+                    WeekendPrice = a.WeekendPrice
+                })
+                .FirstOrDefault()
+
+        }).ToList() ?? new List<SubUnitComprehensiveDetail>();
+
+        return new UnitComprehensiveResponse
+        {
+            Id = unit.Id,
+            Name = unit.Name,
+            Description = unit.Description,
+            Address = unit.Address,
+            Latitude = unit.Latitude,
+            Longitude = unit.Longitude,
+
+            CityId = unit.CityId,
+            CityName = unit.City?.Name ?? "",
+            CityCountry = unit.City?.Country ?? "",
+
+            UnitTypeId = unit.UnitTypeId,
+            UnitTypeName = unit.UnitType?.Name ?? "",
+            UnitTypeDescription = unit.UnitType?.Description,
+
+            BasePrice = unit.BasePrice,
+            MaxGuests = unit.MaxGuests,
+            Bedrooms = unit.Bedrooms,
+            Bathrooms = unit.Bathrooms,
+
+            IsActive = unit.IsActive,
+            IsVerified = unit.IsVerified,
+
+            AverageRating = unit.AverageRating,
+            TotalReviews = unit.TotalReviews,
+
+            Admins = admins,
+            Images = images,
+            Amenities = amenities,
+            GeneralPolicies = policies,
+            CancellationPolicy = cancellationPolicy,
+            SubUnits = subUnits,
+
+            TotalSubUnits = subUnits.Count,
+            AvailableSubUnits = subUnits.Count(s => s.IsAvailable),
+
+            CreatedAt = unit.CreatedAt,
+            UpdatedAt = unit.UpdatedAt
+        };
     }
 
     public async Task<Result<UnitResponse>> UpdateAsync(int unitId, UpdateUnitRequest request)
@@ -335,6 +627,7 @@ public class UnitService(
 
     #region IMAGE MANAGEMENT
 
+    // Application/Service/Unit/UnitService.cs
     public async Task<Result<List<UnitImageResponse>>> UploadImagesAsync(
         int unitId,
         List<IFormFile> images,
@@ -352,8 +645,8 @@ public class UnitService(
                 return Result.Failure<List<UnitImageResponse>>(
                     new Error("NotFound", "Unit not found", 404));
 
-            // Upload to S3
-            var uploadResult = await _s3Service.UploadUnitImagesAsync(images, unitId ,userId);
+            // Upload to S3 (creates original + thumbnail + medium)
+            var uploadResult = await _s3Service.UploadUnitImagesAsync(images, unitId, userId);
             if (!uploadResult.IsSuccess)
                 return Result.Failure<List<UnitImageResponse>>(uploadResult.Error);
 
@@ -369,9 +662,20 @@ public class UnitService(
                 var unitImage = new Domain.Entities.UnitImage
                 {
                     UnitId = unitId,
+
+                    // ORIGINAL
                     ImageUrl = _s3Service.GetCloudFrontUrl(s3Key),
                     S3Key = s3Key,
-                    S3Bucket = "your-bucket-name", // From config
+                    S3Bucket = "your-bucket-name",
+
+                    // THUMBNAIL (150x150)
+                    ThumbnailUrl = _s3Service.GetCloudFrontUrl(GetThumbnailKey(s3Key)),
+                    ThumbnailS3Key = GetThumbnailKey(s3Key),
+
+                    // MEDIUM (800x800)
+                    MediumUrl = _s3Service.GetCloudFrontUrl(GetMediumKey(s3Key)),
+                    MediumS3Key = GetMediumKey(s3Key),
+
                     DisplayOrder = maxOrder + index + 1,
                     IsPrimary = !unit.Images.Any() && index == 0,
                     UploadedByUserId = userId,
@@ -397,6 +701,23 @@ public class UnitService(
         }
     }
 
+    private string GetThumbnailKey(string originalKey)
+    {
+        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
+        var filename = Path.GetFileNameWithoutExtension(originalKey);
+        var extension = Path.GetExtension(originalKey);
+        return $"{directory}/{filename}_thumbnail{extension}";
+    }
+
+    private string GetMediumKey(string originalKey)
+    {
+        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
+        var filename = Path.GetFileNameWithoutExtension(originalKey);
+        var extension = Path.GetExtension(originalKey);
+        return $"{directory}/{filename}_medium{extension}";
+    }
+
+    // Application/Service/Unit/UnitService.cs
     public async Task<Result> DeleteImageAsync(int unitId, int imageId)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
@@ -412,11 +733,11 @@ public class UnitService(
                 return Result.Failure(
                     new Error("NotFound", "Image not found", 404));
 
-            // Soft delete
+            // Soft delete in DB
             image.IsDeleted = true;
             image.DeletedAt = DateTime.UtcNow.AddHours(3);
 
-            // If it was primary, set another image as primary
+            // If it was primary, set another as primary
             if (image.IsPrimary)
             {
                 var nextPrimary = await _context.Set<Domain.Entities.UnitImage>()
@@ -435,8 +756,15 @@ public class UnitService(
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            // Delete from S3 (async, can fail without rolling back)
-            _ = _s3Service.DeleteImagesAsync(new List<string> { image.S3Key });
+            // ACTUALLY DELETE from S3 (all three sizes)
+            var deleteResult = await _s3Service.DeleteImagesAsync(new List<string> { image.S3Key });
+
+            if (!deleteResult.IsSuccess)
+            {
+                _logger.LogWarning(
+                    "Image {ImageId} marked as deleted in DB but failed to delete from S3: {Error}",
+                    imageId, deleteResult.Error.Description);
+            }
 
             return Result.Success();
         }
@@ -448,7 +776,6 @@ public class UnitService(
                 new Error("DeleteFailed", "Failed to delete image", 500));
         }
     }
-
     public async Task<Result> SetPrimaryImageAsync(int unitId, int imageId)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();

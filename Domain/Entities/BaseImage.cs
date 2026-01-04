@@ -38,10 +38,11 @@ public abstract class BaseImage
     public string? OriginalFileName { get; set; }
 
     // Thumbnails (different sizes)
-    public string? ThumbnailUrl { get; set; } // 150x150
-    public string? SmallUrl { get; set; }     // 400x300
-    public string? MediumUrl { get; set; }    // 800x600
-    public string? LargeUrl { get; set; }     // 1920x1080
+    public string? ThumbnailUrl { get; set; }  // Small preview (150x150)
+    public string? ThumbnailS3Key { get; set; }
+
+    public string? MediumUrl { get; set; }      // Standard display (800x600)
+    public string? MediumS3Key { get; set; }
 
     // Display Properties
     public bool IsPrimary { get; set; } = false;

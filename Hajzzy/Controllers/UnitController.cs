@@ -40,7 +40,22 @@ public class UnitController(IUnitService service) : ControllerBase
     [HttpPost("filter")]
     public async Task<IActionResult> GetAll([FromBody] UnitFilter filter)
     {
-        var result = await _service.GetAllAsync(filter);
+        var result = await _service.GetAllComprehensiveAsync(filter);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    [HttpPost("departmint/filter")]
+    public async Task<IActionResult> GetAlld([FromBody] UnitFilter filter , string UserId)
+    {
+        
+        var result = await _service.GetAllByUserDepartmentAsync(UserId ,filter);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+    [HttpPost("hotel/filter")]
+    public async Task<IActionResult> GetAllh([FromBody] UnitFilter filter , string UserId)
+    {
+
+        var result = await _service.GetAllByHotelAdminAsync(UserId,filter);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
@@ -140,15 +155,15 @@ public class UnitController(IUnitService service) : ControllerBase
     /// Upload images for a unit
     /// </summary>
     [HttpPost("{unitId}/images")]
- 
     [RequestSizeLimit(100_000_000)]
     public async Task<IActionResult> UploadImages(
         int unitId,
-        [FromForm] List<IFormFile> images)
+        [FromForm] List<IFormFile> images,
+        string userId)
     {
-        var userId = User.GetUserId();
-        if (string.IsNullOrEmpty(userId))
-            return Unauthorized();
+        //var userId = User.GetUserId();
+        //if (string.IsNullOrEmpty(userId))
+        //    return Unauthorized();
 
         var result = await _service.UploadImagesAsync(unitId, images, userId);
         return result.IsSuccess

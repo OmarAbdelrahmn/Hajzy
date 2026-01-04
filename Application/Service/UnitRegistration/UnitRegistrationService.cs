@@ -34,6 +34,7 @@ public class UnitRegistrationService(
     private readonly IEmailSender _emailSender = emailSender;
     private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
     private readonly ILogger<UnitRegistrationService> _logger = logger;
+    private readonly IConfiguration configuration = configuration;
     private readonly IAvailabilityService service = service;
 
 
@@ -46,10 +47,10 @@ public class UnitRegistrationService(
         try
         {
             // 1. Validate email isn't already in use
-            var emailExists = await _userManager.FindByEmailAsync(request.OwnerEmail) != null;
-            if (emailExists)
-                return Result.Failure<int>(
-                    new Error("EmailInUse", "This email is already registered", 400));
+            //var emailExists = await _userManager.FindByEmailAsync(request.OwnerEmail) != null;
+            //if (emailExists)
+            //    return Result.Failure<int>(
+            //        new Error("EmailInUse", "This email is already registered", 400));
 
             var existingRequest = await _context.Set<UnitRegistrationRequest>()
                 .AnyAsync(r => r.OwnerEmail == request.OwnerEmail &&
@@ -127,10 +128,6 @@ public class UnitRegistrationService(
             // 7. Notify admins of new request
             await NotifyAdminsOfNewRequestAsync(registrationRequest);
 
-            _logger.LogInformation(
-                "New unit registration request submitted. ID: {RequestId}, Email: {Email}",
-                registrationRequest.Id, request.OwnerEmail);
-
             return Result.Success(registrationRequest.Id);
         }
         catch (Exception ex)
@@ -199,6 +196,40 @@ public class UnitRegistrationService(
 
         return Result.Success<IEnumerable<UnitRegistrationResponse>>(responses);
     }
+    public async Task<Result<IEnumerable<UnitRegistrationResponse>>> GetAllRequestsAsync(
+        string UserID
+        )
+    {
+
+        var DepartmentIDs = await _context.DepartmentAdmins
+            .Where(da => da.UserId == UserID && da.IsActive)
+            .Select(da => da.CityId)
+            .ToListAsync();
+
+        if (DepartmentIDs.Count == 0)
+        {
+            return Result.Failure<IEnumerable<UnitRegistrationResponse>>(
+                new Error("NoDepartments", "User is not an admin of any department", 403));
+        }
+
+
+
+
+        var query = _context.Set<UnitRegistrationRequest>()
+            .Where(r => DepartmentIDs.Contains(r.DepartmentId))
+            .Include(r => r.Department)
+            .Include(r => r.UnitType)
+            .Include(r => r.ReviewedByAdmin)
+            .AsQueryable();
+
+
+        var requests = await query
+            .ToListAsync();
+
+        var responses = requests.Select(MapToResponse).ToList();
+
+        return Result.Success<IEnumerable<UnitRegistrationResponse>>(responses);
+    }
 
     public async Task<Result<UnitRegistrationResponse>> GetRequestByIdAsync(int requestId)
     {
@@ -219,8 +250,8 @@ public class UnitRegistrationService(
     }
 
     public async Task<Result<ApprovalResult>> ApproveRequestAsync(
-        int requestId,
-        string adminUserId)
+     int requestId,
+     string adminUserId)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -240,42 +271,75 @@ public class UnitRegistrationService(
                     new Error("InvalidStatus",
                         $"Request is already {request.Status}", 400));
 
-            var emailExists = await _userManager.FindByEmailAsync(request.OwnerEmail);
-            if (emailExists != null)
-                return Result.Failure<ApprovalResult>(
-                    new Error("EmailTaken",
-                        "Email is now in use. Request cannot be approved.", 400));
+            // Check if user already exists
+            var existingUser = await _userManager.FindByEmailAsync(request.OwnerEmail);
+            ApplicationUser user;
+            bool userCreated = false;
 
-            // Create the user account
-            var newUser = new ApplicationUser
+            if (existingUser != null)
             {
-                UserName = request.OwnerEmail,
-                Email = request.OwnerEmail,
-                NormalizedEmail = request.OwnerEmail.ToUpperInvariant(),
-                NormalizedUserName = request.OwnerEmail.ToUpperInvariant(),
-                FullName = request.OwnerFullName,
-                PhoneNumber = request.OwnerPhoneNumber,
-                EmailConfirmed = true,
-                CreatedAt = DateTime.UtcNow.AddHours(3),
-                PasswordHash = request.OwnerPassword
-            };
+                // User already exists, use the existing user
+                user = existingUser;
 
-            var createResult = await _userManager.CreateAsync(newUser);
-            if (!createResult.Succeeded)
-            {
-                var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
-                return Result.Failure<ApprovalResult>(
-                    new Error("UserCreationFailed",
-                        $"Failed to create user: {errors}", 500));
+                // Check if user has User role and upgrade to HotelAdmin
+                var userRoles = await _userManager.GetRolesAsync(user);
+                if (userRoles.Contains(DefaultRoles.User))
+                {
+                    await _userManager.RemoveFromRoleAsync(user, DefaultRoles.User);
+                    await _userManager.AddToRoleAsync(user, DefaultRoles.HotelAdmin);
+
+                    //_logger.LogInformation(
+                    //    "Upgraded user {UserId} from User to HotelAdmin for registration request {RequestId}",
+                    //    user.Id, requestId);
+                }
+                else
+                {
+
+                    return Result.Failure<ApprovalResult>(new Error("the user has admin role", "this user dont' have the correct role for this operation", 400));
+                    //_logger.LogInformation(
+                    //    "Using existing user {UserId} for registration request {RequestId}",
+                    //    user.Id, requestId);
+                }
             }
-
-            var roleResult = await _userManager.AddToRoleAsync(newUser, DefaultRoles.HotelAdmin);
-            if (!roleResult.Succeeded)
+            else
             {
-                await transaction.RollbackAsync();
-                return Result.Failure<ApprovalResult>(
-                    new Error("RoleAssignmentFailed",
-                        "Failed to assign HotelAdmin role", 500));
+                // Create new user account
+                var newUser = new ApplicationUser
+                {
+                    UserName = request.OwnerEmail,
+                    Email = request.OwnerEmail,
+                    NormalizedEmail = request.OwnerEmail.ToUpperInvariant(),
+                    NormalizedUserName = request.OwnerEmail.ToUpperInvariant(),
+                    FullName = request.OwnerFullName,
+                    PhoneNumber = request.OwnerPhoneNumber,
+                    EmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow.AddHours(3),
+                    PasswordHash = request.OwnerPassword
+                };
+
+                var createResult = await _userManager.CreateAsync(newUser);
+                if (!createResult.Succeeded)
+                {
+                    var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                    return Result.Failure<ApprovalResult>(
+                        new Error("UserCreationFailed",
+                            $"Failed to create user: {errors}", 500));
+                }
+
+                var roleResult = await _userManager.AddToRoleAsync(newUser, DefaultRoles.HotelAdmin);
+                if (!roleResult.Succeeded)
+                {
+                    await transaction.RollbackAsync();
+                    return Result.Failure<ApprovalResult>(
+                        new Error("RoleAssignmentFailed",
+                            "Failed to assign HotelAdmin role", 500));
+                }
+
+                user = newUser;
+                userCreated = true;
+                _logger.LogInformation(
+                    "Created new user {UserId} for registration request {RequestId}",
+                    user.Id, requestId);
             }
 
             // Create the Unit
@@ -297,25 +361,22 @@ public class UnitRegistrationService(
                 CreatedAt = DateTime.UtcNow.AddHours(3)
             };
 
-            var availabilityInit = await service.InitializeUnitDefaultAvailabilityAsync(unit.Id, 365);
-
-
             await _context.Units.AddAsync(unit);
             await _context.SaveChangesAsync();
 
+            var availabilityInit = await service.InitializeUnitDefaultAvailabilityAsync(unit.Id, 365);
 
-            if (!availabilityInit.IsSuccess)
-            {
-                _logger.LogWarning(
-                    "Failed to initialize availability for unit {UnitId}: {Error}",
-                    unit.Id, availabilityInit.Error.Description);
-            }
-
+            //if (!availabilityInit.IsSuccess)
+            //{
+            //    _logger.LogWarning(
+            //        "Failed to initialize availability for unit {UnitId}: {Error}",
+            //        unit.Id, availabilityInit.Error.Description);
+            //}
 
             // Assign user as Unit Admin
             var unitAdmin = new UniteAdmin
             {
-                UserId = newUser.Id,
+                UserId = user.Id,
                 UnitId = unit.Id,
                 IsActive = true,
                 AssignedAt = DateTime.UtcNow.AddHours(3)
@@ -335,31 +396,66 @@ public class UnitRegistrationService(
                     unit.Id, moveResult.Error.Description);
             }
 
+            var permanentKeys = moveResult.Value;
+
+            foreach (var (permanentKey, index) in permanentKeys.Select((k, i) => (k, i)))
+            {
+                var unitImage = new Domain.Entities.UnitImage
+                {
+                    UnitId = unit.Id,
+
+                    // ORIGINAL
+                    ImageUrl = _s3Service.GetCloudFrontUrl(permanentKey),
+                    S3Key = permanentKey,
+                    S3Bucket = "huzjjy-bucket",
+
+                    // THUMBNAIL
+                    ThumbnailUrl = _s3Service.GetCloudFrontUrl(GetThumbnailKey(permanentKey)),
+                    ThumbnailS3Key = GetThumbnailKey(permanentKey),
+
+                    // MEDIUM
+                    MediumUrl = _s3Service.GetCloudFrontUrl(GetMediumKey(permanentKey)),
+                    MediumS3Key = GetMediumKey(permanentKey),
+
+                    DisplayOrder = index,
+                    IsPrimary = index == 0,
+                    UploadedByUserId = user.Id,
+                    UploadedAt = DateTime.UtcNow.AddHours(3),
+                    ProcessingStatus = ImageProcessingStatus.Completed
+                };
+
+                await _context.Set<Domain.Entities.UnitImage>().AddAsync(unitImage);
+            }
+
             // Update registration request
             request.Status = RegistrationRequestStatus.Approved;
             request.ReviewedAt = DateTime.UtcNow.AddHours(3);
             request.ReviewedByAdminId = adminUserId;
-            request.CreatedUserId = newUser.Id;
+            request.CreatedUserId = user.Id;
             request.CreatedUnitId = unit.Id;
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            // Send welcome email with credentials
-            var emailSent = await SendWelcomeEmailAsync(
-                newUser.Email!,
-                newUser.FullName!,
-                unit.Id,
-                unit.Name);
+            // Send welcome email with credentials (only if new user was created)
+            var emailSent = false;
+            if (userCreated)
+            {
+                emailSent = await SendWelcomeEmailAsync(
+                    user.Email!,
+                    user.FullName!,
+                    unit.Id,
+                    unit.Name);
+            }
 
             _logger.LogInformation(
-                "Registration request {RequestId} approved. User: {UserId}, Unit: {UnitId}",
-                requestId, newUser.Id, unit.Id);
+                "Registration request {RequestId} approved. User: {UserId} ({UserStatus}), Unit: {UnitId}",
+                requestId, user.Id, userCreated ? "created" : "existing", unit.Id);
 
             return Result.Success(new ApprovalResult
             {
-                CreatedUserId = newUser.Id,
-                CreatedUserEmail = newUser.Email!,
+                CreatedUserId = user.Id,
+                CreatedUserEmail = user.Email!,
                 CreatedUnitId = unit.Id,
                 CreatedUnitName = unit.Name,
                 EmailSent = emailSent
@@ -372,8 +468,24 @@ public class UnitRegistrationService(
 
             return Result.Failure<ApprovalResult>(
                 new Error("ApprovalFailed",
-                    "Failed to approve registration request", 500));
+                    $"Failed to approve registration request : {ex}", 500));
         }
+    }
+    private string GetThumbnailKey(string originalKey)
+    {
+        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
+        var filename = Path.GetFileNameWithoutExtension(originalKey);
+        var extension = Path.GetExtension(originalKey);
+
+        return $"{directory}/{filename}_thumb{extension}";
+    }
+
+    private string GetMediumKey(string originalKey)
+    {
+        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
+        var filename = Path.GetFileNameWithoutExtension(originalKey);
+        var extension = Path.GetExtension(originalKey);
+        return $"{directory}/{filename}_medium{extension}";
     }
 
     public async Task<Result> RejectRequestAsync(
@@ -577,7 +689,28 @@ public class UnitRegistrationService(
         try
         {
             // Get all Super Admins
-            var superAdmins = await _userManager.GetUsersInRoleAsync(DefaultRoles.SuperAdmin);
+            //var superAdmins = await _userManager.GetUsersInRoleAsync(DefaultRoles.CityAdmin);
+
+            //var adminIds = await _context.DepartmentAdmins
+            //    .Where(da => da.CityId == request.DepartmentId && da.IsActive)
+            //    .Select(da => da.UserId)
+            //    .ToListAsync();
+
+            //superAdmins = [.. superAdmins.Where(sa => adminIds.Contains(sa.Id))];
+
+            var superAdmins = await _userManager.GetUsersInRoleAsync(DefaultRoles.CityAdmin);
+
+            var activeAdminIds = await _context.DepartmentAdmins
+                .Where(da =>
+                    da.CityId == request.DepartmentId &&
+                    da.IsActive)
+                .Select(da => da.UserId)
+                .ToListAsync();
+
+            superAdmins = superAdmins
+                .IntersectBy(activeAdminIds, sa => sa.Id)
+                .ToList();
+
             var origin = _httpContextAccessor.HttpContext?.Request.Headers.Origin.ToString();
 
             foreach (var admin in superAdmins.Where(u => !u.IsDisable && u.EmailConfirmed))

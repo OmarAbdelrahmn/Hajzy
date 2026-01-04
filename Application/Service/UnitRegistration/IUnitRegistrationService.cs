@@ -25,6 +25,9 @@ public interface IUnitRegistrationService
     /// </summary>
     Task<Result<IEnumerable<UnitRegistrationResponse>>> GetAllRequestsAsync(
         UnitRegistrationListFilter filter);
+    Task<Result<IEnumerable<UnitRegistrationResponse>>> GetAllRequestsAsync(
+        string userId
+         );
 
     /// <summary>
     /// Get a specific request by ID
