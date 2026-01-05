@@ -254,7 +254,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     /// Upload image for a department
     /// </summary>
     [HttpPost("{departmentId}/image")]
-    [RequestSizeLimit(10_000_000)] // 10MB
+    [RequestSizeLimit(5_000_000)] // 10MB
     public async Task<IActionResult> UploadImage(
         [FromRoute]int departmentId,
         [FromForm] UploadImageDto dto)

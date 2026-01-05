@@ -33,7 +33,7 @@ public class DepartmanetService(
     private readonly IAmazonS3 _s3Client = s3Client;
     private readonly IConfiguration _configuration = configuration;
     private readonly ILogger<DepartmanetService> _logger = logger;
-    private readonly string _bucketName = configuration["AWS:S3:BucketName"]
+    private readonly string _bucketName = configuration["AWS:S3:BucketName"] ?? "hujjzy-bucket"
             ?? throw new InvalidOperationException("S3 bucket name not configured");
     private readonly string _cloudFrontDomain = configuration["AWS:S3:Domain"] ?? "";
 
@@ -216,18 +216,16 @@ public class DepartmanetService(
     #region Image Management
 
     public async Task<Result<string>> UploadDepartmentImageAsync(
-        int departmentId,
-        IFormFile image,
-        string userId)
+          int departmentId,
+          IFormFile image,
+          string userId)
     {
         using var transaction = await dbcontext.Database.BeginTransactionAsync();
-
         try
         {
             // Verify department exists
             var department = await dbcontext.Departments
                 .FirstOrDefaultAsync(d => d.Id == departmentId && !d.IsDeleted);
-
             if (department == null)
                 return Result.Failure<string>(
                     new Error("NotFound", "Department not found", 404));
@@ -251,16 +249,15 @@ public class DepartmanetService(
             var fileExtension = Path.GetExtension(image.FileName).ToLowerInvariant();
             var s3Key = $"departments/{departmentId}/image/{Guid.NewGuid()}{fileExtension}";
 
-            using var stream = image.OpenReadStream();
             var transferUtility = new TransferUtility(_s3Client);
-
+            using var stream = image.OpenReadStream();
             var uploadRequest = new TransferUtilityUploadRequest
             {
                 InputStream = stream,
                 Key = s3Key,
                 BucketName = _bucketName,
                 ContentType = image.ContentType,
-                CannedACL = S3CannedACL.PublicRead,
+                CannedACL = S3CannedACL.Private, // Changed from PublicRead
                 Metadata =
                 {
                     ["original-filename"] = image.FileName,
@@ -272,12 +269,13 @@ public class DepartmanetService(
 
             await transferUtility.UploadAsync(uploadRequest);
 
-            // Generate CloudFront URL
+            // Generate CloudFront URL (CloudFront provides public access)
             var imageUrl = GetCloudFrontImageUrl(s3Key);
 
             // Update department with new image URL
             department.ImageUrl = imageUrl;
             await dbcontext.SaveChangesAsync();
+
             await transaction.CommitAsync();
 
             // Generate thumbnails asynchronously
