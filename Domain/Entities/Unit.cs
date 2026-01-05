@@ -35,6 +35,8 @@ public class Unit
     public decimal AverageRating { get; set; }
     public int TotalReviews { get; set; }
 
+    public bool IsFeatured { get; set; } = false;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 

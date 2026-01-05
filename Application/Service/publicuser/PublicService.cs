@@ -23,7 +23,7 @@ public class PublicService(
             var query = _context.Units
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
-                .Include(u => u.Images.Where(i => !i.IsDeleted && i.IsPrimary))
+                .Include(u => u.Images.Where(i => !i.IsDeleted))
                 .Where(u => !u.IsDeleted && u.IsActive && u.IsVerified)
                 .AsQueryable();
 
@@ -111,7 +111,7 @@ public class PublicService(
                 .Include(u => u.UnitAmenities)
                     .ThenInclude(ua => ua.Amenity)
                 .Include(u => u.Rooms.Where(r => !r.IsDeleted && r.IsAvailable))
-                    .ThenInclude(r => r.SubUnitImages.Where(i => !i.IsDeleted && i.IsPrimary))
+                    .ThenInclude(r => r.SubUnitImages.Where(i => !i.IsDeleted))
                 .Include(u => u.CancellationPolicy)
                 .Include(u => u.Reviews.OrderByDescending(r => r.CreatedAt).Take(10))
                     .ThenInclude(r => r.Images)
@@ -153,7 +153,7 @@ public class PublicService(
             var query = _context.Units
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
-                .Include(u => u.Images.Where(i => !i.IsDeleted && i.IsPrimary))
+                .Include(u => u.Images.Where(i => !i.IsDeleted))
                 .Where(u => !u.IsDeleted && u.IsActive && u.IsVerified &&
                            (u.Name.ToLower().Contains(keyword) ||
                             u.Description.ToLower().Contains(keyword) ||
@@ -203,10 +203,11 @@ public class PublicService(
         {
             // Get top rated units
             var topRated = await _context.Units
+                .Where(u => u.IsFeatured)
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
-                .Include(u => u.Images.Where(i => !i.IsDeleted && i.IsPrimary))
-                .Where(u => !u.IsDeleted && u.IsActive && u.IsVerified && u.TotalReviews > 0)
+                .Include(u => u.Images.Where(i => !i.IsDeleted))
+               // .Where(u => !u.IsDeleted && u.IsActive && u.IsVerified && u.IsFeatured)
                 .OrderByDescending(u => u.AverageRating)
                 .ThenByDescending(u => u.TotalReviews)
                 .Take(count)
@@ -322,7 +323,7 @@ public class PublicService(
         try
         {
             var cities = await _context.Departments
-                .Where(d => !d.IsDeleted && d.IsActive && d.TotalUnits > 0)
+                //.Where(d => !d.IsDeleted && d.IsActive && d.TotalUnits > 0)
                 .OrderBy(d => d.Name)
                 .AsNoTracking()
                 .ToListAsync();
@@ -529,7 +530,7 @@ public class PublicService(
             Bathrooms = unit.Bathrooms,
             AverageRating = unit.AverageRating,
             TotalReviews = unit.TotalReviews,
-            PrimaryImageUrl = unit.Images?.FirstOrDefault(i => i.IsPrimary)?.ImageUrl,
+            PrimaryImageUrl = unit.Images?.FirstOrDefault()?.ImageUrl,
             IsAvailable = unit.IsActive && unit.IsVerified,
             IsFeatured = unit.AverageRating >= 4.5m && unit.TotalReviews >= 10
         };
