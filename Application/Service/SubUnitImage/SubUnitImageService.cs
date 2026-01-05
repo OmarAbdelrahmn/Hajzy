@@ -7,6 +7,9 @@ using Application.Service.SubUnitImage;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Processing;
 
 public class SubUnitImageService(
@@ -24,12 +27,14 @@ public class SubUnitImageService(
         string userId)
     {
         var uploadedKeys = new List<string>();
+        var allS3Keys = new List<string>(); // Track ALL keys (original + thumbnail + medium)
 
         try
         {
             var validationResult = ValidateImages(images);
             if (!validationResult.IsSuccess)
                 return Result.Failure<List<string>>(validationResult.Error);
+
 
             var transferUtility = new TransferUtility(_s3Client);
 
@@ -38,16 +43,26 @@ public class SubUnitImageService(
                 var fileExtension = Path.GetExtension(image.FileName).ToLowerInvariant();
                 var s3Key = $"subunits/{subUnitId}/images/{Guid.NewGuid()}{fileExtension}";
 
-                // Upload original
-                using var stream = image.OpenReadStream();
-                var uploadRequest = new TransferUtilityUploadRequest
+
+                // Read file into memory once to avoid stream consumption issues
+                byte[] fileBytes;
+                using (var memoryStream = new MemoryStream())
                 {
-                    InputStream = stream,
-                    Key = s3Key,
-                    BucketName = _bucketName,
-                    ContentType = image.ContentType,
-                    CannedACL = S3CannedACL.Private,
-                    Metadata =
+                    await image.CopyToAsync(memoryStream);
+                    fileBytes = memoryStream.ToArray();
+                }
+
+                // Upload original
+                using (var uploadStream = new MemoryStream(fileBytes))
+                {
+                    var uploadRequest = new TransferUtilityUploadRequest
+                    {
+                        InputStream = uploadStream,
+                        Key = s3Key,
+                        BucketName = _bucketName,
+                        ContentType = image.ContentType,
+                        CannedACL = S3CannedACL.Private,
+                        Metadata =
                     {
                         ["original-filename"] = image.FileName,
                         ["uploaded-at"] = DateTime.UtcNow.ToString("o"),
@@ -55,27 +70,210 @@ public class SubUnitImageService(
                         ["subunit-id"] = subUnitId.ToString(),
                         ["display-order"] = index.ToString()
                     }
-                };
+                    };
 
-                await transferUtility.UploadAsync(uploadRequest);
-                uploadedKeys.Add(s3Key);
+                    await transferUtility.UploadAsync(uploadRequest);
+                    uploadedKeys.Add(s3Key);
+                    allS3Keys.Add(s3Key);
 
-                // Generate thumbnail and medium
-                await GenerateThreeSizesAsync(image, s3Key);
+                }
+
+                // Generate and upload thumbnail and medium sizes
+                try
+                {
+                    var (thumbnailKey, mediumKey) = await GenerateThreeSizesAsync(
+                        fileBytes,
+                        image.ContentType,
+                        s3Key);
+
+                    allS3Keys.Add(thumbnailKey);
+                    allS3Keys.Add(mediumKey);
+
+                }
+                catch (Exception ex)
+                {
+                    throw; // Re-throw to trigger cleanup
+                }
             }
+
 
             return Result.Success(uploadedKeys);
         }
         catch (Exception ex)
         {
-            if (uploadedKeys.Any())
-                await DeleteImagesAsync(uploadedKeys);
+
+            // Clean up ALL uploaded files (original + thumbnail + medium)
+            if (allS3Keys.Any())
+            {
+                try
+                {
+                    await DeleteImagesAsync(allS3Keys);
+                }
+                catch (Exception cleanupEx)
+                {
+
+                }
+            }
 
             return Result.Failure<List<string>>(
-                new Error("UploadFailed", $"Failed to upload subunit images: {ex.Message}", 500));
+                new Error("UploadFailed", $"Failed to upload SubUnit images: {ex.Message}", 500));
         }
     }
 
+    private async Task<(string thumbnailKey, string mediumKey)> GenerateThreeSizesAsync(
+    byte[] imageBytes,
+    string contentType,
+    string originalS3Key)
+    {
+        var thumbnailKey = GetThumbnailKey(originalS3Key);
+        var mediumKey = GetMediumKey(originalS3Key);
+
+        try
+        {
+
+            // Generate and upload thumbnail (150x150)
+            using (var thumbnailStream = new MemoryStream(imageBytes))
+            {
+                var thumbnail = await ResizeImageAsync(thumbnailStream, 150, 150);
+                await UploadToS3Async(thumbnail, thumbnailKey, contentType);
+            }
+
+
+            // Generate and upload medium (800x800)
+            using (var mediumStream = new MemoryStream(imageBytes))
+            {
+                var medium = await ResizeImageAsync(mediumStream, 800, 800);
+                await UploadToS3Async(medium, mediumKey, contentType);
+            }
+
+            return (thumbnailKey, mediumKey);
+        }
+        catch (Exception ex)
+        {
+            throw;
+        }
+    }
+
+    private string GetThumbnailKey(string originalKey)
+    {
+        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
+        var fileName = Path.GetFileNameWithoutExtension(originalKey);
+        var extension = Path.GetExtension(originalKey);
+
+        return $"{directory}/thumbnails/{fileName}_thumb{extension}";
+    }
+
+    private string GetMediumKey(string originalKey)
+    {
+        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
+        var fileName = Path.GetFileNameWithoutExtension(originalKey);
+        var extension = Path.GetExtension(originalKey);
+
+        return $"{directory}/medium/{fileName}_medium{extension}";
+    }
+
+    private string GetBucketNameFromConfig()
+    {
+        // Get from configuration instead of hardcoding
+        return "huzjjy-bucket";
+    }
+    private async Task<byte[]> ResizeImageAsync(Stream imageStream, int width, int height)
+    {
+        try
+        {
+            using var image = await Image.LoadAsync(imageStream);
+
+
+            // Resize with aspect ratio maintained
+            image.Mutate(x => x.Resize(new ResizeOptions
+            {
+                Size = new Size(width, height),
+                Mode = ResizeMode.Max, // Maintains aspect ratio, fits within dimensions
+                Sampler = KnownResamplers.Lanczos3 // High quality resampling
+            }));
+
+
+            // Save to memory stream with quality settings
+            using var outputStream = new MemoryStream();
+
+            // Determine format and save with appropriate encoder
+            var format = image.Metadata.DecodedImageFormat;
+
+            if (format?.Name == "PNG")
+            {
+                await image.SaveAsPngAsync(outputStream, new PngEncoder
+                {
+                    CompressionLevel = PngCompressionLevel.BestCompression
+                });
+            }
+            else if (format?.Name == "WEBP")
+            {
+                await image.SaveAsWebpAsync(outputStream, new WebpEncoder
+                {
+                    Quality = 85
+                });
+            }
+            else
+            {
+                // Default to JPEG for other formats (jpg, jpeg, etc.)
+                await image.SaveAsJpegAsync(outputStream, new JpegEncoder
+                {
+                    Quality = 85 // Good balance between quality and file size
+                });
+            }
+
+            var resultBytes = outputStream.ToArray();
+
+            return resultBytes;
+        }
+        catch (UnknownImageFormatException ex)
+        {
+            throw new Exception("Unsupported image format", ex);
+        }
+        catch (Exception ex)
+        {
+            throw;
+        }
+    }
+
+    private async Task UploadToS3Async(byte[] imageBytes, string s3Key, string contentType)
+    {
+        try
+        {
+            using var stream = new MemoryStream(imageBytes);
+
+            var putRequest = new PutObjectRequest
+            {
+                BucketName = _bucketName,
+                Key = s3Key,
+                InputStream = stream,
+                ContentType = contentType,
+                CannedACL = S3CannedACL.Private,
+                Metadata =
+            {
+                ["uploaded-at"] = DateTime.UtcNow.ToString("o"),
+                ["file-size"] = imageBytes.Length.ToString()
+            }
+            };
+
+
+            var response = await _s3Client.PutObjectAsync(putRequest);
+
+            if (response.HttpStatusCode != System.Net.HttpStatusCode.OK)
+            {
+                throw new Exception($"S3 upload failed with status code: {response.HttpStatusCode}");
+            }
+
+        }
+        catch (AmazonS3Exception ex)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw;
+        }
+    }
     public async Task<Result> DeleteImagesAsync(List<string> s3Keys)
     {
         try
@@ -83,33 +281,28 @@ public class SubUnitImageService(
             if (!s3Keys.Any())
                 return Result.Success();
 
-            var allKeysToDelete = new List<string>();
-            foreach (var s3Key in s3Keys)
+
+            // S3 allows batch delete of up to 1000 objects at once
+            var deleteRequest = new DeleteObjectsRequest
             {
-                allKeysToDelete.Add(s3Key);
-                allKeysToDelete.Add(GetThumbnailKey(s3Key));
-                allKeysToDelete.Add(GetMediumKey(s3Key));
+                BucketName = _bucketName,
+                Objects = s3Keys.Select(key => new KeyVersion { Key = key }).ToList()
+            };
+
+            var response = await _s3Client.DeleteObjectsAsync(deleteRequest);
+
+            if (response.DeleteErrors.Any())
+            {
+                return Result.Failure(new Error("nothing","nothing to delete",400));
             }
 
-            allKeysToDelete = allKeysToDelete.Where(k => !string.IsNullOrEmpty(k)).ToList();
-
-            if (allKeysToDelete.Any())
-            {
-                var deleteRequest = new DeleteObjectsRequest
-                {
-                    BucketName = _bucketName,
-                    Objects = allKeysToDelete.Select(key => new KeyVersion { Key = key }).ToList()
-                };
-
-                await _s3Client.DeleteObjectsAsync(deleteRequest);
-            }
+  
 
             return Result.Success();
         }
         catch (Exception ex)
         {
-            return Result.Failure(
-                new Error("DeleteFailed", $"Failed to delete images: {ex.Message}", 500));
+            return Result.Failure(new Error("DeleteFailed", ex.Message, 500));
         }
     }
 
@@ -163,8 +356,6 @@ public class SubUnitImageService(
         return $"{directory}/{filename}_{suffix}{extension}";
     }
 
-    private string GetThumbnailKey(string originalKey) => GetSizedKey(originalKey, "thumbnail");
-    private string GetMediumKey(string originalKey) => GetSizedKey(originalKey, "medium");
 
     public string GetCloudFrontUrl(string s3Key)
     {

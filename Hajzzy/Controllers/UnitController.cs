@@ -158,12 +158,12 @@ public class UnitController(IUnitService service) : ControllerBase
     [RequestSizeLimit(100_000_000)]
     public async Task<IActionResult> UploadImages(
         int unitId,
-        [FromForm] List<IFormFile> images,
-        string userId)
+        [FromForm] List<IFormFile> images
+        )
     {
-        //var userId = User.GetUserId();
-        //if (string.IsNullOrEmpty(userId))
-        //    return Unauthorized();
+        var userId = User.GetUserId();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
 
         var result = await _service.UploadImagesAsync(unitId, images, userId);
         return result.IsSuccess

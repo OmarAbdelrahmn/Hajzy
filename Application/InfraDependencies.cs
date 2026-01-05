@@ -10,7 +10,9 @@ using Application.Service.Amenity;
 using Application.Service.Availability;
 using Application.Service.Booking;
 using Application.Service.Department;
+using Application.Service.fav;
 using Application.Service.Policy;
+using Application.Service.publicuser;
 using Application.Service.Report;
 using Application.Service.S3Image;
 using Application.Service.SubUnit;
@@ -75,6 +77,8 @@ public static class InfraDependencies
         Services.AddScoped<IUnitTypeService, UnitTypeService>();
         Services.AddScoped<IBookingService, BookingService>();
         Services.AddScoped<IReportService,ReportService>();
+        Services.AddScoped<IPublicServise,PublicService>();
+        Services.AddScoped<IFavService,FavService>();
         Services.AddProblemDetails();
 
 

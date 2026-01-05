@@ -389,43 +389,47 @@ public class UnitRegistrationService(
                            ?? new List<string>();
 
             var moveResult = await _s3Service.MoveImagesToUnitAsync(imageKeys, unit.Id);
-            if (!moveResult.IsSuccess)
-            {
-                _logger.LogWarning(
-                    "Failed to move images for unit {UnitId}: {Error}",
-                    unit.Id, moveResult.Error.Description);
-            }
 
-            var permanentKeys = moveResult.Value;
+            //if (moveResult.IsSuccess)
+            //{
 
-            foreach (var (permanentKey, index) in permanentKeys.Select((k, i) => (k, i)))
-            {
-                var unitImage = new Domain.Entities.UnitImage
-                {
-                    UnitId = unit.Id,
 
-                    // ORIGINAL
-                    ImageUrl = _s3Service.GetCloudFrontUrl(permanentKey),
-                    S3Key = permanentKey,
-                    S3Bucket = "huzjjy-bucket",
+            //    var permanentKeys = moveResult.Value;
 
-                    // THUMBNAIL
-                    ThumbnailUrl = _s3Service.GetCloudFrontUrl(GetThumbnailKey(permanentKey)),
-                    ThumbnailS3Key = GetThumbnailKey(permanentKey),
+            //    foreach (var (permanentKey, index) in permanentKeys.Select((k, i) => (k, i)))
+            //    {
+            //        var unitImage = new Domain.Entities.UnitImage
+            //        {
+            //            UnitId = unit.Id,
 
-                    // MEDIUM
-                    MediumUrl = _s3Service.GetCloudFrontUrl(GetMediumKey(permanentKey)),
-                    MediumS3Key = GetMediumKey(permanentKey),
+            //            // ORIGINAL
+            //            ImageUrl = _s3Service.GetCloudFrontUrl(permanentKey),
+            //            S3Key = permanentKey,
+            //            S3Bucket = "huzjjy-bucket",
 
-                    DisplayOrder = index,
-                    IsPrimary = index == 0,
-                    UploadedByUserId = user.Id,
-                    UploadedAt = DateTime.UtcNow.AddHours(3),
-                    ProcessingStatus = ImageProcessingStatus.Completed
-                };
+            //            // THUMBNAIL
+            //            ThumbnailUrl = _s3Service.GetCloudFrontUrl(GetThumbnailKey(permanentKey)),
+            //            ThumbnailS3Key = GetThumbnailKey(permanentKey),
 
-                await _context.Set<Domain.Entities.UnitImage>().AddAsync(unitImage);
-            }
+            //            // MEDIUM
+            //            MediumUrl = _s3Service.GetCloudFrontUrl(GetMediumKey(permanentKey)),
+            //            MediumS3Key = GetMediumKey(permanentKey),
+
+            //            DisplayOrder = index,
+            //            IsPrimary = index == 0,
+            //            UploadedByUserId = user.Id,
+            //            UploadedAt = DateTime.UtcNow.AddHours(3),
+            //            ProcessingStatus = ImageProcessingStatus.Completed
+            //        };
+
+            //        await _context.Set<Domain.Entities.UnitImage>().AddAsync(unitImage);
+            //        await _context.SaveChangesAsync();
+            //    }
+            //}
+            //else
+            //{ 
+
+            //}
 
             // Update registration request
             request.Status = RegistrationRequestStatus.Approved;
@@ -448,10 +452,6 @@ public class UnitRegistrationService(
                     unit.Name);
             }
 
-            _logger.LogInformation(
-                "Registration request {RequestId} approved. User: {UserId} ({UserStatus}), Unit: {UnitId}",
-                requestId, user.Id, userCreated ? "created" : "existing", unit.Id);
-
             return Result.Success(new ApprovalResult
             {
                 CreatedUserId = user.Id,
@@ -463,8 +463,7 @@ public class UnitRegistrationService(
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
-            _logger.LogError(ex, "Error approving registration request {RequestId}", requestId);
+
 
             return Result.Failure<ApprovalResult>(
                 new Error("ApprovalFailed",

@@ -629,12 +629,11 @@ public class UnitService(
 
     // Application/Service/Unit/UnitService.cs
     public async Task<Result<List<UnitImageResponse>>> UploadImagesAsync(
-        int unitId,
-        List<IFormFile> images,
-        string userId)
+    int unitId,
+    List<IFormFile> images,
+    string userId)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
-
         try
         {
             var unit = await _context.Units
@@ -645,37 +644,32 @@ public class UnitService(
                 return Result.Failure<List<UnitImageResponse>>(
                     new Error("NotFound", "Unit not found", 404));
 
-            // Upload to S3 (creates original + thumbnail + medium)
+            // Calculate max order before upload
+            var maxOrder = unit.Images.Any()
+                ? unit.Images.Max(i => i.DisplayOrder)
+                : 0;
+
+            // Upload to S3
             var uploadResult = await _s3Service.UploadUnitImagesAsync(images, unitId, userId);
             if (!uploadResult.IsSuccess)
                 return Result.Failure<List<UnitImageResponse>>(uploadResult.Error);
 
             var s3Keys = uploadResult.Value;
-            var imageResponses = new List<UnitImageResponse>();
+            var unitImages = new List<Domain.Entities.UnitImage>();
 
-            var maxOrder = unit.Images.Any()
-                ? unit.Images.Max(i => i.DisplayOrder)
-                : 0;
-
+            // Create all entities first
             foreach (var (s3Key, index) in s3Keys.Select((k, i) => (k, i)))
             {
                 var unitImage = new Domain.Entities.UnitImage
                 {
                     UnitId = unitId,
-
-                    // ORIGINAL
                     ImageUrl = _s3Service.GetCloudFrontUrl(s3Key),
                     S3Key = s3Key,
-                    S3Bucket = "your-bucket-name",
-
-                    // THUMBNAIL (150x150)
+                    S3Bucket = "huzjjy-bucket",
                     ThumbnailUrl = _s3Service.GetCloudFrontUrl(GetThumbnailKey(s3Key)),
                     ThumbnailS3Key = GetThumbnailKey(s3Key),
-
-                    // MEDIUM (800x800)
-                    MediumUrl = _s3Service.GetCloudFrontUrl(GetMediumKey(s3Key)),
+                    MediumUrl = _s3Service.GetCloudFrontUrl(s3Key),
                     MediumS3Key = GetMediumKey(s3Key),
-
                     DisplayOrder = maxOrder + index + 1,
                     IsPrimary = !unit.Images.Any() && index == 0,
                     UploadedByUserId = userId,
@@ -683,12 +677,20 @@ public class UnitService(
                     ProcessingStatus = ImageProcessingStatus.Completed
                 };
 
-                await _context.Set<Domain.Entities.UnitImage>().AddAsync(unitImage);
-                imageResponses.Add(MapToImageResponse(unitImage));
+                unitImages.Add(unitImage);
             }
 
+            // Add all entities to context
+            await _context.Set<Domain.Entities.UnitImage>().AddRangeAsync(unitImages);
+
+            // Save once
             await _context.SaveChangesAsync();
+
+            // Commit transaction
             await transaction.CommitAsync();
+
+            // Map to response AFTER successful commit
+            var imageResponses = unitImages.Select(MapToImageResponse).ToList();
 
             return Result.Success(imageResponses);
         }
@@ -697,10 +699,9 @@ public class UnitService(
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Error uploading images for unit {UnitId}", unitId);
             return Result.Failure<List<UnitImageResponse>>(
-                new Error("UploadFailed", "Failed to upload images", 500));
+                new Error("UploadFailed", "Failed to upload images. Error: " + ex.Message, 500));
         }
     }
-
     private string GetThumbnailKey(string originalKey)
     {
         var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");

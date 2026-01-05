@@ -38,7 +38,7 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
             foreach (var (image, index) in images.Select((img, i) => (img, i)))
             {
                 var fileExtension = Path.GetExtension(image.FileName).ToLowerInvariant();
-                var s3Key = $"registrations/temp/request-{requestId}/image-{index + 1}-{Guid.NewGuid()}{fileExtension}";
+                var s3Key = $"registrations/temp/request-{requestId}/{Guid.NewGuid()}{fileExtension}";
 
                 // Upload original
                 using var stream = image.OpenReadStream();
@@ -142,9 +142,10 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
                 {
                     await DeleteImagesAsync(movedKeys);
                 }
-                catch
+                catch (AmazonS3Exception exe) when (exe.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    // Log but don't throw
+                    // Thumbnails don't exist, continue without them
+                    Console.WriteLine($"No thumbnails found for {exe}");
                 }
             }
 

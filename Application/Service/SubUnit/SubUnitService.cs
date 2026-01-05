@@ -343,87 +343,99 @@ public class SubUnitService(
     #region IMAGE MANAGEMENT
 
 
-        public async Task<Result<List<SubUnitImageResponses>>> UploadImagesAsync(
-            int subUnitId,
-            List<IFormFile> images,
-            string userId)
+    public async Task<Result<List<SubUnitImageResponses>>> UploadImagesAsync(
+     int subUnitId,
+     List<IFormFile> images,
+     string userId)
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            var subUnit = await _context.SubUnits
+                .Include(s => s.SubUnitImages.Where(i => !i.IsDeleted))
+                .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
 
-            try
-            {
-                var subUnit = await _context.SubUnits
-                    .Include(s => s.SubUnitImages.Where(i => !i.IsDeleted))
-                    .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
-
-                if (subUnit == null)
-                    return Result.Failure<List<SubUnitImageResponses>>(
-                        new Error("NotFound", "SubUnit not found", 404));
-
-                // Upload to S3 (creates original + thumbnail + medium)
-                var uploadResult = await _s3Service.UploadSubUnitImagesAsync(images, subUnitId, userId);
-                if (!uploadResult.IsSuccess)
-                    return Result.Failure<List<SubUnitImageResponses>>(uploadResult.Error);
-
-                var s3Keys = uploadResult.Value;
-                var imageResponses = new List<SubUnitImageResponses>();
-
-                var maxOrder = subUnit.SubUnitImages.Any()
-                    ? subUnit.SubUnitImages.Max(i => i.DisplayOrder)
-                    : 0;
-
-                foreach (var (s3Key, index) in s3Keys.Select((k, i) => (k, i)))
-                {
-                    var subUnitImage = new Domain.Entities.SubUnitImage
-                    {
-                        SubUnitId = subUnitId,
-
-                        // ORIGINAL (Full Size)
-                        ImageUrl = _s3Service.GetCloudFrontUrl(s3Key),
-                        S3Key = s3Key,
-                        S3Bucket = GetBucketNameFromConfig(), // Get from configuration
-
-                        // THUMBNAIL (150x150)
-                        ThumbnailUrl = _s3Service.GetCloudFrontUrl(GetThumbnailKey(s3Key)),
-                        ThumbnailS3Key = GetThumbnailKey(s3Key),
-
-                        // MEDIUM (800x800)
-                        MediumUrl = _s3Service.GetCloudFrontUrl(GetMediumKey(s3Key)),
-                        MediumS3Key = GetMediumKey(s3Key),
-
-                        // Display Properties
-                        DisplayOrder = maxOrder + index + 1,
-                        IsPrimary = !subUnit.SubUnitImages.Any() && index == 0,
-
-                        // Tracking
-                        UploadedByUserId = userId,
-                        UploadedAt = DateTime.UtcNow.AddHours(3),
-                        ProcessingStatus = ImageProcessingStatus.Completed
-                    };
-
-                    await _context.Set<Domain.Entities.SubUnitImage>().AddAsync(subUnitImage);
-                    imageResponses.Add(MapToImageResponse(subUnitImage));
-                }
-
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                _logger.LogInformation(
-                    "Uploaded {Count} images for SubUnit {SubUnitId}",
-                    images.Count, subUnitId);
-
-                return Result.Success(imageResponses);
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error uploading images for subunit {SubUnitId}", subUnitId);
+            if (subUnit == null)
                 return Result.Failure<List<SubUnitImageResponses>>(
-                    new Error("UploadFailed", "Failed to upload images", 500));
-            }
-        }
+                    new Error("NotFound", "SubUnit not found", 404));
 
-        public async Task<Result> DeleteImageAsync(int subUnitId, int imageId)
+            // Calculate max order before upload
+            var maxOrder = subUnit.SubUnitImages.Any()
+                ? subUnit.SubUnitImages.Max(i => i.DisplayOrder)
+                : 0;
+
+            _logger.LogInformation("Starting upload of {Count} images for SubUnit {SubUnitId}",
+                images.Count, subUnitId);
+
+            // Upload to S3 (creates original + thumbnail + medium)
+            var uploadResult = await _s3Service.UploadSubUnitImagesAsync(images, subUnitId, userId);
+            if (!uploadResult.IsSuccess)
+            {
+                _logger.LogWarning("S3 upload failed for SubUnit {SubUnitId}: {Error}",
+                    subUnitId, uploadResult.Error.Description);
+                return Result.Failure<List<SubUnitImageResponses>>(uploadResult.Error);
+            }
+
+            var s3Keys = uploadResult.Value;
+            var subUnitImages = new List<Domain.Entities.SubUnitImage>();
+
+            // Create all entities first
+            foreach (var (s3Key, index) in s3Keys.Select((k, i) => (k, i)))
+            {
+                var subUnitImage = new Domain.Entities.SubUnitImage
+                {
+                    SubUnitId = subUnitId,
+                    // ORIGINAL (Full Size)
+                    ImageUrl = _s3Service.GetCloudFrontUrl(s3Key),
+                    S3Key = s3Key,
+                    S3Bucket = GetBucketNameFromConfig(),
+                    // THUMBNAIL (150x150)
+                    ThumbnailUrl = _s3Service.GetCloudFrontUrl(GetThumbnailKey(s3Key)),
+                    ThumbnailS3Key = GetThumbnailKey(s3Key),
+                    // MEDIUM (800x800)
+                    MediumUrl = _s3Service.GetCloudFrontUrl(GetMediumKey(s3Key)),
+                    MediumS3Key = GetMediumKey(s3Key),
+                    // Display Properties
+                    DisplayOrder = maxOrder + index + 1,
+                    IsPrimary = !subUnit.SubUnitImages.Any() && index == 0,
+                    // Tracking
+                    UploadedByUserId = userId,
+                    UploadedAt = DateTime.UtcNow.AddHours(3),
+                    ProcessingStatus = ImageProcessingStatus.Completed
+                };
+
+                subUnitImages.Add(subUnitImage);
+            }
+
+            // Add all entities to context at once
+            await _context.Set<Domain.Entities.SubUnitImage>().AddRangeAsync(subUnitImages);
+
+            // Save once
+            await _context.SaveChangesAsync();
+
+            // Commit transaction
+            await transaction.CommitAsync();
+
+            _logger.LogInformation(
+                "Successfully uploaded {Count} images for SubUnit {SubUnitId}",
+                images.Count, subUnitId);
+
+            // Map to response AFTER successful commit
+            var imageResponses = subUnitImages.Select(MapToImageResponse).ToList();
+
+            return Result.Success(imageResponses);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error uploading images for SubUnit {SubUnitId}", subUnitId);
+
+            return Result.Failure<List<SubUnitImageResponses>>(
+                new Error("UploadFailed", $"Failed to upload images: {ex.Message}", 500));
+        }
+    }
+
+    public async Task<Result> DeleteImageAsync(int subUnitId, int imageId)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
 
