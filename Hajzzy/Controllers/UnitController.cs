@@ -155,7 +155,7 @@ public class UnitController(IUnitService service) : ControllerBase
     /// Upload images for a unit
     /// </summary>
     [HttpPost("{unitId}/images")]
-    [RequestSizeLimit(100_000_000)]
+    [RequestSizeLimit(60_000_000)]
     public async Task<IActionResult> UploadImages(
         int unitId,
         [FromForm] List<IFormFile> images

@@ -1075,7 +1075,7 @@ public class DepartmanetService(
     private Result ValidateImage(IFormFile image)
     {
         var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
-        var maxFileSize = 10 * 1024 * 1024; // 10MB
+        var maxFileSize = 5 * 1024 * 1024; // 10MB
 
         var extension = Path.GetExtension(image.FileName).ToLowerInvariant();
 

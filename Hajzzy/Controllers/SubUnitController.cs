@@ -160,7 +160,7 @@ public class SubUnitController(ISubUnitService service) : ControllerBase
     /// Upload images for a subunit
     /// </summary>
     [HttpPost("{subUnitId}/images")]
-    [RequestSizeLimit(100_000_000)]
+    [RequestSizeLimit(60_000_000)]
     public async Task<IActionResult> UploadImages(
         int subUnitId,
         [FromForm] List<IFormFile> images)
