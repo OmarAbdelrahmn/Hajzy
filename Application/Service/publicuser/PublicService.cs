@@ -11,15 +11,9 @@ using Microsoft.Extensions.Logging;
 namespace Application.Service.publicuser;
 
 public class PublicService(
-    ApplicationDbcontext context,
-    IMemoryCache cache,
-    ILogger<PublicService> logger) : IPublicServise
+    ApplicationDbcontext context) : IPublicServise
 {
     private readonly ApplicationDbcontext _context = context;
-    private readonly IMemoryCache _cache = cache;
-    private readonly ILogger<PublicService> _logger = logger;
-    private const string CACHE_KEY_PREFIX = "Public_";
-
     #region UNITS
 
     public async Task<Result<IEnumerable<PublicUnitResponse>>> GetAllUnitsAsync(PublicUnitFilter filter)
@@ -100,7 +94,6 @@ public class PublicService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting public units");
             return Result.Failure<IEnumerable<PublicUnitResponse>>(
                 new Error("GetFailed", "Failed to retrieve units", 500));
         }
@@ -110,10 +103,6 @@ public class PublicService(
     {
         try
         {
-            var cacheKey = $"{CACHE_KEY_PREFIX}Unit_{unitId}";
-
-            if (_cache.TryGetValue(cacheKey, out PublicUnitDetailsResponse? cached))
-                return Result.Success(cached!);
 
             var unit = await _context.Units
                 .Include(u => u.City)
@@ -142,13 +131,11 @@ public class PublicService(
             var response = MapToPublicDetailsResponse(unit, policies);
 
             // Cache for 5 minutes
-            _cache.Set(cacheKey, response, TimeSpan.FromMinutes(5));
 
             return Result.Success(response);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting unit details {UnitId}", unitId);
             return Result.Failure<PublicUnitDetailsResponse>(
                 new Error("GetFailed", "Failed to retrieve unit details", 500));
         }
@@ -205,7 +192,6 @@ public class PublicService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error searching units");
             return Result.Failure<IEnumerable<PublicUnitResponse>>(
                 new Error("SearchFailed", "Failed to search units", 500));
         }
@@ -215,11 +201,6 @@ public class PublicService(
     {
         try
         {
-            var cacheKey = $"{CACHE_KEY_PREFIX}Featured_{count}";
-
-            if (_cache.TryGetValue(cacheKey, out FeaturedUnitsResponse? cached))
-                return Result.Success(cached!);
-
             // Get top rated units
             var topRated = await _context.Units
                 .Include(u => u.City)
@@ -239,13 +220,11 @@ public class PublicService(
             };
 
             // Cache for 30 minutes
-            _cache.Set(cacheKey, response, TimeSpan.FromMinutes(30));
 
             return Result.Success(response);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting featured units");
             return Result.Failure<FeaturedUnitsResponse>(
                 new Error("GetFailed", "Failed to retrieve featured units", 500));
         }
@@ -277,7 +256,6 @@ public class PublicService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting subunit details {SubUnitId}", subUnitId);
             return Result.Failure<PublicSubUnitDetailsResponse>(
                 new Error("GetFailed", "Failed to retrieve subunit details", 500));
         }
@@ -330,7 +308,6 @@ public class PublicService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting available subunits for unit {UnitId}", unitId);
             return Result.Failure<IEnumerable<PublicSubUnitSummary>>(
                 new Error("GetFailed", "Failed to retrieve available rooms", 500));
         }
@@ -344,11 +321,6 @@ public class PublicService(
     {
         try
         {
-            var cacheKey = $"{CACHE_KEY_PREFIX}Cities";
-
-            if (_cache.TryGetValue(cacheKey, out List<PublicCityResponse>? cached))
-                return Result.Success<IEnumerable<PublicCityResponse>>(cached!);
-
             var cities = await _context.Departments
                 .Where(d => !d.IsDeleted && d.IsActive && d.TotalUnits > 0)
                 .OrderBy(d => d.Name)
@@ -368,14 +340,10 @@ public class PublicService(
                 AverageRating = c.AverageRating
             }).ToList();
 
-            // Cache for 1 hour
-            _cache.Set(cacheKey, responses, TimeSpan.FromHours(1));
-
             return Result.Success<IEnumerable<PublicCityResponse>>(responses);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting cities");
             return Result.Failure<IEnumerable<PublicCityResponse>>(
                 new Error("GetFailed", "Failed to retrieve cities", 500));
         }
@@ -410,7 +378,6 @@ public class PublicService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting city details {CityId}", cityId);
             return Result.Failure<PublicCityResponse>(
                 new Error("GetFailed", "Failed to retrieve city details", 500));
         }
@@ -470,7 +437,6 @@ public class PublicService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error checking availability");
             return Result.Failure<AvailabilityCheckResponse>(
                 new Error("CheckFailed", "Failed to check availability", 500));
         }
@@ -535,7 +501,6 @@ public class PublicService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting nearby units");
             return Result.Failure<IEnumerable<PublicUnitResponse>>(
                 new Error("GetFailed", "Failed to retrieve nearby units", 500));
         }

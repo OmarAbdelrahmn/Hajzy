@@ -2,17 +2,17 @@
 using Application.Contracts.Fav;
 using Domain;
 using Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Application.Service.fav;
 
 public class FavService(
-    ApplicationDbcontext context) : IFavService
+    ApplicationDbcontext context,
+    ILogger<FavService> logger) : IFavService
 {
     private readonly ApplicationDbcontext _context = context;
+    private readonly ILogger<FavService> _logger = logger;
 
     #region CRUD Operations
 
@@ -24,14 +24,13 @@ public class FavService(
 
         try
         {
+            UserFavorite favorite;
 
-             UserFavorite favorite;
-
-            if (request.Type.ToString() == 1)
+            if (request.Type == FavoriteType.Unit)
             {
                 // Validate unit exists
                 var unitExists = await _context.Units
-                    .AnyAsync(u => u.Id == request.UnitId.Value && !u.IsDeleted);
+                    .AnyAsync(u => u.Id == request.FavId!.Value && !u.IsDeleted);
 
                 if (!unitExists)
                     return Result.Failure<FavoriteResponse>(
@@ -40,7 +39,8 @@ public class FavService(
                 // Check if already favorited
                 var existing = await _context.Set<UserFavorite>()
                     .FirstOrDefaultAsync(f => f.UserId == userId &&
-                                             f.UnitId == request.UnitId.Value);
+                                             f.FavId == request.FavId.Value &&
+                                             f.Type == FavoriteType.Unit);
 
                 if (existing != null)
                     return Result.Failure<FavoriteResponse>(
@@ -49,17 +49,16 @@ public class FavService(
                 favorite = new UserFavorite
                 {
                     UserId = userId,
-                    UnitId = request.UnitId.Value,
+                    FavId = request.FavId.Value,
                     Type = FavoriteType.Unit,
-                    Notes = request.Notes,
                     AddedAt = DateTime.UtcNow.AddHours(3)
                 };
             }
-            else // SubUnitId
+            else // SubUnit
             {
                 // Validate subunit exists
                 var subUnitExists = await _context.SubUnits
-                    .AnyAsync(s => s.Id == request.SubUnitId!.Value && !s.IsDeleted);
+                    .AnyAsync(s => s.Id == request.FavId!.Value && !s.IsDeleted);
 
                 if (!subUnitExists)
                     return Result.Failure<FavoriteResponse>(
@@ -68,7 +67,8 @@ public class FavService(
                 // Check if already favorited
                 var existing = await _context.Set<UserFavorite>()
                     .FirstOrDefaultAsync(f => f.UserId == userId &&
-                                             f.SubUnitId == request.SubUnitId.Value);
+                                             f.FavId == request.FavId!.Value &&
+                                             f.Type == FavoriteType.SubUnit);
 
                 if (existing != null)
                     return Result.Failure<FavoriteResponse>(
@@ -77,9 +77,8 @@ public class FavService(
                 favorite = new UserFavorite
                 {
                     UserId = userId,
-                    SubUnitId = request.SubUnitId.Value,
+                    FavId = request.FavId!.Value,
                     Type = FavoriteType.SubUnit,
-                    Notes = request.Notes,
                     AddedAt = DateTime.UtcNow.AddHours(3)
                 };
             }
@@ -90,7 +89,7 @@ public class FavService(
 
             _logger.LogInformation(
                 "User {UserId} added {Type} favorite: {ItemId}",
-                userId, favorite.Type, favorite.UnitId ?? favorite.SubUnitId);
+                userId, favorite.Type, favorite.FavId);
 
             // Reload with navigation properties
             var response = await GetFavoriteResponseAsync(favorite.Id);
@@ -105,12 +104,14 @@ public class FavService(
         }
     }
 
-    public async Task<r> RemoveFavoriteAsync(string userId, int favoriteId)
+    public async Task<Result> RemoveFavoriteAsync(string userId, int favoriteId, FavoriteType type)
     {
         try
         {
             var favorite = await _context.Set<UserFavorite>()
-                .FirstOrDefaultAsync(f => f.Id == favoriteId && f.UserId == userId);
+                .FirstOrDefaultAsync(f => f.Id == favoriteId &&
+                                         f.UserId == userId &&
+                                         f.Type == type);
 
             if (favorite == null)
                 return Result.Failure(
@@ -130,143 +131,6 @@ public class FavService(
             _logger.LogError(ex, "Error removing favorite {FavoriteId}", favoriteId);
             return Result.Failure(
                 new Error("RemoveFailed", "Failed to remove favorite", 500));
-        }
-    }
-
-    public async Task<r> RemoveUnitFavoriteAsync(string userId, int unitId)
-    {
-        try
-        {
-            var favorite = await _context.Set<UserFavorite>()
-                .FirstOrDefaultAsync(f => f.UserId == userId && f.UnitId == unitId);
-
-            if (favorite == null)
-                return Result.Failure(
-                    new Error("NotFound", "Unit favorite not found", 404));
-
-            _context.Set<UserFavorite>().Remove(favorite);
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation(
-                "User {UserId} removed unit favorite {UnitId}",
-                userId, unitId);
-
-            return Result.Success();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error removing unit favorite {UnitId}", unitId);
-            return Result.Failure(
-                new Error("RemoveFailed", "Failed to remove unit favorite", 500));
-        }
-    }
-
-    public async Task<r> RemoveSubUnitFavoriteAsync(string userId, int subUnitId)
-    {
-        try
-        {
-            var favorite = await _context.Set<UserFavorite>()
-                .FirstOrDefaultAsync(f => f.UserId == userId && f.SubUnitId == subUnitId);
-
-            if (favorite == null)
-                return Result.Failure(
-                    new Error("NotFound", "SubUnit favorite not found", 404));
-
-            _context.Set<UserFavorite>().Remove(favorite);
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation(
-                "User {UserId} removed subunit favorite {SubUnitId}",
-                userId, subUnitId);
-
-            return Result.Success();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error removing subunit favorite {SubUnitId}", subUnitId);
-            return Result.Failure(
-                new Error("RemoveFailed", "Failed to remove subunit favorite", 500));
-        }
-    }
-
-    public async Task<Result<ToggleFavoriteResponse>> ToggleFavoriteAsync(
-        string userId,
-        int? unitId,
-        int? subUnitId)
-    {
-        try
-        {
-            if (unitId.HasValue)
-            {
-                var existing = await _context.Set<UserFavorite>()
-                    .FirstOrDefaultAsync(f => f.UserId == userId && f.UnitId == unitId.Value);
-
-                if (existing != null)
-                {
-                    _context.Set<UserFavorite>().Remove(existing);
-                    await _context.SaveChangesAsync();
-                    return Result.Success(new ToggleFavoriteResponse(false, "Removed from favorites"));
-                }
-                else
-                {
-                    await AddFavoriteAsync(userId, new AddFavoriteRequest(unitId, null));
-                    return Result.Success(new ToggleFavoriteResponse(true, "Added to favorites"));
-                }
-            }
-            else if (subUnitId.HasValue)
-            {
-                var existing = await _context.Set<UserFavorite>()
-                    .FirstOrDefaultAsync(f => f.UserId == userId && f.SubUnitId == subUnitId.Value);
-
-                if (existing != null)
-                {
-                    _context.Set<UserFavorite>().Remove(existing);
-                    await _context.SaveChangesAsync();
-                    return Result.Success(new ToggleFavoriteResponse(false, "Removed from favorites"));
-                }
-                else
-                {
-                    await AddFavoriteAsync(userId, new AddFavoriteRequest(null, subUnitId));
-                    return Result.Success(new ToggleFavoriteResponse(true, "Added to favorites"));
-                }
-            }
-
-            return Result.Failure<ToggleFavoriteResponse>(
-                new Error("InvalidRequest", "Must provide either UnitId or SubUnitId", 400));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error toggling favorite");
-            return Result.Failure<ToggleFavoriteResponse>(
-                new Error("ToggleFailed", "Failed to toggle favorite", 500));
-        }
-    }
-
-    public async Task<Result<FavoriteResponse>> UpdateNotesAsync(
-        string userId,
-        int favoriteId,
-        UpdateFavoriteNotesRequest request)
-    {
-        try
-        {
-            var favorite = await _context.Set<UserFavorite>()
-                .FirstOrDefaultAsync(f => f.Id == favoriteId && f.UserId == userId);
-
-            if (favorite == null)
-                return Result.Failure<FavoriteResponse>(
-                    new Error("NotFound", "Favorite not found", 404));
-
-            favorite.Notes = request.Notes;
-            await _context.SaveChangesAsync();
-
-            var response = await GetFavoriteResponseAsync(favoriteId);
-            return Result.Success(response!);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating favorite notes");
-            return Result.Failure<FavoriteResponse>(
-                new Error("UpdateFailed", "Failed to update notes", 500));
         }
     }
 
@@ -298,16 +162,6 @@ public class FavService(
             if (filter.Type.HasValue)
                 query = query.Where(f => f.Type == filter.Type.Value);
 
-            if (filter.DepartmentId.HasValue)
-                query = query.Where(f =>
-                    (f.UnitId.HasValue && f.Unit!.CityId == filter.DepartmentId.Value) ||
-                    (f.SubUnitId.HasValue && f.SubUnit!.Unit.CityId == filter.DepartmentId.Value));
-
-            if (filter.UnitTypeId.HasValue)
-                query = query.Where(f =>
-                    (f.UnitId.HasValue && f.Unit!.UnitTypeId == filter.UnitTypeId.Value) ||
-                    (f.SubUnitId.HasValue && f.SubUnit!.Unit.UnitTypeId == filter.UnitTypeId.Value));
-
             if (filter.AddedFrom.HasValue)
                 query = query.Where(f => f.AddedAt >= filter.AddedFrom.Value);
 
@@ -318,9 +172,9 @@ public class FavService(
             {
                 var keyword = filter.SearchKeyword.ToLower();
                 query = query.Where(f =>
-                    (f.UnitId.HasValue && f.Unit!.Name.ToLower().Contains(keyword)) ||
-                    (f.SubUnitId.HasValue && f.SubUnit!.RoomNumber.ToLower().Contains(keyword)) ||
-                    (f.SubUnitId.HasValue && f.SubUnit!.Unit.Name.ToLower().Contains(keyword)));
+                    (f.Type == FavoriteType.Unit && f.Unit!.Name.ToLower().Contains(keyword)) ||
+                    (f.Type == FavoriteType.SubUnit && f.SubUnit!.RoomNumber.ToLower().Contains(keyword)) ||
+                    (f.Type == FavoriteType.SubUnit && f.SubUnit!.Unit.Name.ToLower().Contains(keyword)));
             }
 
             // Apply sorting
@@ -347,7 +201,8 @@ public class FavService(
 
     public async Task<Result<FavoriteDetailsResponse>> GetFavoriteDetailsAsync(
         string userId,
-        int favoriteId)
+        int favoriteId,
+        FavoriteType type)
     {
         try
         {
@@ -369,7 +224,9 @@ public class FavService(
                     .ThenInclude(s => s!.SubUnitAmenities)
                     .ThenInclude(sa => sa.Amenity)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(f => f.Id == favoriteId && f.UserId == userId);
+                .FirstOrDefaultAsync(f => f.Id == favoriteId &&
+                                         f.UserId == userId &&
+                                         f.Type == type);
 
             if (favorite == null)
                 return Result.Failure<FavoriteDetailsResponse>(
@@ -386,40 +243,14 @@ public class FavService(
         }
     }
 
-    public async Task<Result<IEnumerable<FavoriteResponse>>> GetUnitFavoritesAsync(string userId)
-    {
-        return await GetUserFavoritesAsync(userId, new FavoriteFilter { Type = FavoriteType.Unit });
-    }
-
-    public async Task<Result<IEnumerable<FavoriteResponse>>> GetSubUnitFavoritesAsync(string userId)
-    {
-        return await GetUserFavoritesAsync(userId, new FavoriteFilter { Type = FavoriteType.SubUnit });
-    }
-
     #endregion
 
     #region Validation Operations
 
-    public async Task<Result<bool>> IsUnitFavoritedAsync(string userId, int unitId)
-    {
-        var exists = await _context.Set<UserFavorite>()
-            .AnyAsync(f => f.UserId == userId && f.UnitId == unitId);
-
-        return Result.Success(exists);
-    }
-
-    public async Task<Result<bool>> IsSubUnitFavoritedAsync(string userId, int subUnitId)
-    {
-        var exists = await _context.Set<UserFavorite>()
-            .AnyAsync(f => f.UserId == userId && f.SubUnitId == subUnitId);
-
-        return Result.Success(exists);
-    }
-
     public async Task<Result<int>> GetUnitFavoriteCountAsync(int unitId)
     {
         var count = await _context.Set<UserFavorite>()
-            .CountAsync(f => f.UnitId == unitId);
+            .CountAsync(f => f.FavId == unitId && f.Type == FavoriteType.Unit);
 
         return Result.Success(count);
     }
@@ -427,7 +258,7 @@ public class FavService(
     public async Task<Result<int>> GetSubUnitFavoriteCountAsync(int subUnitId)
     {
         var count = await _context.Set<UserFavorite>()
-            .CountAsync(f => f.SubUnitId == subUnitId);
+            .CountAsync(f => f.FavId == subUnitId && f.Type == FavoriteType.SubUnit);
 
         return Result.Success(count);
     }
@@ -506,10 +337,10 @@ public class FavService(
 
             // Get top favorited units
             var topUnits = await _context.Set<UserFavorite>()
-                .Where(f => f.UnitId.HasValue)
-                .GroupBy(f => new { f.UnitId, f.Unit!.Name })
+                .Where(f => f.Type == FavoriteType.Unit)
+                .GroupBy(f => new { f.FavId, f.Unit!.Name })
                 .Select(g => new TopFavoriteItem(
-                    g.Key.UnitId!.Value,
+                    g.Key.FavId,
                     g.Key.Name,
                     FavoriteType.Unit,
                     g.Count()))
@@ -550,7 +381,7 @@ public class FavService(
 
     #region Bulk Operations
 
-    public async Task<r> ClearAllFavoritesAsync(string userId)
+    public async Task<Result> ClearAllFavoritesAsync(string userId)
     {
         try
         {
@@ -575,62 +406,6 @@ public class FavService(
             _logger.LogError(ex, "Error clearing all favorites");
             return Result.Failure(
                 new Error("ClearFailed", "Failed to clear favorites", 500));
-        }
-    }
-
-    public async Task<r> ClearUnitFavoritesAsync(string userId)
-    {
-        try
-        {
-            var favorites = await _context.Set<UserFavorite>()
-                .Where(f => f.UserId == userId && f.Type == FavoriteType.Unit)
-                .ToListAsync();
-
-            if (!favorites.Any())
-                return Result.Success();
-
-            _context.Set<UserFavorite>().RemoveRange(favorites);
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation(
-                "Cleared {Count} unit favorites for user {UserId}",
-                favorites.Count, userId);
-
-            return Result.Success();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error clearing unit favorites");
-            return Result.Failure(
-                new Error("ClearFailed", "Failed to clear unit favorites", 500));
-        }
-    }
-
-    public async Task<r> ClearSubUnitFavoritesAsync(string userId)
-    {
-        try
-        {
-            var favorites = await _context.Set<UserFavorite>()
-                .Where(f => f.UserId == userId && f.Type == FavoriteType.SubUnit)
-                .ToListAsync();
-
-            if (!favorites.Any())
-                return Result.Success();
-
-            _context.Set<UserFavorite>().RemoveRange(favorites);
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation(
-                "Cleared {Count} subunit favorites for user {UserId}",
-                favorites.Count, userId);
-
-            return Result.Success();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error clearing subunit favorites");
-            return Result.Failure(
-                new Error("ClearFailed", "Failed to clear subunit favorites", 500));
         }
     }
 
@@ -664,10 +439,9 @@ public class FavService(
             Id = favorite.Id,
             Type = favorite.Type,
             AddedAt = favorite.AddedAt,
-            Notes = favorite.Notes,
-
-            // Unit info
-            UnitId = favorite.UnitId,
+            
+            // Unit info (when Type is Unit)
+            FavId = favorite.FavId,
             UnitName = favorite.Unit?.Name,
             UnitAddress = favorite.Unit?.Address,
             UnitBasePrice = favorite.Unit?.BasePrice,
@@ -679,8 +453,7 @@ public class FavService(
             DepartmentName = favorite.Unit?.City?.Name,
             UnitTypeName = favorite.Unit?.UnitType?.Name,
 
-            // SubUnit info
-            SubUnitId = favorite.SubUnitId,
+            // SubUnit info (when Type is SubUnit)
             SubUnitRoomNumber = favorite.SubUnit?.RoomNumber,
             SubUnitType = favorite.SubUnit?.Type.ToString(),
             SubUnitPricePerNight = favorite.SubUnit?.PricePerNight,
@@ -688,9 +461,6 @@ public class FavService(
             SubUnitIsAvailable = favorite.SubUnit?.IsAvailable,
             SubUnitPrimaryImageUrl = favorite.SubUnit?.SubUnitImages?.FirstOrDefault()?.ImageUrl,
 
-            // Parent unit for subunits
-            ParentUnitId = favorite.SubUnit?.UnitId,
-            ParentUnitName = favorite.SubUnit?.Unit.Name
         };
     }
 
@@ -703,8 +473,7 @@ public class FavService(
             Id = baseResponse.Id,
             Type = baseResponse.Type,
             AddedAt = baseResponse.AddedAt,
-            Notes = baseResponse.Notes,
-            UnitId = baseResponse.UnitId,
+            FavId = baseResponse.FavId,
             UnitName = baseResponse.UnitName,
             UnitAddress = baseResponse.UnitAddress,
             UnitBasePrice = baseResponse.UnitBasePrice,
@@ -715,15 +484,12 @@ public class FavService(
             UnitIsVerified = baseResponse.UnitIsVerified,
             DepartmentName = baseResponse.DepartmentName,
             UnitTypeName = baseResponse.UnitTypeName,
-            SubUnitId = baseResponse.SubUnitId,
             SubUnitRoomNumber = baseResponse.SubUnitRoomNumber,
             SubUnitType = baseResponse.SubUnitType,
             SubUnitPricePerNight = baseResponse.SubUnitPricePerNight,
             SubUnitMaxOccupancy = baseResponse.SubUnitMaxOccupancy,
             SubUnitIsAvailable = baseResponse.SubUnitIsAvailable,
             SubUnitPrimaryImageUrl = baseResponse.SubUnitPrimaryImageUrl,
-            ParentUnitId = baseResponse.ParentUnitId,
-            ParentUnitName = baseResponse.ParentUnitName,
 
             // Additional details
             UnitImageUrls = favorite.Unit?.Images
@@ -780,6 +546,4 @@ public class FavService(
     }
 
     #endregion
-} : IFavService
-{
 }

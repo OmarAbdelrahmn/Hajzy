@@ -1,24 +1,22 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Fav;
 using Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Application.Service.fav;
 
 public interface IFavService
 {
+    // ============= CRUD =============
+
     /// <summary>
     /// Add a unit or subunit to user's favorites
     /// </summary>
     Task<Result<FavoriteResponse>> AddFavoriteAsync(string userId, AddFavoriteRequest request);
 
     /// <summary>
-    /// Remove a favorite by ID
+    /// Remove a favorite by ID and type
     /// </summary>
-    Task<Result> RemoveFavoriteAsync(string userId, int favoriteId , FavoriteType type);
-
+    Task<Result> RemoveFavoriteAsync(string userId, int favoriteId, FavoriteType type);
 
     // ============= QUERY =============
 
@@ -30,7 +28,7 @@ public interface IFavService
         FavoriteFilter filter);
 
     /// <summary>
-    /// Get favorite details by ID
+    /// Get favorite details by ID and type
     /// </summary>
     Task<Result<FavoriteDetailsResponse>> GetFavoriteDetailsAsync(
         string userId,
@@ -38,7 +36,6 @@ public interface IFavService
         FavoriteType type);
 
     // ============= VALIDATION =============
-
 
     /// <summary>
     /// Get count of users who favorited a specific unit
@@ -68,5 +65,4 @@ public interface IFavService
     /// Remove all favorites for a user
     /// </summary>
     Task<Result> ClearAllFavoritesAsync(string userId);
-
 }
