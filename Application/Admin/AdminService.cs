@@ -95,9 +95,15 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
                    u.IsDisable,
                    u.EmailConfirmed,
                    u.PhoneNumber,
-                   role = roles.Select(r => r.Name!).FirstOrDefault()
+                   role = roles.Select(r => r.Name!).FirstOrDefault(),
+                   u.AvatarUrl,
+                   u.Bio,
+                   u.DateOfBirth,
+                   u.Nationality,
+                   u.CreatedAt,
+                   u.LastLoginAt
                })
-                  .GroupBy(x => new { x.Id, x.FullName, x.Address, x.Email, x.IsDisable , x.EmailConfirmed , x.PhoneNumber})
+                  .GroupBy(x => new { x.Id, x.FullName, x.Address, x.Email, x.IsDisable , x.EmailConfirmed , x.PhoneNumber , x.AvatarUrl , x.Bio , x.DateOfBirth , x.Nationality , x.CreatedAt , x.LastLoginAt})
                   .Select(c => new UserResponse(
                       c.Key.Id,
                       c.Key.FullName,
@@ -106,7 +112,13 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
                       c.Key.IsDisable,
                       c.Select(x => x.role).FirstOrDefault()!,
                       c.Key.EmailConfirmed,
-                      c.Key.PhoneNumber
+                      c.Key.PhoneNumber,
+                      c.Key.AvatarUrl,
+                      c.Key.Bio,
+                      c.Key.DateOfBirth,
+                      c.Key.Nationality,
+                      c.Key.CreatedAt,
+                      c.Key.LastLoginAt
                       ))
                   .ToListAsync();
 
@@ -128,7 +140,7 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
 
         return Result.Success(response);
     }
-    
+
     public async Task<Result<UserResponse>> GetUserAsync(string Id)
     {
         if (await manager.FindByIdAsync(Id) is not { } user)
@@ -136,7 +148,22 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
 
         var userroles = await manager.GetRolesAsync(user);
 
-        var response = (user, userroles).Adapt<UserResponse>();
+        var response = new UserResponse
+        (
+            Id: user.Id,
+            FullName: user.FullName!,
+            Address: user.Address!,
+            Email: user.Email!,
+            IsDisable: user.IsDisable,
+            Role: userroles.FirstOrDefault()!,
+            user.EmailConfirmed,
+            PhoneNumber: user.PhoneNumber!,
+            AvatarUrl: user.AvatarUrl,
+            Bio: user.Bio,
+            DateOfBirth: user.DateOfBirth,
+            user.Nationality,
+            user.CreatedAt,
+            user.LastLoginAt);
 
         return Result.Success(response);
     }

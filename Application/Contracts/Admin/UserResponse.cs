@@ -9,5 +9,11 @@ public record UserResponse
     bool IsDisable,
     string Role,
     bool IsEmailConfirmed,
-    string PhoneNumber
+    string PhoneNumber,
+    string? AvatarUrl,
+    string? Bio,
+    DateTime? DateOfBirth,
+    string? Nationality,
+    DateTime CreatedAt,
+    DateTime? LastLoginAt
     );

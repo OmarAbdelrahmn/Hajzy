@@ -4,6 +4,7 @@ using Application.User;
 using Hajzzy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 
 
@@ -48,4 +49,43 @@ public class AccountController(IUserService service) : ControllerBase
         return result.IsSuccess ? Ok(new Re("done")) : result.ToProblem();
     }
 
+    [HttpPost("avatar")]
+    public async Task<IActionResult> UploadAvatar([FromForm] Im Im)
+    {
+        if (Im.Image == null)
+            return BadRequest(new { error = "No image file provided" });
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var result = await service.UploadUserAvatarAsync(userId, Im.Image);
+
+        return result.IsSuccess
+            ? Ok(new { message = "Avatar uploaded successfully", avatarUrl = result.Value })
+            : result.ToProblem();
+    }
+
+    [HttpDelete("avatar")]
+    public async Task<IActionResult> DeleteAvatar()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var result = await service.DeleteUserAvatarAsync(userId);
+
+        return result.IsSuccess
+            ? Ok(new { message = "Avatar deleted successfully" })
+            : result.ToProblem();
+    }
+
+    [HttpGet("avatar/presigned-url")]
+    public async Task<IActionResult> GetPresignedAvatarUrl([FromQuery] string s3Key, [FromQuery] int expirationMinutes = 60)
+    {
+        if (string.IsNullOrWhiteSpace(s3Key))
+            return BadRequest(new { error = "S3 key is required" });
+
+        var result = await service.GetPresignedImageUrlAsync(s3Key, expirationMinutes);
+
+        return result.IsSuccess
+            ? Ok(new { url = result.Value })
+            : result.ToProblem();
+    }
 }
+
+public record Im(IFormFile Image);

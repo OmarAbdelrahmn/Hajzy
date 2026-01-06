@@ -73,6 +73,9 @@ public class AuthService(
 
             });
 
+            user.LastLoginAt = DateTime.UtcNow.AddHours(3);
+
+
             await manager.UpdateAsync(user);
 
             var response = new AuthResponse(
@@ -385,6 +388,7 @@ public class AuthService(
                 ExpiresOn = RefreshExpiresIn,
 
             });
+            user.LastLoginAt = DateTime.UtcNow.AddHours(3);
 
             await manager.UpdateAsync(user);
 
@@ -444,6 +448,7 @@ public class AuthService(
                 ExpiresOn = RefreshExpiresIn,
 
             });
+            user.LastLoginAt = DateTime.UtcNow.AddHours(3);
 
             await manager.UpdateAsync(user);
 
@@ -503,6 +508,8 @@ public class AuthService(
                 ExpiresOn = RefreshExpiresIn,
 
             });
+
+            user.LastLoginAt = DateTime.UtcNow.AddHours(3);
 
             await manager.UpdateAsync(user);
 
