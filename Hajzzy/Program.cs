@@ -13,7 +13,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = 50 * 1024 * 1024; // 150 MB
+    options.Limits.MaxRequestBodySize = 50 * 1024 * 1024; // 50 MB
 });
 
 
