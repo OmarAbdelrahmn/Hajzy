@@ -33,10 +33,9 @@ public class UserFavoriteController(IFavService service) : ControllerBase
     /// </summary>
     [HttpDelete("{favoriteId:int}")]
     public async Task<IActionResult> RemoveFavorite(
-        int favoriteId,
-        [FromQuery] FavoriteType type)
+        int favoriteId)
     {
-        var result = await _service.RemoveFavoriteAsync(User.GetUserId()!, favoriteId, type);
+        var result = await _service.RemoveFavoriteAsync(User.GetUserId()!, favoriteId);
         return result.IsSuccess
             ? NoContent()
             : result.ToProblem();
@@ -61,10 +60,9 @@ public class UserFavoriteController(IFavService service) : ControllerBase
     /// </summary>
     [HttpGet("{favoriteId:int}")]
     public async Task<IActionResult> GetFavoriteDetails(
-        int favoriteId,
-        [FromQuery] FavoriteType type)
+        int favoriteId)
     {
-        var result = await _service.GetFavoriteDetailsAsync(User.GetUserId()!, favoriteId, type);
+        var result = await _service.GetFavoriteDetailsAsync(User.GetUserId()!, favoriteId);
         return result.IsSuccess
             ? Ok(result.Value)
             : result.ToProblem();

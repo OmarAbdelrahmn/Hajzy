@@ -16,14 +16,14 @@ public interface IFavService
     /// <summary>
     /// Remove a favorite by ID and type
     /// </summary>
-    Task<Result> RemoveFavoriteAsync(string userId, int favoriteId, FavoriteType type);
+    Task<Result> RemoveFavoriteAsync(string userId, int favoriteId);
 
     // ============= QUERY =============
 
     /// <summary>
     /// Get user's favorites with filtering and pagination
     /// </summary>
-    Task<Result<IEnumerable<FavoriteResponse>>> GetUserFavoritesAsync(
+    Task<Result<List<FavoriteResponse>>> GetUserFavoritesAsync(
         string userId,
         FavoriteFilter filter);
 
@@ -32,8 +32,7 @@ public interface IFavService
     /// </summary>
     Task<Result<FavoriteDetailsResponse>> GetFavoriteDetailsAsync(
         string userId,
-        int favoriteId,
-        FavoriteType type);
+        int favoriteId);
 
     // ============= VALIDATION =============
 

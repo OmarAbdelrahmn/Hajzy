@@ -40,7 +40,6 @@ public record FavoriteResponse
     public int Id { get; init; }
     public FavoriteType Type { get; init; }
     public DateTime AddedAt { get; init; }
-    public string? Notes { get; init; }
 
     // Unit Information (if Type = Unit)
     public int? FavId { get; init; }

@@ -104,14 +104,12 @@ public class FavService(
         }
     }
 
-    public async Task<Result> RemoveFavoriteAsync(string userId, int favoriteId, FavoriteType type)
+    public async Task<Result> RemoveFavoriteAsync(string userId, int favoriteId)
     {
         try
         {
             var favorite = await _context.Set<UserFavorite>()
-                .FirstOrDefaultAsync(f => f.Id == favoriteId &&
-                                         f.UserId == userId &&
-                                         f.Type == type);
+                .FirstOrDefaultAsync(f => f.Id == favoriteId);
 
             if (favorite == null)
                 return Result.Failure(
@@ -138,71 +136,75 @@ public class FavService(
 
     #region Query Operations
 
-    public async Task<Result<IEnumerable<FavoriteResponse>>> GetUserFavoritesAsync(
-        string userId,
-        FavoriteFilter filter)
+    public async Task<Result<List<FavoriteResponse>>> GetUserFavoritesAsync(
+        string userId, FavoriteFilter filter)
     {
         try
         {
-            var query = _context.Set<UserFavorite>()
-                .Include(f => f.Unit)
-                    .ThenInclude(u => u!.City)
-                .Include(f => f.Unit)
-                    .ThenInclude(u => u!.UnitType)
-                .Include(f => f.Unit)
-                    .ThenInclude(u => u!.Images.Where(i => !i.IsDeleted && i.IsPrimary))
-                .Include(f => f.SubUnit)
-                    .ThenInclude(s => s!.Unit)
-                .Include(f => f.SubUnit)
-                    .ThenInclude(s => s!.SubUnitImages.Where(i => !i.IsDeleted && i.IsPrimary))
-                .Where(f => f.UserId == userId)
-                .AsQueryable();
+            var favoritesQuery = _context.Set<UserFavorite>()
+                .Where(f => f.UserId == userId);
 
-            // Apply filters
+            // Apply type filter
             if (filter.Type.HasValue)
-                query = query.Where(f => f.Type == filter.Type.Value);
+                favoritesQuery = favoritesQuery.Where(f => f.Type == filter.Type.Value);
 
-            if (filter.AddedFrom.HasValue)
-                query = query.Where(f => f.AddedAt >= filter.AddedFrom.Value);
+            var favorites = await favoritesQuery.ToListAsync();
 
-            if (filter.AddedTo.HasValue)
-                query = query.Where(f => f.AddedAt <= filter.AddedTo.Value);
 
-            if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+            // Load Units with their related data
+            var unitFavorites = favorites.Where(f => f.FavId != null && f.Type == FavoriteType.Unit).ToList();
+            if (unitFavorites.Any())
             {
-                var keyword = filter.SearchKeyword.ToLower();
-                query = query.Where(f =>
-                    (f.Type == FavoriteType.Unit && f.Unit!.Name.ToLower().Contains(keyword)) ||
-                    (f.Type == FavoriteType.SubUnit && f.SubUnit!.RoomNumber.ToLower().Contains(keyword)) ||
-                    (f.Type == FavoriteType.SubUnit && f.SubUnit!.Unit.Name.ToLower().Contains(keyword)));
+                var unitIds = unitFavorites.Select(f => f.FavId).Distinct().ToList();
+                var units = await _context.Set<Domain.Entities.Unit>()
+                    .Include(u => u.City)
+                    .Include(u => u.UnitType)
+                    .Include(u => u.Images.Where(i => !i.IsDeleted && i.IsPrimary))
+                    .Where(u => unitIds.Contains(u.Id))
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                // Map units back to favorites
+                foreach (var fav in unitFavorites)
+                {
+                    fav.Unit = units.FirstOrDefault(u => u.Id == fav.FavId);
+                }
             }
 
-            // Apply sorting
-            query = ApplySorting(query, filter.SortBy, filter.SortDirection);
+            // Load SubUnits with their related data
+            var subUnitFavorites = favorites.Where(f => f.FavId != null && f.Type == FavoriteType.SubUnit).ToList();
+            if (subUnitFavorites.Any())
+            {
+                var subUnitIds = subUnitFavorites.Select(f => f.FavId).Distinct().ToList();
+                var subUnits = await _context.Set<Domain.Entities.SubUnit>()
+                    .Include(s => s.Unit)
+                    .Include(s => s.SubUnitImages.Where(i => !i.IsDeleted && i.IsPrimary))
+                    .Where(s => subUnitIds.Contains(s.Id))
+                    .AsNoTracking()
+                    .ToListAsync();
 
-            // Pagination
-            var skip = (filter.Page - 1) * filter.PageSize;
-            var favorites = await query
-                .Skip(skip)
-                .Take(filter.PageSize)
-                .AsNoTracking()
-                .ToListAsync();
+                // Map subunits back to favorites
+                foreach (var fav in subUnitFavorites)
+                {
+                    fav.SubUnit = subUnits.FirstOrDefault(s => s.Id == fav.FavId);
+                }
+            }
 
             var responses = favorites.Select(MapToResponse).ToList();
-            return Result.Success<IEnumerable<FavoriteResponse>>(responses);
+
+            return Result.Success(responses);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting user favorites");
-            return Result.Failure<IEnumerable<FavoriteResponse>>(
+            _logger.LogError(ex, "Error getting user favorites for user {UserId}", userId);
+            return Result.Failure<List<FavoriteResponse>>(
                 new Error("QueryFailed", "Failed to get favorites", 500));
         }
     }
 
     public async Task<Result<FavoriteDetailsResponse>> GetFavoriteDetailsAsync(
         string userId,
-        int favoriteId,
-        FavoriteType type)
+        int favoriteId)
     {
         try
         {
@@ -225,8 +227,7 @@ public class FavService(
                     .ThenInclude(sa => sa.Amenity)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(f => f.Id == favoriteId &&
-                                         f.UserId == userId &&
-                                         f.Type == type);
+                                         f.UserId == userId);
 
             if (favorite == null)
                 return Result.Failure<FavoriteDetailsResponse>(
