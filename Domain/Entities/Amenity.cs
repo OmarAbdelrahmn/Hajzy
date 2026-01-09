@@ -10,13 +10,13 @@ public class Amenity
     public int Id { get; set; }
 
     [Required, MaxLength(100)]
-    public AmenityName Name { get; set; }  // WiFi, Pool, Parking
+    public string Name { get; set; }  // WiFi, Pool, Parking
 
     [MaxLength(200)]
     public string? Description { get; set; }
 
 
-    public AmenityCategory Category { get; set; }  // Basic, Entertainment, Safety
+    public string Category { get; set; }  // Basic, Entertainment, Safety
 
     // Navigation
     public ICollection<UnitAmenity> UnitAmenities { get; set; } = [];
