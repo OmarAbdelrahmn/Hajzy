@@ -42,7 +42,8 @@ public class Review
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
-
+    public DateTime? CheckInDate { get; set; }
+    public DateTime? CheckOutDate { get; set; }
     // Navigation
     public Unit Unit { get; set; } = default!;
     public Booking Booking { get; set; } = default!;
