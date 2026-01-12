@@ -279,11 +279,11 @@ public class DepartmanetService(
             await transaction.CommitAsync();
 
             // Generate thumbnails asynchronously
-            _ = GenerateThumbnailAsync(image, s3Key);
+            //_ = GenerateThumbnailAsync(image, s3Key);
 
-            _logger.LogInformation(
-                "Image uploaded for department {DepartmentId}. S3 Key: {S3Key}",
-                departmentId, s3Key);
+            //_logger.LogInformation(
+            //    "Image uploaded for department {DepartmentId}. S3 Key: {S3Key}",
+            //    departmentId, s3Key);
 
             return Result.Success(imageUrl);
         }

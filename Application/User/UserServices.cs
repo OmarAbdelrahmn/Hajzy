@@ -209,9 +209,9 @@ public class UserServices(
             // Generate thumbnails asynchronously for bigger projects
             //_ = GenerateThumbnailAsync(image, s3Key);
 
-            _logger.LogInformation(
-                "Avatar uploaded for user {UserId}. S3 Key: {S3Key}",
-                userId, s3Key);
+            //_logger.LogInformation(
+            //    "Avatar uploaded for user {UserId}. S3 Key: {S3Key}",
+            //    userId, s3Key);
 
             return Result.Success(avatarUrl);
         }

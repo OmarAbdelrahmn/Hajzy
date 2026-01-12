@@ -2,6 +2,7 @@
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 using Application.Abstraction;
+using Azure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using SixLabors.ImageSharp;
@@ -74,22 +75,6 @@ public class UnitImageService(
                     await transferUtility.UploadAsync(uploadRequest);
                     uploadedKeys.Add(s3Key);
                     allS3Keys.Add(s3Key);
-                }
-
-                // Generate thumbnail and medium (pass the bytes)
-                try
-                {
-                    var (thumbnailKey, mediumKey) = await GenerateThreeSizesAsync(
-                        fileBytes,
-                        image.ContentType,
-                        s3Key);
-
-                    allS3Keys.Add(thumbnailKey);
-                    allS3Keys.Add(mediumKey);
-                }
-                catch (Exception ex)
-                {
-                    throw; // Re-throw to trigger cleanup
                 }
             }
 
@@ -233,9 +218,9 @@ public async Task<Result> DeleteImagesAsync(List<string> s3Keys)
                     allKeysToDelete.Add(GetMediumKey(s3Key));
                 }
 
-                allKeysToDelete = allKeysToDelete.Where(k => !string.IsNullOrEmpty(k)).ToList();
+            allKeysToDelete = allKeysToDelete.Where(k => !string.IsNullOrEmpty(k)).Distinct().ToList();
 
-                if (allKeysToDelete.Any())
+            if (allKeysToDelete.Any())
                 {
                     var deleteRequest = new DeleteObjectsRequest
                     {
@@ -243,10 +228,11 @@ public async Task<Result> DeleteImagesAsync(List<string> s3Keys)
                         Objects = allKeysToDelete.Select(key => new KeyVersion { Key = key }).ToList()
                     };
 
-                    await _s3Client.DeleteObjectsAsync(deleteRequest);
-                }
+                    var response = await _s3Client.DeleteObjectsAsync(deleteRequest);
+            }
 
-                return Result.Success();
+
+            return Result.Success();
             }
             catch (Exception ex)
             {

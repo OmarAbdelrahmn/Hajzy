@@ -389,12 +389,6 @@ public class SubUnitService(
                     ImageUrl = _s3Service.GetCloudFrontUrl(s3Key),
                     S3Key = s3Key,
                     S3Bucket = GetBucketNameFromConfig(),
-                    // THUMBNAIL (150x150)
-                    ThumbnailUrl = _s3Service.GetCloudFrontUrl(GetThumbnailKey(s3Key)),
-                    ThumbnailS3Key = GetThumbnailKey(s3Key),
-                    // MEDIUM (800x800)
-                    MediumUrl = _s3Service.GetCloudFrontUrl(GetMediumKey(s3Key)),
-                    MediumS3Key = GetMediumKey(s3Key),
                     // Display Properties
                     DisplayOrder = maxOrder + index + 1,
                     IsPrimary = !subUnit.SubUnitImages.Any() && index == 0,

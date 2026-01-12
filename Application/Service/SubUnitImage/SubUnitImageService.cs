@@ -77,23 +77,6 @@ public class SubUnitImageService(
                     allS3Keys.Add(s3Key);
 
                 }
-
-                // Generate and upload thumbnail and medium sizes
-                try
-                {
-                    var (thumbnailKey, mediumKey) = await GenerateThreeSizesAsync(
-                        fileBytes,
-                        image.ContentType,
-                        s3Key);
-
-                    allS3Keys.Add(thumbnailKey);
-                    allS3Keys.Add(mediumKey);
-
-                }
-                catch (Exception ex)
-                {
-                    throw; // Re-throw to trigger cleanup
-                }
             }
 
 

@@ -61,7 +61,7 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
                 uploadedKeys.Add(s3Key);
 
                 // Generate ONLY thumbnail and medium
-                await GenerateThreeSizesAsync(image, s3Key);
+                //await GenerateThreeSizesAsync(image, s3Key);
             }
 
             return Result.Success(uploadedKeys);
@@ -119,7 +119,7 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
                 movedKeys.Add(newKey);
 
                 // Copy thumbnails
-                await CopyThumbnailsAsync(tempKey, newKey);
+              //  await CopyThumbnailsAsync(tempKey, newKey);
             }
 
             // Delete temp files only after ALL copies succeed
@@ -260,10 +260,10 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
             using var image = await Image.LoadAsync(originalImage.OpenReadStream());
 
             // THUMBNAIL: 150x150
-            await GenerateAndUploadThumbnailAsync(image, originalS3Key, 150, "thumbnail");
+            //await GenerateAndUploadThumbnailAsync(image, originalS3Key, 150, "thumbnail");
 
-            // MEDIUM: 800x800
-            await GenerateAndUploadThumbnailAsync(image, originalS3Key, 800, "medium");
+            //// MEDIUM: 800x800
+            //await GenerateAndUploadThumbnailAsync(image, originalS3Key, 800, "medium");
         }
         catch
         {
