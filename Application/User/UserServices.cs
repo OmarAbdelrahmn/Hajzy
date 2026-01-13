@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Processing;
 
 namespace Application.User;
@@ -175,16 +176,19 @@ public class UserServices(
 
             // Upload new avatar to S3
             var fileExtension = Path.GetExtension(image.FileName).ToLowerInvariant();
-            var s3Key = $"users/{userId}/avatar/{Guid.NewGuid()}{fileExtension}";
+            var s3Key = $"users/{userId}/avatar/{Guid.NewGuid()}.wepb";
 
             var transferUtility = new TransferUtility(_s3Client);
-            using var stream = image.OpenReadStream();
+            using var inputStream = image.OpenReadStream();
+            using var webpStream = new MemoryStream();
+            ConvertToWebp(inputStream, webpStream);
+            webpStream.Position = 0;
             var uploadRequest = new TransferUtilityUploadRequest
             {
-                InputStream = stream,
+                InputStream = webpStream,
                 Key = s3Key,
                 BucketName = _bucketName,
-                ContentType = image.ContentType,
+                ContentType = "image/webp",
                 CannedACL = S3CannedACL.Private,
                 Metadata =
                 {
@@ -224,6 +228,18 @@ public class UserServices(
         }
     }
 
+    private static void ConvertToWebp(Stream input, Stream output)
+    {
+        using var image = Image.Load(input);
+
+        var encoder = new WebpEncoder
+        {
+            Quality = 75,
+            SkipMetadata = true
+        };
+
+        image.Save(output, encoder);
+    }
     public async Task<Result> DeleteUserAvatarAsync(string userId)
     {
         using var transaction = await _dbContext.Database.BeginTransactionAsync();

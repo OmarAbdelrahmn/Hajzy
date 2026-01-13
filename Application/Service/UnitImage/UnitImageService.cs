@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Processing;
 
 namespace Application.Service.UnitImage;
@@ -42,14 +43,15 @@ public class UnitImageService(
             foreach (var (image, index) in images.Select((img, i) => (img, i)))
             {
                 var fileExtension = Path.GetExtension(image.FileName).ToLowerInvariant();
-                var s3Key = $"units/{unitId}/images/{Guid.NewGuid()}{fileExtension}";
+                var s3Key = $"units/{unitId}/images/{Guid.NewGuid()}.webp";
 
                 // Read file into memory once to avoid stream issues
                 byte[] fileBytes;
-                using (var memoryStream = new MemoryStream())
+                using (var inputStream = image.OpenReadStream())
+                using (var webpStream = new MemoryStream())
                 {
-                    await image.CopyToAsync(memoryStream);
-                    fileBytes = memoryStream.ToArray();
+                    ConvertToWebp(inputStream, webpStream);
+                    fileBytes = webpStream.ToArray();
                 }
 
                 // Upload original
@@ -98,6 +100,18 @@ public class UnitImageService(
             return Result.Failure<List<string>>(
                 new Error("UploadFailed", $"Failed to upload unit images: {ex.Message}", 500));
         }
+    }
+    private static void ConvertToWebp(Stream input, Stream output)
+    {
+        using var image = Image.Load(input);
+
+        var encoder = new WebpEncoder
+        {
+            Quality = 75,
+            SkipMetadata = true
+        };
+
+        image.Save(output, encoder);
     }
 
     private async Task<(string thumbnailKey, string mediumKey)> GenerateThreeSizesAsync(
@@ -282,7 +296,7 @@ public async Task<Result> DeleteImagesAsync(List<string> s3Keys)
                 InputStream = outputStream,
                 Key = sizedKey,
                 BucketName = _bucketName,
-                ContentType = "image/jpeg",
+                ContentType = "image/webp",
                 CannedACL = S3CannedACL.Private
             };
 

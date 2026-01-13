@@ -41,15 +41,16 @@ public class SubUnitImageService(
             foreach (var (image, index) in images.Select((img, i) => (img, i)))
             {
                 var fileExtension = Path.GetExtension(image.FileName).ToLowerInvariant();
-                var s3Key = $"subunits/{subUnitId}/images/{Guid.NewGuid()}{fileExtension}";
+                var s3Key = $"subunits/{subUnitId}/images/{Guid.NewGuid()}.webp";
 
 
                 // Read file into memory once to avoid stream consumption issues
                 byte[] fileBytes;
-                using (var memoryStream = new MemoryStream())
+                using (var inputStream = image.OpenReadStream())
+                using (var webpStream = new MemoryStream())
                 {
-                    await image.CopyToAsync(memoryStream);
-                    fileBytes = memoryStream.ToArray();
+                    ConvertToWebp(inputStream, webpStream);
+                    fileBytes = webpStream.ToArray();
                 }
 
                 // Upload original
@@ -136,7 +137,18 @@ public class SubUnitImageService(
             throw;
         }
     }
+    private static void ConvertToWebp(Stream input, Stream output)
+    {
+        using var image = Image.Load(input);
 
+        var encoder = new WebpEncoder
+        {
+            Quality = 75,
+            SkipMetadata = true
+        };
+
+        image.Save(output, encoder);
+    }
     private string GetThumbnailKey(string originalKey)
     {
         var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
@@ -230,7 +242,7 @@ public class SubUnitImageService(
                 BucketName = _bucketName,
                 Key = s3Key,
                 InputStream = stream,
-                ContentType = contentType,
+                ContentType = "image/webp",
                 CannedACL = S3CannedACL.Private,
                 Metadata =
             {

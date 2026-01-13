@@ -4,13 +4,14 @@ using Amazon.S3.Transfer;
 using Application.Abstraction;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.Processing;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
-using System.IO;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
 
 namespace Application.Service.S3Image;
 
@@ -38,16 +39,19 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
             foreach (var (image, index) in images.Select((img, i) => (img, i)))
             {
                 var fileExtension = Path.GetExtension(image.FileName).ToLowerInvariant();
-                var s3Key = $"registrations/temp/request-{requestId}/{Guid.NewGuid()}{fileExtension}";
+                var s3Key = $"registrations/temp/request-{requestId}/{Guid.NewGuid()}.webp";
 
                 // Upload original
-                using var stream = image.OpenReadStream();
+                using var inputStream = image.OpenReadStream();
+                using var webpStream = new MemoryStream();
+                ConvertToWebp(inputStream, webpStream);
+                webpStream.Position = 0;
                 var uploadRequest = new TransferUtilityUploadRequest
                 {
-                    InputStream = stream,
+                    InputStream = webpStream,
                     Key = s3Key,
                     BucketName = _bucketName,
-                    ContentType = image.ContentType,
+                    ContentType = "image/webp",
                     CannedACL = S3CannedACL.Private,
                     Metadata =
                     {
@@ -76,7 +80,18 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
         }
     }
 
+    private static void ConvertToWebp(Stream input, Stream output)
+    {
+        using var image = Image.Load(input);
 
+        var encoder = new WebpEncoder
+        {
+            Quality = 75,
+            SkipMetadata = true
+        };
+
+        image.Save(output, encoder);
+    }
     // Service Implementation
     public async Task<Result<List<string>>> MoveImagesToUnitAsync(
         List<string> tempS3Keys,
