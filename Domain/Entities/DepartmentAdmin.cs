@@ -6,8 +6,7 @@ using System.Text;
 namespace Domain.Entities;
 
 public class DepartmentAdmin
-{
-    public int Id { get; set; }
+{public int Id { get; set; }
 
     [Required]
     public string UserId { get; set; } = string.Empty;
@@ -24,3 +23,5 @@ public class DepartmentAdmin
     public ApplicationUser User { get; set; } = default!;
     public Department City { get; set; } = default!;
 }
+
+    

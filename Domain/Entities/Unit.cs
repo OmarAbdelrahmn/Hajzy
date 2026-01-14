@@ -7,7 +7,7 @@ namespace Domain.Entities;
 
 public class Unit
 {
-     public int Id { get; set; }
+    public int Id { get; set; }
 
     [Required, MaxLength(200)]
     public string Name { get; set; } = string.Empty;
@@ -56,4 +56,4 @@ public class Unit
     public ICollection<Booking> Bookings { get; set; } = [];
     public ICollection<Review> Reviews { get; set; } = [];
     public ICollection<UnitAvailability> Availabilities { get; set; } = [];
- }
+}

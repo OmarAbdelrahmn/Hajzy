@@ -10,7 +10,14 @@ using Application.Service.Amenity;
 using Application.Service.Availability;
 using Application.Service.Booking;
 using Application.Service.Department;
+<<<<<<< Updated upstream
 using Application.Service.fav;
+=======
+using Application.Service.DepartmentAdminService.Avilabilaties;
+using Application.Service.DepartmentAdminService.CurrentDpartmentAdmin;
+using Application.Service.DepartmentAdminService.Unit;
+using Application.Service.DepartmentAdminService.UnitRegistration;
+>>>>>>> Stashed changes
 using Application.Service.Policy;
 using Application.Service.publicuser;
 using Application.Service.Report;
@@ -77,8 +84,16 @@ public static class InfraDependencies
         Services.AddScoped<IUnitTypeService, UnitTypeService>();
         Services.AddScoped<IBookingService, BookingService>();
         Services.AddScoped<IReportService,ReportService>();
+<<<<<<< Updated upstream
         Services.AddScoped<IPublicServise,PublicService>();
         Services.AddScoped<IFavService,FavService>();
+=======
+        Services.AddScoped<ICurrentDpartmentAdmin, CurrentDpartmentAdmin>();
+        Services.AddScoped<ICAUnitRegistrationService, CAUnitRegistrationService>();
+        Services.AddScoped<IDAavailabilityService, DAvailabilityService>();
+        Services.AddScoped<IDAUnitService, DAUnitService>();
+
+>>>>>>> Stashed changes
         Services.AddProblemDetails();
 
 
@@ -96,6 +111,7 @@ public static class InfraDependencies
 
         return Services;
     }
+
 
     public static IServiceCollection AddFluentValidation(this IServiceCollection Services)
     {
@@ -150,7 +166,7 @@ public static class InfraDependencies
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
             options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
         }).AddJwtBearer(o =>
-        {
+        {   
             o.SaveToken = true;
             o.TokenValidationParameters = new TokenValidationParameters
             {
