@@ -1,9 +1,12 @@
-﻿using Application.Contracts.UnitRegisteration;
+﻿using Application.Abstraction;
+using Application.Contracts.UnitRegisteration;
 using Application.Extensions;
 using Application.Service.UnitRegistration;
+using Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Hajzzy.Controllers;
 
@@ -37,6 +40,8 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
         });
     }
 
+
+
     /// <summary>
     /// Check if an email is available (Anonymous)
     /// </summary>
@@ -55,7 +60,16 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
     }
 
     // ============= ADMIN ENDPOINTS =============
+    [HttpGet("{requestId}/processing-status")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetProcessingStatus(int requestId)
+    {
+        var result = await _service.GetProcessingStatusAsync(requestId);
 
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
     /// <summary>
     /// Get all registration requests with filtering (Admin only)
     /// </summary>

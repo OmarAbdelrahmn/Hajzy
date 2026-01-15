@@ -3,6 +3,7 @@ using Application.Contracts.UnitRegisteration;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using static Application.Service.UnitRegistration.UnitRegistrationService;
 
 namespace Application.Service.UnitRegistration;
 
@@ -19,6 +20,7 @@ public interface IUnitRegistrationService
     Task<Result<bool>> IsEmailAvailableAsync(string email);
 
     // ============= ADMIN OPERATIONS =============
+    Task<Result<ImageProcessingStatusDto>> GetProcessingStatusAsync(int requestId);
 
     /// <summary>
     /// Get all registration requests with filtering

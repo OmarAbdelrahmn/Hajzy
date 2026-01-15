@@ -39,19 +39,45 @@ public class UnitRegistrationService(
 
 
     // ============= PUBLIC METHODS =============
+    public async Task<Result<ImageProcessingStatusDto>> GetProcessingStatusAsync(int requestId)
+    {
+        var request = await _context.Set<UnitRegistrationRequest>()
+            .AsNoTracking()
+            .Where(r => r.Id == requestId)
+            .Select(r => new ImageProcessingStatusDto
+            {
+                RequestId = r.Id,
+                Status = r.ImageProcessingStatus,
+                ProcessedAt = r.ImagesProcessedAt,
+                Error = r.ImageProcessingError,
+                TotalImages = r.ImageCount
+            })
+            .FirstOrDefaultAsync();
 
+        if (request == null)
+            return Result.Failure<ImageProcessingStatusDto>(
+                new Error("NotFound", "Request not found", 404));
+
+        return Result.Success(request);
+    }
+
+    // DTO
+    public class ImageProcessingStatusDto
+    {
+        public int RequestId { get; set; }
+        public ImageProcessingStatus Status { get; set; }
+        public DateTime? ProcessedAt { get; set; }
+        public string? Error { get; set; }
+        public int TotalImages { get; set; }
+        public string StatusDisplay => Status.ToString();
+    }
     public async Task<Result<int>> SubmitRegistrationAsync(SubmitUnitRegistrationRequest request)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
 
         try
         {
-            // 1. Validate email isn't already in use
-            //var emailExists = await _userManager.FindByEmailAsync(request.OwnerEmail) != null;
-            //if (emailExists)
-            //    return Result.Failure<int>(
-            //        new Error("EmailInUse", "This email is already registered", 400));
-
+            // 1. Check for existing pending request
             var existingRequest = await _context.Set<UnitRegistrationRequest>()
                 .AnyAsync(r => r.OwnerEmail == request.OwnerEmail &&
                               r.Status == RegistrationRequestStatus.Pending);
@@ -61,7 +87,7 @@ public class UnitRegistrationService(
                     new Error("PendingRequest",
                         "You already have a pending registration request", 400));
 
-            // 2. Validate department and unit type exist
+            // 2. Validate department and unit type
             var departmentExists = await _context.Departments
                 .AnyAsync(d => d.Id == request.DepartmentId && !d.IsDeleted);
 
@@ -98,16 +124,32 @@ public class UnitRegistrationService(
                 Bathrooms = request.Bathrooms,
 
                 Status = RegistrationRequestStatus.Pending,
-                SubmittedAt = DateTime.UtcNow.AddHours(3)
+                SubmittedAt = DateTime.UtcNow.AddHours(3),
+
+                // Temporary placeholder - will be updated by background job
+                ImageS3Keys = "[]",
+                ImageCount = 0
             };
 
             await _context.Set<UnitRegistrationRequest>().AddAsync(registrationRequest);
             await _context.SaveChangesAsync();
 
-            // 4. Upload images to S3
-            var uploadResult = await _s3Service.UploadRegistrationImagesAsync(
+            // 4. Quick upload of original images (NO processing yet)
+            //_logger.LogInformation(
+            //    "Starting quick upload for {Count} images, request {RequestId}",
+            //    request.Images.Count, registrationRequest.Id);
+
+            var uploadResult = await _s3Service.UploadRegistrationImagesQuickAsync(
                 request.Images,
                 registrationRequest.Id);
+
+            //_logger.LogInformation(
+            //"Upload result - IsSuccess: {IsSuccess}, Value count: {Count}, Value is null: {IsNull}",
+            //uploadResult.IsSuccess,
+            //uploadResult.Value?.Count ?? -1,
+            //uploadResult.Value == null);
+
+
 
             if (!uploadResult.IsSuccess)
             {
@@ -115,17 +157,36 @@ public class UnitRegistrationService(
                 return Result.Failure<int>(uploadResult.Error);
             }
 
-            // 5. Store S3 keys as JSON
+            //_logger.LogInformation(
+            //    "Quick upload completed for request {RequestId}. Uploaded {Count} images",
+            //    registrationRequest.Id, uploadResult.Value.Count);
+
+            // 5. Store temporary S3 keys (originals, not processed yet)
             registrationRequest.ImageS3Keys = JsonSerializer.Serialize(uploadResult.Value);
             registrationRequest.ImageCount = uploadResult.Value.Count;
+            registrationRequest.ImageProcessingStatus = ImageProcessingStatus.Processing; // ✅ Done!
+            registrationRequest.ImagesProcessedAt = DateTime.UtcNow.AddHours(3);
+
+            _context.Entry(registrationRequest).State = EntityState.Modified;
+
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            // 6. Send confirmation email to requester
+            //// 6. Enqueue background job to process images (convert to WebP)
+            var jobId = BackgroundJob.Enqueue<ImageProcessingJob>(
+                job => job.ProcessRegistrationImagesAsync(
+                    registrationRequest.Id,
+                    uploadResult.Value));
+
+            //_logger.LogInformation(
+            //    "Enqueued image processing job {JobId} for request {RequestId}",
+            //    jobId, registrationRequest.Id);
+
+            // 7. Send confirmation email
             await SendRequestConfirmationEmailAsync(registrationRequest);
 
-            // 7. Notify admins of new request
+            // 8. Notify admins
             await NotifyAdminsOfNewRequestAsync(registrationRequest);
 
             return Result.Success(registrationRequest.Id);
@@ -140,6 +201,106 @@ public class UnitRegistrationService(
                     "Failed to submit registration request. Please try again.", 500));
         }
     }
+    //public async Task<Result<int>> SubmitRegistrationAsync(SubmitUnitRegistrationRequest request)
+    //{
+    //    using var transaction = await _context.Database.BeginTransactionAsync();
+
+    //    try
+    //    {
+    //        // 1. Validate email isn't already in use
+    //        //var emailExists = await _userManager.FindByEmailAsync(request.OwnerEmail) != null;
+    //        //if (emailExists)
+    //        //    return Result.Failure<int>(
+    //        //        new Error("EmailInUse", "This email is already registered", 400));
+
+    //        var existingRequest = await _context.Set<UnitRegistrationRequest>()
+    //            .AnyAsync(r => r.OwnerEmail == request.OwnerEmail &&
+    //                          r.Status == RegistrationRequestStatus.Pending);
+
+    //        if (existingRequest)
+    //            return Result.Failure<int>(
+    //                new Error("PendingRequest",
+    //                    "You already have a pending registration request", 400));
+
+    //        // 2. Validate department and unit type exist
+    //        var departmentExists = await _context.Departments
+    //            .AnyAsync(d => d.Id == request.DepartmentId && !d.IsDeleted);
+
+    //        if (!departmentExists)
+    //            return Result.Failure<int>(
+    //                new Error("InvalidDepartment", "Invalid department selected", 400));
+
+    //        var unitTypeExists = await _context.UnitTypes
+    //            .AnyAsync(ut => ut.Id == request.UnitTypeId && ut.IsActive);
+
+    //        if (!unitTypeExists)
+    //            return Result.Failure<int>(
+    //                new Error("InvalidUnitType", "Invalid unit type selected", 400));
+
+    //        // 3. Create registration request entity
+    //        var registrationRequest = new UnitRegistrationRequest
+    //        {
+    //            OwnerFullName = request.OwnerFullName,
+    //            OwnerEmail = request.OwnerEmail.ToLowerInvariant(),
+    //            OwnerPhoneNumber = request.OwnerPhoneNumber,
+    //            OwnerPassword = new PasswordHasher<ApplicationUser>()
+    //                .HashPassword(null!, request.OwnerPassword),
+
+    //            UnitName = request.UnitName,
+    //            Description = request.Description,
+    //            Address = request.Address,
+    //            DepartmentId = request.DepartmentId,
+    //            UnitTypeId = request.UnitTypeId,
+    //            Latitude = request.Latitude,
+    //            Longitude = request.Longitude,
+    //            BasePrice = request.BasePrice,
+    //            MaxGuests = request.MaxGuests,
+    //            Bedrooms = request.Bedrooms,
+    //            Bathrooms = request.Bathrooms,
+
+    //            Status = RegistrationRequestStatus.Pending,
+    //            SubmittedAt = DateTime.UtcNow.AddHours(3)
+    //        };
+
+    //        await _context.Set<UnitRegistrationRequest>().AddAsync(registrationRequest);
+    //        await _context.SaveChangesAsync();
+
+    //        // 4. Upload images to S3
+    //        var uploadResult = await _s3Service.UploadRegistrationImagesAsync(
+    //            request.Images,
+    //            registrationRequest.Id);
+
+    //        if (!uploadResult.IsSuccess)
+    //        {
+    //            await transaction.RollbackAsync();
+    //            return Result.Failure<int>(uploadResult.Error);
+    //        }
+
+    //        // 5. Store S3 keys as JSON
+    //        registrationRequest.ImageS3Keys = JsonSerializer.Serialize(uploadResult.Value);
+    //        registrationRequest.ImageCount = uploadResult.Value.Count;
+
+    //        await _context.SaveChangesAsync();
+    //        await transaction.CommitAsync();
+
+    //        // 6. Send confirmation email to requester
+    //        await SendRequestConfirmationEmailAsync(registrationRequest);
+
+    //        // 7. Notify admins of new request
+    //        await NotifyAdminsOfNewRequestAsync(registrationRequest);
+
+    //        return Result.Success(registrationRequest.Id);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        await transaction.RollbackAsync();
+    //        _logger.LogError(ex, "Error submitting registration request");
+
+    //        return Result.Failure<int>(
+    //            new Error("SubmissionFailed",
+    //                "Failed to submit registration request. Please try again.", 500));
+    //    }
+    //}
 
     public async Task<Result<bool>> IsEmailAvailableAsync(string email)
     {

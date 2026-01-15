@@ -7,21 +7,30 @@ using Microsoft.Extensions.Configuration;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Processing;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
 
 namespace Application.Service.S3Image;
 
-public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) : IS3ImageService
+public class S3ImageService : IS3ImageService
 {
-    private readonly IAmazonS3 s3Client = _s3Client;
-    private readonly string _bucketName =  configuration["AWS:S3:BucketName"] ?? throw new InvalidOperationException("S3 bucket name not configured");
-    private readonly string _cloudFrontDomain =  configuration["AWS:S3:Domain"] ?? "";
-    private readonly IConfiguration configuration = configuration;
+    private readonly IAmazonS3 _s3Client;
+    private readonly string _bucketName;
+    private readonly string _cloudFrontDomain;
+    private readonly IConfiguration _configuration;
 
+    public S3ImageService(
+        IAmazonS3 s3Client,
+        IConfiguration configuration)
+    {
+        _s3Client = s3Client;
+        _bucketName = configuration["AWS:S3:BucketName"]
+            ?? throw new InvalidOperationException("S3 bucket name not configured");
+        _cloudFrontDomain = configuration["AWS:S3:Domain"] ?? "";
+        _configuration = configuration;
+    }
+
+    /// <summary>
+    /// Upload and convert images to WebP in parallel - faster than sequential
+    /// </summary>
     public async Task<Result<List<string>>> UploadRegistrationImagesAsync(
         List<IFormFile> images,
         int requestId)
@@ -34,39 +43,76 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
             if (!validationResult.IsSuccess)
                 return Result.Failure<List<string>>(validationResult.Error);
 
-            var transferUtility = new TransferUtility(s3Client);
+            var transferUtility = new TransferUtility(_s3Client);
+            var semaphore = new SemaphoreSlim(5, 5); // Process 5 images concurrently
 
-            foreach (var (image, index) in images.Select((img, i) => (img, i)))
+            // Upload and convert to WebP in parallel
+            var uploadTasks = images.Select(async (image, index) =>
             {
-                var fileExtension = Path.GetExtension(image.FileName).ToLowerInvariant();
-                var s3Key = $"registrations/temp/request-{requestId}/{Guid.NewGuid()}.webp";
-
-                // Upload original
-                using var inputStream = image.OpenReadStream();
-                using var webpStream = new MemoryStream();
-                ConvertToWebp(inputStream, webpStream);
-                webpStream.Position = 0;
-                var uploadRequest = new TransferUtilityUploadRequest
+                await semaphore.WaitAsync();
+                try
                 {
-                    InputStream = webpStream,
-                    Key = s3Key,
-                    BucketName = _bucketName,
-                    ContentType = "image/webp",
-                    CannedACL = S3CannedACL.Private,
-                    Metadata =
-                    {
-                        ["original-filename"] = image.FileName,
-                        ["uploaded-at"] = DateTime.UtcNow.ToString("o"),
-                        ["request-id"] = requestId.ToString()
-                    }
-                };
+                    return await UploadAndConvertToWebPAsync(image, requestId, index, transferUtility);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
 
-                await transferUtility.UploadAsync(uploadRequest);
-                uploadedKeys.Add(s3Key);
+            uploadedKeys = (await Task.WhenAll(uploadTasks)).ToList();
 
-                // Generate ONLY thumbnail and medium
-                //await GenerateThreeSizesAsync(image, s3Key);
-            }
+            return Result.Success(uploadedKeys);
+        }
+        catch (Exception ex)
+        {
+            // Cleanup on failure
+            if (uploadedKeys.Any())
+                await DeleteImagesAsync(uploadedKeys);
+
+            return Result.Failure<List<string>>(
+                new Error("UploadFailed", $"Failed to upload images: {ex.Message}", 500));
+        }
+    }
+
+    /// <summary>
+    /// Upload with WebP conversion - happens in parallel for speed
+    /// </summary>
+    /// 
+    /// <summary>
+    /// Quick upload of original images - NO processing, just raw upload
+    /// Background job will handle conversion later
+    /// </summary>
+    public async Task<Result<List<string>>> UploadRegistrationImagesQuickAsync(
+        List<IFormFile> images,
+        int requestId)
+    {
+        var uploadedKeys = new List<string>();
+
+        try
+        {
+            var validationResult = ValidateImages(images);
+            if (!validationResult.IsSuccess)
+                return Result.Failure<List<string>>(validationResult.Error);
+
+            var transferUtility = new TransferUtility(_s3Client);
+            var semaphore = new SemaphoreSlim(5, 5); // 5 concurrent uploads
+
+            // Upload originals in parallel - FAST
+            var uploadTasks = images.Select(async (image, index) =>
+            {
+                await semaphore.WaitAsync();
+                try
+                {
+                    return await UploadOriginalAsync(image, requestId, index, transferUtility);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+
+            uploadedKeys = (await Task.WhenAll(uploadTasks)).ToList();
 
             return Result.Success(uploadedKeys);
         }
@@ -80,19 +126,87 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
         }
     }
 
+    /// <summary>
+    /// Upload original image without any processing - FAST
+    /// </summary>
+    private async Task<string> UploadOriginalAsync(
+        IFormFile image,
+        int requestId,
+        int index,
+        TransferUtility transferUtility)
+    {
+        var extension = Path.GetExtension(image.FileName).ToLowerInvariant();
+        var s3Key = $"registrations/temp/request-{requestId}/{Guid.NewGuid()}{extension}";
+
+        using var stream = image.OpenReadStream();
+
+        var uploadRequest = new TransferUtilityUploadRequest
+        {
+            InputStream = stream,
+            Key = s3Key,
+            BucketName = _bucketName,
+            ContentType = image.ContentType,
+            CannedACL = S3CannedACL.Private,
+            Metadata =
+        {
+            ["original-filename"] = image.FileName,
+            ["uploaded-at"] = DateTime.UtcNow.ToString("o"),
+            ["request-id"] = requestId.ToString(),
+            ["index"] = index.ToString()
+        }
+        };
+
+        await transferUtility.UploadAsync(uploadRequest);
+        return s3Key;
+    }
+    private async Task<string> UploadAndConvertToWebPAsync(
+        IFormFile image,
+        int requestId,
+        int index,
+        TransferUtility transferUtility)
+    {
+        var s3Key = $"registrations/temp/request-{requestId}/{Guid.NewGuid()}.webp";
+
+        // Convert to WebP in background thread (CPU-bound work)
+        using var inputStream = image.OpenReadStream();
+        using var webpStream = new MemoryStream();
+
+        await Task.Run(() => ConvertToWebp(inputStream, webpStream));
+        webpStream.Position = 0;
+
+        var uploadRequest = new TransferUtilityUploadRequest
+        {
+            InputStream = webpStream,
+            Key = s3Key,
+            BucketName = _bucketName,
+            ContentType = "image/webp",
+            CannedACL = S3CannedACL.Private,
+            Metadata =
+            {
+                ["original-filename"] = image.FileName,
+                ["uploaded-at"] = DateTime.UtcNow.ToString("o"),
+                ["request-id"] = requestId.ToString(),
+                ["index"] = index.ToString()
+            }
+        };
+
+        await transferUtility.UploadAsync(uploadRequest);
+        return s3Key;
+    }
+
+ 
     private static void ConvertToWebp(Stream input, Stream output)
     {
         using var image = Image.Load(input);
 
         var encoder = new WebpEncoder
         {
-            Quality = 75,
-            SkipMetadata = true
+            Quality = 75 // Just quality setting, use defaults for rest
         };
 
         image.Save(output, encoder);
     }
-    // Service Implementation
+    // Keep existing methods...
     public async Task<Result<List<string>>> MoveImagesToUnitAsync(
         List<string> tempS3Keys,
         int unitId)
@@ -101,18 +215,15 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
 
         try
         {
-            // Validate input
             if (!tempS3Keys.Any())
                 return Result.Failure<List<string>>(
                     new Error("NoImages", "No images to move", 400));
 
             foreach (var tempKey in tempS3Keys)
             {
-                // Generate new permanent key
                 var fileName = Path.GetFileName(tempKey);
                 var newKey = $"units/{unitId}/images/{fileName}";
 
-                // Copy original image
                 var copyRequest = new CopyObjectRequest
                 {
                     SourceBucket = _bucketName,
@@ -125,42 +236,33 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
 
                 var copyResponse = await _s3Client.CopyObjectAsync(copyRequest);
 
-                // Verify copy succeeded
                 if (copyResponse.HttpStatusCode != System.Net.HttpStatusCode.OK)
                 {
                     throw new Exception($"Failed to copy {tempKey} to {newKey}");
                 }
 
                 movedKeys.Add(newKey);
-
-                // Copy thumbnails
-              //  await CopyThumbnailsAsync(tempKey, newKey);
             }
 
-            // Delete temp files only after ALL copies succeed
             var deleteResult = await DeleteImagesAsync(tempS3Keys);
             if (!deleteResult.IsSuccess)
             {
-                // Log warning but don't fail - images are already copied
                 Console.WriteLine($"Warning: Failed to delete temp files: {deleteResult.Error?.Description}");
             }
 
-            // Return the new S3 keys so they can be saved to database
             return Result.Success(movedKeys);
         }
         catch (Exception ex)
         {
-            // Cleanup: try to delete any successfully moved files
             if (movedKeys.Any())
             {
                 try
                 {
                     await DeleteImagesAsync(movedKeys);
                 }
-                catch (AmazonS3Exception exe) when (exe.StatusCode == System.Net.HttpStatusCode.NotFound)
+                catch (Exception cleanupEx)
                 {
-                    // Thumbnails don't exist, continue without them
-                    Console.WriteLine($"No thumbnails found for {exe}");
+                    Console.WriteLine($"Cleanup failed: {cleanupEx.Message}");
                 }
             }
 
@@ -169,66 +271,6 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
         }
     }
 
-    private async Task<List<string>> CopyThumbnailsAsync(string sourceKey, string destKey)
-    {
-        var suffixes = new[] { "thumbnail", "small", "medium" };
-        var copiedThumbnails = new List<string>();
-
-        foreach (var suffix in suffixes)
-        {
-            try
-            {
-                var sourceThumbnail = GetThumbnailKey(sourceKey, suffix);
-                var destThumbnail = GetThumbnailKey(destKey, suffix);
-
-                // Check if source thumbnail exists first
-                try
-                {
-                    await _s3Client.GetObjectMetadataAsync(_bucketName, sourceThumbnail);
-                }
-                catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-                {
-                    // Source thumbnail doesn't exist, skip it
-                    Console.WriteLine($"Thumbnail not found: {sourceThumbnail}");
-                    continue;
-                }
-
-                var copyRequest = new CopyObjectRequest
-                {
-                    SourceBucket = _bucketName,
-                    SourceKey = sourceThumbnail,
-                    DestinationBucket = _bucketName,
-                    DestinationKey = destThumbnail,
-                    CannedACL = S3CannedACL.Private,
-                    MetadataDirective = S3MetadataDirective.COPY
-                };
-
-                var response = await _s3Client.CopyObjectAsync(copyRequest);
-
-                if (response.HttpStatusCode == System.Net.HttpStatusCode.OK)
-                {
-                    copiedThumbnails.Add(destThumbnail);
-                }
-            }
-            catch (Exception ex)
-            {
-                // Log but don't fail - thumbnails are optional
-                Console.WriteLine($"Failed to copy thumbnail {suffix}: {ex.Message}");
-            }
-        }
-
-        return copiedThumbnails;
-    }
-
-    //private string GetThumbnailKey(string originalKey, string suffix)
-    //{
-    //    var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
-    //    var filename = Path.GetFileNameWithoutExtension(originalKey);
-    //    var extension = Path.GetExtension(originalKey);
-
-    //    return $"{directory}/{filename}_{suffix}{extension}";
-    //}
-
     public async Task<Result> DeleteImagesAsync(List<string> s3Keys)
     {
         try
@@ -236,29 +278,13 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
             if (!s3Keys.Any())
                 return Result.Success();
 
-            // Collect all keys: original + thumbnail + medium
-            var allKeysToDelete = new List<string>();
-            foreach (var s3Key in s3Keys)
+            var deleteRequest = new DeleteObjectsRequest
             {
-                allKeysToDelete.Add(s3Key); // Original
-                allKeysToDelete.Add(GetThumbnailKey(s3Key));
-                allKeysToDelete.Add(GetMediumKey(s3Key));
-            }
+                BucketName = _bucketName,
+                Objects = s3Keys.Select(key => new KeyVersion { Key = key }).ToList()
+            };
 
-            // Filter out any nulls or empties
-            allKeysToDelete = allKeysToDelete.Where(k => !string.IsNullOrEmpty(k)).ToList();
-
-            if (allKeysToDelete.Any())
-            {
-                var deleteRequest = new DeleteObjectsRequest
-                {
-                    BucketName = _bucketName,
-                    Objects = allKeysToDelete.Select(key => new KeyVersion { Key = key }).ToList()
-                };
-
-                await s3Client.DeleteObjectsAsync(deleteRequest);
-            }
-
+            await _s3Client.DeleteObjectsAsync(deleteRequest);
             return Result.Success();
         }
         catch (Exception ex)
@@ -268,92 +294,26 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
         }
     }
 
-    private async Task GenerateThreeSizesAsync(IFormFile originalImage, string originalS3Key)
+    public async Task<Result<string>> GetPresignedUrlAsync(string s3Key, int expirationMinutes = 60)
     {
         try
         {
-            using var image = await Image.LoadAsync(originalImage.OpenReadStream());
-
-            // THUMBNAIL: 150x150
-            //await GenerateAndUploadThumbnailAsync(image, originalS3Key, 150, "thumbnail");
-
-            //// MEDIUM: 800x800
-            //await GenerateAndUploadThumbnailAsync(image, originalS3Key, 800, "medium");
-        }
-        catch
-        {
-            // Thumbnail generation is optional
-        }
-    }
-
-    private async Task GenerateAndUploadThumbnailAsync(
-        Image image,
-        string originalS3Key,
-        int size,
-        string suffix)
-    {
-        var resized = image.Clone(x => x.Resize(new ResizeOptions
-        {
-            Size = new Size(size, size),
-            Mode = ResizeMode.Max
-        }));
-
-        using var outputStream = new MemoryStream();
-        await resized.SaveAsJpegAsync(outputStream);
-        outputStream.Position = 0;
-
-        var thumbnailKey = GetSizedKey(originalS3Key, suffix);
-
-        var uploadRequest = new TransferUtilityUploadRequest
-        {
-            InputStream = outputStream,
-            Key = thumbnailKey,
-            BucketName = _bucketName,
-            ContentType = "image/jpeg",
-            CannedACL = S3CannedACL.Private
-        };
-
-        var transferUtility = new TransferUtility(s3Client);
-        await transferUtility.UploadAsync(uploadRequest);
-    }
-
-    private async Task CopyThreeSizesAsync(string sourceKey, string destKey)
-    {
-        var suffixes = new[] { "thumbnail", "medium" };
-
-        foreach (var suffix in suffixes)
-        {
-            try
+            var request = new GetPreSignedUrlRequest
             {
-                var sourceSized = GetSizedKey(sourceKey, suffix);
-                var destSized = GetSizedKey(destKey, suffix);
+                BucketName = _bucketName,
+                Key = s3Key,
+                Expires = DateTime.UtcNow.AddMinutes(expirationMinutes)
+            };
 
-                await s3Client.CopyObjectAsync(new CopyObjectRequest
-                {
-                    SourceBucket = _bucketName,
-                    SourceKey = sourceSized,
-                    DestinationBucket = _bucketName,
-                    DestinationKey = destSized,
-                    CannedACL = S3CannedACL.Private
-                });
-            }
-            catch
-            {
-                // Ignore errors
-            }
+            var url = _s3Client.GetPreSignedURL(request);
+            return Result.Success(url);
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure<string>(
+                new Error("UrlFailed", $"Failed to generate URL: {ex.Message}", 500));
         }
     }
-
-    private string GetSizedKey(string originalKey, string suffix)
-    {
-        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
-        var filename = Path.GetFileNameWithoutExtension(originalKey);
-        var extension = Path.GetExtension(originalKey);
-        return $"{directory}/{filename}_{suffix}{extension}";
-    }
-
-    private string GetThumbnailKey(string originalKey) => GetSizedKey(originalKey, "thumbnail");
-    private string GetMediumKey(string originalKey) => GetSizedKey(originalKey, "medium");
 
     public string GetCloudFrontUrl(string s3Key)
     {
@@ -394,41 +354,4 @@ public class S3ImageService(IAmazonS3 _s3Client, IConfiguration configuration) :
 
         return Result.Success();
     }
-
-    public async Task<Result<string>> GetPresignedUrlAsync(string s3Key, int expirationMinutes = 60)
-    {
-        try
-        {
-            var request = new GetPreSignedUrlRequest
-            {
-                BucketName = _bucketName,
-                Key = s3Key,
-                Expires = DateTime.UtcNow.AddMinutes(expirationMinutes)
-            };
-
-            var url = s3Client.GetPreSignedURL(request);
-            return Result.Success(url);
-        }
-        catch (Exception ex)
-        {
-            return Result.Failure<string>(
-                new Error("UrlFailed", $"Failed to generate URL: {ex.Message}", 500));
-        }
-    }
-
-
-  
-
-    private string GetThumbnailKey(string originalKey, string suffix)
-    {
-        var directory = Path.GetDirectoryName(originalKey);
-        var filename = Path.GetFileNameWithoutExtension(originalKey);
-        var extension = Path.GetExtension(originalKey);
-
-        return $"{directory}/{filename}_{suffix}{extension}";
-    }
-
-
-
 }
-

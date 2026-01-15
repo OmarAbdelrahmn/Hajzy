@@ -9,7 +9,6 @@ public class UnitRegistrationRequest
 {
     public int Id { get; set; }
 
-    // Request Status
     public RegistrationRequestStatus Status { get; set; } = RegistrationRequestStatus.Pending;
 
     [MaxLength(1000)]
@@ -26,7 +25,7 @@ public class UnitRegistrationRequest
     public string OwnerPhoneNumber { get; set; } = string.Empty;
 
     [Required, MaxLength(100)]
-    public string OwnerPassword { get; set; } = string.Empty; // Hashed before storing
+    public string OwnerPassword { get; set; } = string.Empty;
 
     // Unit Information
     [Required, MaxLength(200)]
@@ -46,18 +45,20 @@ public class UnitRegistrationRequest
 
     public decimal Latitude { get; set; }
     public decimal Longitude { get; set; }
-
     public decimal BasePrice { get; set; }
-
     public int? MaxGuests { get; set; }
     public int? Bedrooms { get; set; }
     public int? Bathrooms { get; set; }
 
-    // Images - Stored as JSON array of S3 keys
+    // Images
     [Required]
-    public string ImageS3Keys { get; set; } = "[]"; // JSON array: ["temp/request-123/img1.jpg", ...]
-
+    public string ImageS3Keys { get; set; } = "[]";
     public int ImageCount { get; set; }
+
+    // NEW: Image Processing Status
+    public ImageProcessingStatus ImageProcessingStatus { get; set; } = ImageProcessingStatus.Pending;
+    public DateTime? ImagesProcessedAt { get; set; }
+    public string? ImageProcessingError { get; set; }
 
     // Tracking
     public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;

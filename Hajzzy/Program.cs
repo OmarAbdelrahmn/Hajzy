@@ -1,7 +1,9 @@
 using Application;
 using Application.Notifications;
+using Application.Service.S3Image;
 using Hangfire;
 using Hangfire.Dashboard;
+using Hangfire.SqlServer;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +11,29 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 
 builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services.AddHangfire(configuration => configuration
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseSqlServerStorage(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        new SqlServerStorageOptions
+        {
+            CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+            SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+            QueuePollInterval = TimeSpan.Zero,
+            UseRecommendedIsolationLevel = true,
+            DisableGlobalLocks = true
+        }));
+
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = 5; // Number of concurrent jobs
+    options.Queues = new[] { "default", "image-processing" }; // Define queues
+});
+
+builder.Services.AddScoped<ImageProcessingJob>();
 
 
 builder.WebHost.ConfigureKestrel(options =>

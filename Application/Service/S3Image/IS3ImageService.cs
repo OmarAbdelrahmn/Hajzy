@@ -12,6 +12,10 @@ public interface IS3ImageService
         List<IFormFile> images,
         int requestId);
 
+    Task<Result<List<string>>> UploadRegistrationImagesQuickAsync(
+        List<IFormFile> images,
+        int requestId);
+
     Task<Result<List<string>>> MoveImagesToUnitAsync(
         List<string> tempS3Keys,
         int unitId);
