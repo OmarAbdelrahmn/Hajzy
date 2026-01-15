@@ -31,6 +31,7 @@ namespace Application.Service.DepartmentAdminService.Unit
         public async Task<Result<UnitResponse>> GetByIdAsync(int unitId)
         {
             var unit = await _context.Units
+                .Where(u => u.Id == unitId && u.CityId == _CurrentDepartmentAdmin.CityId && !u.IsDeleted)
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
                 .Include(u => u.CancellationPolicy)
@@ -38,7 +39,7 @@ namespace Application.Service.DepartmentAdminService.Unit
                     .ThenInclude(a => a.User)
                 .Include(u => u.Images.Where(i => !i.IsDeleted))
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == unitId && u.CityId == _CurrentDepartmentAdmin.CityId && !u.IsDeleted);
+                .FirstOrDefaultAsync();
 
             if (unit == null)
                 return Result.Failure<UnitResponse>(
@@ -50,6 +51,7 @@ namespace Application.Service.DepartmentAdminService.Unit
         public async Task<Result<UnitDetailsResponse>> GetDetailsAsync(int unitId)
         {
             var unit = await _context.Units
+                .Where(u => u.Id == unitId && u.CityId == _CurrentDepartmentAdmin.CityId  && !u.IsDeleted)
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
                 .Include(u => u.CancellationPolicy)
@@ -62,7 +64,7 @@ namespace Application.Service.DepartmentAdminService.Unit
                 .Include(u => u.Reviews)
                 .Include(u => u.Bookings)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == unitId && u.CityId == _CurrentDepartmentAdmin.CityId  && !u.IsDeleted);
+                .FirstOrDefaultAsync();
 
             if (unit == null)
                 return Result.Failure<UnitDetailsResponse>(
@@ -136,12 +138,13 @@ namespace Application.Service.DepartmentAdminService.Unit
             try
             {
                 var unit = await _context.Units
+                    .Where(u => u.Id == unitId && u.CityId == _CurrentDepartmentAdmin.CityId && !u.IsDeleted)
                     .Include(u => u.City)
                     .Include(u => u.UnitType)
                     .Include(u => u.CancellationPolicy)
                     .Include(u => u.Admins)
                     .Include(u => u.Images.Where(i => !i.IsDeleted))
-                    .FirstOrDefaultAsync(u => u.Id == unitId && u.CityId == _CurrentDepartmentAdmin.CityId && !u.IsDeleted);
+                    .FirstOrDefaultAsync();
 
                 if (unit == null)
                     return Result.Failure<UnitResponse>(
@@ -195,10 +198,11 @@ namespace Application.Service.DepartmentAdminService.Unit
             try
             {
                 var unit = await _context.Units
+                    .Where(u => u.Id == unitId && u.CityId == _CurrentDepartmentAdmin.CityId && !u.IsDeleted)
                     .Include(u => u.Rooms)
                     .Include(u => u.Bookings)
                     .Include(u => u.Admins)
-                    .FirstOrDefaultAsync(u => u.Id == unitId && u.CityId == _CurrentDepartmentAdmin.CityId);
+                    .FirstOrDefaultAsync();
 
                 if (unit == null)
                     return Result.Failure(
@@ -400,7 +404,7 @@ namespace Application.Service.DepartmentAdminService.Unit
                 var image = await _context.Set<Domain.Entities.UnitImage>()
                     .FirstOrDefaultAsync(i => i.Id == imageId &&
                                              i.UnitId == unitId &&
-                                             _CurrentDepartmentAdmin.CityId == i.Unit.CityId &&
+                                             i.Unit.CityId == _CurrentDepartmentAdmin.CityId &&
                                              !i.IsDeleted);
 
                 if (image == null)
@@ -417,7 +421,7 @@ namespace Application.Service.DepartmentAdminService.Unit
                     var nextPrimary = await _context.Set<Domain.Entities.UnitImage>()
                         .Where(i => i.UnitId == unitId &&
                                    i.Id != imageId &&
-                                    _CurrentDepartmentAdmin.CityId == i.Unit.CityId &&
+                                   i.Unit.CityId == _CurrentDepartmentAdmin.CityId &&
                                    !i.IsDeleted)
                         .OrderBy(i => i.DisplayOrder)
                         .FirstOrDefaultAsync();
@@ -588,10 +592,11 @@ namespace Application.Service.DepartmentAdminService.Unit
         public async Task<Result<UnitAdminsResponse>> GetUnitAdminsAsync(int unitId)
         {
             var unit = await _context.Units
+                .Where(u => u.Id == unitId && u.CityId == _CurrentDepartmentAdmin.CityId && !u.IsDeleted)
                 .Include(u => u.Admins.Where(a => a.IsActive))
                     .ThenInclude(a => a.User)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted && u.CityId == _CurrentDepartmentAdmin.CityId);
+                .FirstOrDefaultAsync();
 
             if (unit == null)
                 return Result.Failure<UnitAdminsResponse>(
@@ -619,12 +624,12 @@ namespace Application.Service.DepartmentAdminService.Unit
         public async Task<Result<IEnumerable<UnitResponse>>> GetAdminUnitsAsync(string userId)
         {
             var units = await _context.Units
+                .Where(u => !u.IsDeleted && u.Admins.Any(a => a.UserId == userId && a.IsActive)
+                         && u.CityId == _CurrentDepartmentAdmin.CityId)
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
                 .Include(u => u.Admins.Where(a => a.UserId == userId && a.IsActive))
                 .Include(u => u.Images.Where(i => !i.IsDeleted && i.IsPrimary))
-                .Where(u => !u.IsDeleted && u.Admins.Any(a => a.UserId == userId && a.IsActive)
-                         && u.CityId == _CurrentDepartmentAdmin.CityId)
                 .AsNoTracking()
                 .ToListAsync();
 
@@ -852,7 +857,6 @@ namespace Application.Service.DepartmentAdminService.Unit
         {
             var isAdmin = await _context.Set<UniteAdmin>()
                 .AnyAsync(a => a.UnitId == unitId && a.UserId == userId && a.IsActive);
-
             return Result.Success(isAdmin);
         }
 

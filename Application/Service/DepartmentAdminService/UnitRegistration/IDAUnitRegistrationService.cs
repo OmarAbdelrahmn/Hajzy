@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Application.Service.DepartmentAdminService.UnitRegistration
 {
-    public interface ICAUnitRegistrationService
+    public interface IDAUnitRegistrationService
     {
         /// <summary>
         /// Allows anonymous users to submit a hotel registration request

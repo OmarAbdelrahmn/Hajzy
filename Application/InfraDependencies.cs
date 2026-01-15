@@ -10,14 +10,13 @@ using Application.Service.Amenity;
 using Application.Service.Availability;
 using Application.Service.Booking;
 using Application.Service.Department;
-<<<<<<< Updated upstream
-using Application.Service.fav;
-=======
 using Application.Service.DepartmentAdminService.Avilabilaties;
+using Application.Service.DepartmentAdminService.Booking;
 using Application.Service.DepartmentAdminService.CurrentDpartmentAdmin;
+using Application.Service.DepartmentAdminService.Review;
 using Application.Service.DepartmentAdminService.Unit;
 using Application.Service.DepartmentAdminService.UnitRegistration;
->>>>>>> Stashed changes
+using Application.Service.fav;
 using Application.Service.Policy;
 using Application.Service.publicuser;
 using Application.Service.Report;
@@ -84,16 +83,17 @@ public static class InfraDependencies
         Services.AddScoped<IUnitTypeService, UnitTypeService>();
         Services.AddScoped<IBookingService, BookingService>();
         Services.AddScoped<IReportService,ReportService>();
-<<<<<<< Updated upstream
+
         Services.AddScoped<IPublicServise,PublicService>();
         Services.AddScoped<IFavService,FavService>();
-=======
+
         Services.AddScoped<ICurrentDpartmentAdmin, CurrentDpartmentAdmin>();
-        Services.AddScoped<ICAUnitRegistrationService, CAUnitRegistrationService>();
+        Services.AddScoped<IDAUnitRegistrationService, DAUnitRegistrationService>();
         Services.AddScoped<IDAavailabilityService, DAvailabilityService>();
         Services.AddScoped<IDAUnitService, DAUnitService>();
+        Services.AddScoped<IDAReviewService, DAReviewService>();
+        Services.AddScoped<IDABookingService, DABookingService>();
 
->>>>>>> Stashed changes
         Services.AddProblemDetails();
 
 

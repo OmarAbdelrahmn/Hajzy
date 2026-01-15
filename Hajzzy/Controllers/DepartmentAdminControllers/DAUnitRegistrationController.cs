@@ -7,11 +7,12 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Hajzzy.Controllers.CityAdmin
 {
-    [Route("api/[controller]")]
+    [Route("api/department-admin/[controller]")]
     [ApiController]
-    public class DAUnitRegistrationController(ICAUnitRegistrationService service) : ControllerBase
+    [Authorize(Roles = "DepartmentAdmin")]
+    public class DAUnitRegistrationController(IDAUnitRegistrationService service) : ControllerBase
     {
-        private readonly ICAUnitRegistrationService _service = service;
+        private readonly IDAUnitRegistrationService _service = service;
 
 
         // ============= PUBLIC ENDPOINTS (Anonymous) =============
@@ -19,41 +20,41 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Submit a new unit registration request (Anonymous)
         /// </summary>
-        //[HttpPost("submit")]
-        //[AllowAnonymous]
-        //[Consumes("multipart/form-data")]
-        //public async Task<IActionResult> SubmitRegistration(
-        //    [FromForm] SubmitUnitRegistrationRequest request)
-        //{
-        //    var result = await _service.SubmitRegistrationAsync(request);
+        [HttpPost("submit")]
+        [AllowAnonymous]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> SubmitRegistration(
+            [FromForm] SubmitUnitRegistrationRequest request)
+        {
+            var result = await _service.SubmitRegistrationAsync(request);
 
-        //    if (!result.IsSuccess)
-        //        return result.ToProblem();
+            if (!result.IsSuccess)
+                return result.ToProblem();
 
-        //    return Ok(new
-        //    {
-        //        Message = "Registration request submitted successfully. " +
-        //                  "You will receive an email once it's reviewed.",
-        //        RequestId = result.Value
-        //    });
-        //}
+            return Ok(new
+            {
+                Message = "Registration request submitted successfully. " +
+                          "You will receive an email once it's reviewed.",
+                RequestId = result.Value
+            });
+        }
 
         /// <summary>
-        /// Check if an email is available (Anonymous)
+        /// Check if an email is available(Anonymous)
         /// </summary>
-        //[HttpGet("check-email")]
-        //[AllowAnonymous]
-        //public async Task<IActionResult> CheckEmailAvailability([FromQuery] string email)
-        //{
-        //    if (string.IsNullOrWhiteSpace(email))
-        //        return BadRequest(new { Message = "Email is required" });
+        [HttpGet("check-email")]
+        [AllowAnonymous]
+        public async Task<IActionResult> CheckEmailAvailability([FromQuery] string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                return BadRequest(new { Message = "Email is required" });
 
-        //    var result = await _service.IsEmailAvailableAsync(email);
+            var result = await _service.IsEmailAvailableAsync(email);
 
-        //    return result.IsSuccess
-        //        ? Ok(new { Available = result.Value })
-        //        : result.ToProblem();
-        //}
+            return result.IsSuccess
+                ? Ok(new { Available = result.Value })
+                : result.ToProblem();
+        }
 
         // ============= ADMIN ENDPOINTS =============
 
@@ -62,8 +63,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Get all registration requests with filtering (CityAdmin only)
         /// </summary>
-        [HttpPost("CityAdmin/list")]
-
+        [HttpPost("list")]
         public async Task<IActionResult> GetAllRequests(
             [FromBody] UnitRegistrationListFilter filter)
         {
@@ -77,8 +77,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Get a specific registration request (CityAdmin only)
         /// </summary>
-        [HttpGet("CityAdmin/{requestId}")]
-
+        [HttpGet("{requestId}")]
         public async Task<IActionResult> GetRequestById(int requestId)
         {
             var result = await _service.GetRequestByIdAsync(requestId);
@@ -92,8 +91,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// Approve a registration request (CityAdmin only)
         /// Creates user account and unit
         /// </summary>
-        [HttpPost("CityAdmin/{requestId}/approve")]
-
+        [HttpPost("{requestId}/approve")]
         public async Task<IActionResult> ApproveRequest(int requestId)
         {
             var adminUserId = User.GetUserId();
@@ -115,8 +113,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Reject a registration request (CityAdmin only)
         /// </summary>
-        [HttpPost("CityAdmin/{requestId}/reject")]
-
+        [HttpPost("{equestId}/reject")]
         public async Task<IActionResult> RejectRequest(
             int requestId,
             [FromBody] CARejectRequestDto dto)
@@ -141,8 +138,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Delete a registration request (CityAdmin only)
         /// </summary>
-        [HttpDelete("CityAdmin/{requestId}")]
-
+        [HttpDelete("{requestId}")]
         public async Task<IActionResult> DeleteRequest(int requestId)
         {
             var result = await _service.DeleteRequestAsync(requestId);
@@ -155,8 +151,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Get registration statistics (CityAdmin only)
         /// </summary>
-        [HttpGet("CityAdmin/statistics")]
-
+        [HttpGet("statistics")]
         public async Task<IActionResult> GetStatistics()
         {
             var result = await _service.GetStatisticsAsync();
@@ -169,8 +164,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Resend credentials email to approved user (CityAdmin only)
         /// </summary>
-        [HttpPost("CityAdmin/{requestId}/resend-credentials")]
-
+        [HttpPost("{requestId}/resend-credentials")]
         public async Task<IActionResult> ResendCredentials(int requestId)
         {
             var result = await _service.ResendCredentialsEmailAsync(requestId);

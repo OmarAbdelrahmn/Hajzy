@@ -1,14 +1,16 @@
 ﻿using Application.Contracts.Unit;
 using Application.Extensions;
 using Application.Service.DepartmentAdminService.Unit;
+using Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hajzzy.Controllers.CityAdmin
 {
-    [Route("api/[controller]")]
+    [Route("api/department-admin/[controller]")]
     [ApiController]
+    [Authorize(Roles = "DepartmentAdmin")]
     public class DAUnitController (IDAUnitService service) : ControllerBase
     {
         private readonly IDAUnitService _service = service;
@@ -17,7 +19,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Get unit by ID
         /// </summary>
-        [HttpGet("DepartmentAdmin/{unitId}")]
+        [HttpGet("{unitId}")]
         public async Task<IActionResult> GetById(int unitId)
         {
             var result = await _service.GetByIdAsync(unitId);
@@ -27,7 +29,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Get unit details by ID (includes rooms, amenities, reviews, bookings)
         /// </summary>
-        [HttpGet("DepartmentAdmin/{unitId}/details")]
+        [HttpGet("{unitId}/details")]
         public async Task<IActionResult> GetDetails(int unitId)
         {
             var result = await _service.GetDetailsAsync(unitId);
@@ -37,7 +39,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Get all units with filtering and pagination
         /// </summary>
-        [HttpPost("DepartmentAdmin/filter")]
+        [HttpPost("filter")]
         public async Task<IActionResult> GetAll([FromBody] UnitFilter filter)
         {
             var result = await _service.GetAllAsync(filter);
@@ -47,8 +49,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Update an existing unit
         /// </summary>
-        [HttpPut("DepartmentAdmin/{unitId}")]
-
+        [HttpPut("{unitId}")]
         public async Task<IActionResult> Update(int unitId, [FromBody] UpdateUnitRequest request)
         {
             var result = await _service.UpdateAsync(unitId, request);
@@ -58,7 +59,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Delete a unit (soft delete by default)
         /// </summary>
-        [HttpDelete("DepartmentAdmin/{unitId}")]
+        [HttpDelete("{unitId}")]
         [Authorize(Roles = "DepartmentAdmin")]
         public async Task<IActionResult> Delete(int unitId, [FromQuery] bool softDelete = true)
         {
@@ -71,7 +72,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Restore a soft-deleted unit
         /// </summary>
-        [HttpPost("DepartmentAdmin/{unitId}/restore")]
+        [HttpPost("{unitId}/restore")]
         [Authorize(Roles = "DepartmentAdmin")]
         public async Task<IActionResult> Restore(int unitId)
         {
@@ -88,8 +89,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Toggle unit active status
         /// </summary>
-        [HttpPost("DepartmentAdmin/{unitId}/toggle-active")]
-
+        [HttpPost("{unitId}/toggle-active")]
         public async Task<IActionResult> ToggleActive(int unitId)
         {
             var result = await _service.ToggleActiveAsync(unitId);
@@ -101,7 +101,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Verify a unit (Admin only)
         /// </summary>
-        [HttpPost("DepartmentAdmin/{unitId}/verify")]
+        [HttpPost("{unitId}/verify")]
         [Authorize(Roles = "DepartmentAdmin")]
         public async Task<IActionResult> Verify(int unitId)
         {
@@ -118,7 +118,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Unverify a unit (Admin only)
         /// </summary>
-        [HttpPost("DepartmentAdmin/{unitId}/unverify")]
+        [HttpPost("{unitId}/unverify")]
         [Authorize(Roles = "DepartmentAdmin")]
         public async Task<IActionResult> Unverify(int unitId, [FromBody] UnverifyUnitRequest request)
         {
@@ -139,8 +139,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Upload images for a unit
         /// </summary>
-        [HttpPost("DepartmentAdmin/{unitId}/images")]
-
+        [HttpPost("{unitId}/images")]
         [RequestSizeLimit(100_000_000)]
         public async Task<IActionResult> UploadImages(
             int unitId,
@@ -159,8 +158,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Delete a specific image
         /// </summary>
-        [HttpDelete("DepartmentAdmin/{unitId}/images/{imageId}")]
-
+        [HttpDelete("{unitId}/images/{imageId}")]
         public async Task<IActionResult> DeleteImage(int unitId, int imageId)
         {
             var result = await _service.DeleteImageAsync(unitId, imageId);
@@ -172,8 +170,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Set primary image for a unit
         /// </summary>
-        [HttpPost("DepartmentAdmin/{unitId}/images/{imageId}/set-primary")]
-
+        [HttpPost("{unitId}/images/{imageId}/set-primary")]
         public async Task<IActionResult> SetPrimaryImage(int unitId, int imageId)
         {
             var result = await _service.SetPrimaryImageAsync(unitId, imageId);
@@ -185,8 +182,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Reorder unit images
         /// </summary>
-        [HttpPut("DepartmentAdmin/{unitId}/images/reorder")]
-
+        [HttpPut("{unitId}/images/reorder")]
         public async Task<IActionResult> ReorderImages(int unitId, [FromBody] ReorderImagesRequests request)
         {
             var result = await _service.ReorderImagesAsync(unitId, request.ImageIds);
@@ -215,7 +211,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Remove an admin from a unit
         /// </summary>
-        [HttpDelete("DepartmentAdmin/{unitId}/admins/{userId}")]
+        [HttpDelete("{unitId}/admins/{userId}")]
         [Authorize(Roles = "DepartmentAdmin")]
         public async Task<IActionResult> RemoveAdmin(int unitId, string userId)
         {
@@ -228,7 +224,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Get all admins for a unit
         /// </summary>
-        [HttpGet("DepartmentAdmin/{unitId}/admins")]
+        [HttpGet("{unitId}/admins")]
 
         public async Task<IActionResult> GetUnitAdmins(int unitId)
         {
@@ -239,8 +235,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Get all units managed by a specific admin
         /// </summary>
-        [HttpGet("DepartmentAdmin/admin/{userId}/units")]
-
+        [HttpGet("admin/{userId}/units")]
         public async Task<IActionResult> GetAdminUnits(string userId)
         {
             var result = await _service.GetAdminUnitsAsync(userId);
@@ -254,8 +249,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Attach a cancellation policy to a unit
         /// </summary>
-        [HttpPost("DepartmentAdmin/{unitId}/cancellation-policy/{policyId}")]
-
+        [HttpPost("{unitId}/cancellation-policy/{policyId}")]
         public async Task<IActionResult> AttachCancellationPolicy(int unitId, int policyId)
         {
             var result = await _service.AttachCancellationPolicyAsync(unitId, policyId);
@@ -267,8 +261,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Remove cancellation policy from a unit
         /// </summary>
-        [HttpDelete("DepartmentAdmin/{unitId}/cancellation-policy")]
-
+        [HttpDelete("{unitId}/cancellation-policy")]
         public async Task<IActionResult> RemoveCancellationPolicy(int unitId)
         {
             var result = await _service.RemoveCancellationPolicyAsync(unitId);
@@ -280,8 +273,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Attach a general policy to a unit
         /// </summary>
-        [HttpPost("DepartmentAdmin/{unitId}/general-policy/{policyId}")]
-
+        [HttpPost("{unitId}/general-policy/{policyId}")]
         public async Task<IActionResult> AttachGeneralPolicy(int unitId, int policyId)
         {
             var result = await _service.AttachGeneralPolicyAsync(unitId, policyId);
@@ -293,8 +285,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Remove a general policy from a unit
         /// </summary>
-        [HttpDelete("DepartmentAdmin/{unitId}/general-policy/{policyId}")]
-
+        [HttpDelete("{unitId}/general-policy/{policyId}")]
         public async Task<IActionResult> RemoveGeneralPolicy(int unitId, int policyId)
         {
             var result = await _service.RemoveGeneralPolicyAsync(unitId, policyId);
@@ -306,7 +297,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Get all policies for a unit
         /// </summary>
-        [HttpGet("DepartmentAdmin/{unitId}/policies")]
+        [HttpGet("{unitId}/policies")]
         public async Task<IActionResult> GetUnitPolicies(int unitId)
         {
             var result = await _service.GetUnitPoliciesAsync(unitId);
@@ -320,7 +311,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Get unit statistics
         /// </summary>
-        [HttpGet("DepartmentAdmin/{unitId}/statistics")]
+        [HttpGet("{unitId}/statistics")]
 
         public async Task<IActionResult> GetStatistics(int unitId)
         {
@@ -331,7 +322,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Search units by keyword
         /// </summary>
-        [HttpGet("DepartmentAdmin/search")]
+        [HttpGet("search")]
         public async Task<IActionResult> Search([FromQuery] string keyword)
         {
             if (string.IsNullOrWhiteSpace(keyword))
@@ -344,7 +335,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Get units by department/city
         /// </summary>
-        [HttpGet("DepartmentAdmin/departmentStatistics")]
+        [HttpGet("departmentStatistics")]
         public async Task<IActionResult> GetByDepartment()
         {
             var result = await _service.GetByDepartmentAsync();
@@ -354,7 +345,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Get units by type
         /// </summary>
-        [HttpGet("DepartmentAdmin/type/{typeId}")]
+        [HttpGet("type/{typeId}")]
         public async Task<IActionResult> GetByType(int typeId)
         {
             var result = await _service.GetByTypeAsync(typeId);
@@ -364,7 +355,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Get nearby units based on location
         /// </summary>
-        [HttpGet("DepartmentAdmin/nearby")]
+        [HttpGet("nearby")]
         public async Task<IActionResult> GetNearby(
             [FromQuery] decimal latitude,
             [FromQuery] decimal longitude,
@@ -381,7 +372,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Check if user can manage a unit
         /// </summary>
-        [HttpGet("DepartmentAdmin/{unitId}/can-manage")]
+        [HttpGet("{unitId}/can-manage")]
         [Authorize]
         public async Task<IActionResult> CanUserManage(int unitId)
         {
@@ -396,7 +387,7 @@ namespace Hajzzy.Controllers.CityAdmin
         /// <summary>
         /// Check if unit is available for specific dates
         /// </summary>
-        [HttpGet("DepartmentAdmin/{unitId}/availability")]
+        [HttpGet("{unitId}/availability")]
         public async Task<IActionResult> CheckAvailability(
             int unitId,
             [FromQuery] DateTime checkIn,

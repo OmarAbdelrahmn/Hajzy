@@ -21,24 +21,24 @@ using System.Text.Json;
 
 namespace Application.Service.DepartmentAdminService.UnitRegistration;
 
-public class CAUnitRegistrationService(
+public class DAUnitRegistrationService(
     ApplicationDbcontext context,
     UserManager<ApplicationUser> userManager,
     IS3ImageService s3Service,
     IEmailSender emailSender,
     IHttpContextAccessor httpContextAccessor,
-    ILogger<CAUnitRegistrationService> logger,
+    ILogger<DAUnitRegistrationService> logger,
     IConfiguration configuration,
     IAvailabilityService service,
     ICurrentDpartmentAdmin CurrentDepartmentAdmin
-) : ICAUnitRegistrationService
+) : IDAUnitRegistrationService
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly UserManager<ApplicationUser> _userManager = userManager;
     private readonly IS3ImageService _s3Service = s3Service;
     private readonly IEmailSender _emailSender = emailSender;
     private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
-    private readonly ILogger<CAUnitRegistrationService> _logger = logger;
+    private readonly ILogger<DAUnitRegistrationService> _logger = logger;
     private readonly IAvailabilityService _Service = service;
     private readonly ICurrentDpartmentAdmin _CurrentDepartmentAdmin = CurrentDepartmentAdmin;
 
@@ -61,6 +61,7 @@ public class CAUnitRegistrationService(
 
             var existingRequest = await _context.Set<UnitRegistrationRequest>()
                 .AnyAsync(r => r.OwnerEmail == request.OwnerEmail &&
+                             r.DepartmentId == _CurrentDepartmentAdmin.CityId &&
                               r.Status == RegistrationRequestStatus.Pending);
 
             if (existingRequest)
@@ -70,7 +71,7 @@ public class CAUnitRegistrationService(
 
             // 2. Validate department and unit type exist
             var departmentExists = await _context.Departments
-                .AnyAsync(d => d.Id == request.DepartmentId && !d.IsDeleted);
+                .AnyAsync(d => d.Id == _CurrentDepartmentAdmin.CityId  && !d.IsDeleted);
 
             if (!departmentExists)
                 return Result.Failure<int>(
@@ -95,7 +96,7 @@ public class CAUnitRegistrationService(
                 UnitName = request.UnitName,
                 Description = request.Description,
                 Address = request.Address,
-                DepartmentId = request.DepartmentId,
+                DepartmentId = _CurrentDepartmentAdmin.CityId ,
                 UnitTypeId = request.UnitTypeId,
                 Latitude = request.Latitude,
                 Longitude = request.Longitude,
@@ -156,6 +157,7 @@ public class CAUnitRegistrationService(
         var emailInUse = await _userManager.FindByEmailAsync(email) != null ||
                         await _context.Set<UnitRegistrationRequest>()
                             .AnyAsync(r => r.OwnerEmail == email &&
+                                       r.DepartmentId == _CurrentDepartmentAdmin.CityId &&
                                           r.Status == RegistrationRequestStatus.Pending);
 
         return Result.Success(!emailInUse);
@@ -239,10 +241,10 @@ public class CAUnitRegistrationService(
         try
         {
             var request = await _context.Set<UnitRegistrationRequest>()
-                .Where(r => r.DepartmentId == _CurrentDepartmentAdmin.CityId)
+                .Where(r => r.Id == requestId && r.DepartmentId == _CurrentDepartmentAdmin.CityId)
                 .Include(r => r.Department)
                 .Include(r => r.UnitType)
-                .FirstOrDefaultAsync(r => r.Id == requestId);
+                .FirstOrDefaultAsync();
 
             if (request == null)
                 return Result.Failure<ApprovalResult>(
@@ -600,7 +602,7 @@ public class CAUnitRegistrationService(
         {
             // Get all City Admins
             var cityAdmins = await _context.DepartmentAdmins
-                            .Where(ca => ca.CityId == request.DepartmentId && ca.IsActive)
+                            .Where(ca => ca.CityId == _CurrentDepartmentAdmin.CityId && ca.IsActive)
                             .Select(ca => ca.User)
                             .ToListAsync();
                                     ;

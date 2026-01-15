@@ -1,5 +1,4 @@
 ﻿using Application.Extensions;
-using Application.Service.DepartmentAdminService.CityAdminContext;
 using Domain;
 using Domain.Entities;
 using Microsoft.AspNetCore.Http;
