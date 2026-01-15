@@ -207,7 +207,7 @@ public class PublicService(
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
                 .Include(u => u.Images.Where(i => !i.IsDeleted))
-               // .Where(u => !u.IsDeleted && u.IsActive && u.IsVerified && u.IsFeatured)
+                // .Where(u => !u.IsDeleted && u.IsActive && u.IsVerified && u.IsFeatured)
                 .OrderByDescending(u => u.AverageRating)
                 .ThenByDescending(u => u.TotalReviews)
                 .Take(count)
@@ -687,4 +687,92 @@ public class PublicService(
     private static double ToRadians(double degrees) => degrees * Math.PI / 180;
 
     #endregion
+
+
+    public async Task<Result<IEnumerable<PublicOfferResponse>>> GetActiveOffersAsync()
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+
+            var offers = await _context.Set<Offer>()
+                .Include(o => o.Unit)
+                .Where(o => !o.IsDeleted &&
+                           o.IsActive &&
+                           o.StartDate <= now &&
+                           o.EndDate >= now)
+                .OrderByDescending(o => o.CreatedAt)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var responses = offers.Select(MapToPublicOfferResponse).ToList();
+            return Result.Success<IEnumerable<PublicOfferResponse>>(responses);
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure<IEnumerable<PublicOfferResponse>>(
+                new Error("GetFailed", "Failed to retrieve active offers", 500));
+        }
+    }
+
+    public async Task<Result<IEnumerable<PublicAdResponse>>> GetActiveAdsAsync()
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+
+            var ads = await _context.Set<Ad>()
+                .Include(a => a.Unit)
+                .Where(a => !a.IsDeleted &&
+                           a.IsActive &&
+                           a.StartDate <= now &&
+                           a.EndDate >= now)
+                .OrderByDescending(a => a.CreatedAt)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var responses = ads.Select(MapToPublicAdResponse).ToList();
+            return Result.Success<IEnumerable<PublicAdResponse>>(responses);
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure<IEnumerable<PublicAdResponse>>(
+                new Error("GetFailed", "Failed to retrieve active ads", 500));
+        }
+    }
+
+
+    private static PublicAdResponse MapToPublicAdResponse(Ad ad)
+    {
+        return new PublicAdResponse
+        {
+            Id = ad.Id,
+            Title = ad.Title,
+            Description = ad.Description,
+            ImageUrl = ad.ImageUrl,
+            UnitId = ad.UnitId,
+            UnitName = ad.Unit?.Name,
+            StartDate = ad.StartDate,
+            EndDate = ad.EndDate,
+            CreatedAt = ad.CreatedAt
+        };
+    }
+
+    private static PublicOfferResponse MapToPublicOfferResponse(Offer offer)
+    {
+        return new PublicOfferResponse
+        {
+            Id = offer.Id,
+            Title = offer.Title,
+            Description = offer.Description,
+            ImageUrl = offer.ImageUrl,
+            UnitId = offer.UnitId,
+            UnitName = offer.Unit?.Name,
+            StartDate = offer.StartDate,
+            EndDate = offer.EndDate,
+            DiscountPercentage = offer.DiscountPercentage,
+            DiscountAmount = offer.DiscountAmount,
+            CreatedAt = offer.CreatedAt
+        };
+    }
 }

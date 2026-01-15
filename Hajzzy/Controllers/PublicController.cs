@@ -259,4 +259,22 @@ public class PublicController(IPublicServise service) : ControllerBase
     //}
 
     #endregion
+
+    [HttpGet("offers")]
+    public async Task<IActionResult> GetActiveOffers()
+    {
+        var result = await _service.GetActiveOffersAsync();
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
+
+    [HttpGet("ads")]
+    public async Task<IActionResult> GetActiveAds()
+    {
+        var result = await _service.GetActiveAdsAsync();
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
 }

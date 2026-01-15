@@ -84,5 +84,43 @@ namespace Application.Service.publicuser;
         decimal latitude,
         decimal longitude,
         int radiusKm = 50);
+
+    Task<Result<IEnumerable<PublicAdResponse>>> GetActiveAdsAsync();
+
+
+    Task<Result<IEnumerable<PublicOfferResponse>>> GetActiveOffersAsync();
+
 }
+
+
+public record PublicAdResponse
+{
+    public int Id { get; init; }
+    public string? Title { get; init; }
+    public string? Description { get; init; }
+    public string? ImageUrl { get; init; }
+    public int? UnitId { get; init; }
+    public string? UnitName { get; init; }
+    public DateTime StartDate { get; init; }
+    public DateTime EndDate { get; init; }
+    public DateTime CreatedAt { get; init; }
+}
+
+// ============= PUBLIC OFFER DTOs =============
+
+public record PublicOfferResponse
+{
+    public int Id { get; init; }
+    public string? Title { get; init; }
+    public string? Description { get; init; }
+    public string? ImageUrl { get; init; }
+    public int? UnitId { get; init; }
+    public string? UnitName { get; init; }
+    public DateTime StartDate { get; init; }
+    public DateTime EndDate { get; init; }
+    public decimal? DiscountPercentage { get; init; }
+    public decimal? DiscountAmount { get; init; }
+    public DateTime CreatedAt { get; init; }
+}
+
 
