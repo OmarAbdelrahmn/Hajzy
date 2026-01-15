@@ -43,6 +43,7 @@ public class UnitComprehensiveResponse
     // Status
     public bool IsActive { get; set; }
     public bool IsVerified { get; set; }
+    public bool IsFeatuered { get; set; }
 
     // Ratings
     public decimal AverageRating { get; set; }

@@ -63,6 +63,8 @@ public class ApplicationDbcontext(DbContextOptions<ApplicationDbcontext> options
     public DbSet<FAQ> FAQs { get; set; }
     public DbSet<HowToUse> HowToUses { get; set; }
     public DbSet<PublicCancelPolicy> PublicCancelPolicies { get; set; }
+    public DbSet<Ad> Ads{ get; set; }
+    public DbSet<Offer> Offers{ get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

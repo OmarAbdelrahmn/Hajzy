@@ -66,4 +66,17 @@ public interface IUnitService
     Task<Result<bool>> CanUserManageUnitAsync(string userId, int unitId);
     Task<Result<bool>> IsUnitAvailableAsync(int unitId, DateTime checkIn, DateTime checkOut);
 
+    /// </summary>
+    Task<Result> ToggleFeaturedAsync(int unitId);
+
+    /// <summary>
+    /// Set unit as featured
+    /// </summary>
+    Task<Result> SetFeaturedAsync(int unitId, bool isFeatured);
+
+    /// <summary>
+    /// Get all featured units
+    /// </summary>
+    Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetFeaturedUnitsAsync(UnitFilter filter);
+
 }

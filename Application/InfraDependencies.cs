@@ -6,11 +6,13 @@ using Application.Authentication;
 using Application.Helpers;
 using Application.Notifications;
 using Application.Roles;
+using Application.Service.AdService;
 using Application.Service.Amenity;
 using Application.Service.Availability;
 using Application.Service.Booking;
 using Application.Service.Department;
 using Application.Service.fav;
+using Application.Service.OfferService;
 using Application.Service.Policy;
 using Application.Service.publicuser;
 using Application.Service.Report;
@@ -79,6 +81,11 @@ public static class InfraDependencies
         Services.AddScoped<IReportService,ReportService>();
         Services.AddScoped<IPublicServise,PublicService>();
         Services.AddScoped<IFavService,FavService>();
+        Services.AddScoped<IAdService,AdService>();
+        Services.AddScoped<IOfferService, OfferService>();
+        Services.AddScoped<AdExpirationJob>();
+        Services.AddScoped<OfferExpirationJob>();
+
         Services.AddProblemDetails();
 
 

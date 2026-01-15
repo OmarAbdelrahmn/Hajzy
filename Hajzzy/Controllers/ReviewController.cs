@@ -22,7 +22,7 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     [Authorize]
     public async Task<IActionResult> CreateReview([FromBody] CreateReviewRequest request)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var userId = User.GetUserId();
         request = request with { UserId = userId };
 
         var result = await _reviewService.CreateReviewAsync(request);
@@ -41,7 +41,7 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     [Authorize]
     public async Task<IActionResult> UpdateReview(int reviewId, [FromBody] UpdateReviewRequest request)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var userId = User.GetUserId();
         var result = await _reviewService.UpdateReviewAsync(reviewId, request, userId);
 
         return result.IsSuccess
@@ -58,7 +58,7 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     [Authorize]
     public async Task<IActionResult> DeleteReview(int reviewId)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var userId = User.GetUserId();
         var result = await _reviewService.DeleteReviewAsync(reviewId, userId);
 
         return result.IsSuccess
@@ -122,7 +122,7 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     [Authorize]
     public async Task<IActionResult> CheckReviewEligibility(int unitId)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var userId = User.GetUserId();
         var result = await _reviewService.GetReviewEligibilityAsync(userId, unitId);
 
         return result.IsSuccess
@@ -137,7 +137,7 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     [Authorize]
     public async Task<IActionResult> CanUserReview(int unitId)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var userId = User.GetUserId();
         var result = await _reviewService.CanUserReviewAsync(userId, unitId);
 
         return result.IsSuccess
@@ -156,7 +156,7 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
         int reviewId,
         [FromBody] AddOwnerResponseRequest request)
     {
-        var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var ownerId = User.GetUserId();
         var result = await _reviewService.AddOwnerResponseAsync(reviewId, request.Response, ownerId);
 
         return result.IsSuccess
@@ -173,7 +173,7 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetMyReviews([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var userId = User.GetUserId();
         var result = await _reviewService.GetUserReviewsAsync(userId, page, pageSize);
 
         return result.IsSuccess
@@ -190,7 +190,7 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     [Authorize]
     public async Task<IActionResult> MarkReviewHelpful(int reviewId)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var userId = User.GetUserId();
         var result = await _reviewService.MarkReviewHelpfulAsync(reviewId, userId);
 
         return result.IsSuccess

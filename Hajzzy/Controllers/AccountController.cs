@@ -55,7 +55,7 @@ public class AccountController(IUserService service) : ControllerBase
         if (Im.Image == null)
             return BadRequest(new { error = "No image file provided" });
 
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var userId = User.GetUserId();
         var result = await service.UploadUserAvatarAsync(userId, Im.Image);
 
         return result.IsSuccess
@@ -66,7 +66,7 @@ public class AccountController(IUserService service) : ControllerBase
     [HttpDelete("avatar")]
     public async Task<IActionResult> DeleteAvatar()
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var userId = User.GetUserId();
         var result = await service.DeleteUserAvatarAsync(userId);
 
         return result.IsSuccess

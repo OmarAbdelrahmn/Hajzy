@@ -399,6 +399,8 @@ public class UnitService(
             IsActive = unit.IsActive,
             IsVerified = unit.IsVerified,
 
+            IsFeatuered = unit.IsFeatured,
+
             AverageRating = unit.AverageRating,
             TotalReviews = unit.TotalReviews,
 
@@ -1370,6 +1372,120 @@ public class UnitService(
     }
 
     private static double ToRadians(double degrees) => degrees * Math.PI / 180;
+
+    #endregion
+
+
+    #region FEATURED UNITS
+
+    public async Task<Result> ToggleFeaturedAsync(int unitId)
+    {
+        var unit = await _context.Units
+            .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+
+        if (unit == null)
+            return Result.Failure(
+                new Error("NotFound", "Unit not found", 404));
+
+        unit.IsFeatured = !unit.IsFeatured;
+        unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Unit {UnitId} featured status toggled to {IsFeatured}",
+            unitId, unit.IsFeatured);
+
+        return Result.Success();
+    }
+
+    public async Task<Result> SetFeaturedAsync(int unitId, bool isFeatured)
+    {
+        var unit = await _context.Units
+            .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+
+        if (unit == null)
+            return Result.Failure(
+                new Error("NotFound", "Unit not found", 404));
+
+        unit.IsFeatured = isFeatured;
+        unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Unit {UnitId} featured status set to {IsFeatured}",
+            unitId, isFeatured);
+
+        return Result.Success();
+    }
+
+    public async Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetFeaturedUnitsAsync(
+        UnitFilter filter)
+    {
+        var query = _context.Units
+            .Include(u => u.City)
+            .Include(u => u.UnitType)
+            .Include(u => u.CancellationPolicy)
+            .Include(u => u.Admins.Where(a => a.IsActive))
+                .ThenInclude(a => a.User)
+            .Include(u => u.Images.Where(i => !i.IsDeleted))
+            .Include(u => u.UnitAmenities)
+                .ThenInclude(ua => ua.Amenity)
+            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                .ThenInclude(r => r.SubUnitImages.Where(i => !i.IsDeleted))
+            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                .ThenInclude(r => r.SubUnitAmenities)
+                .ThenInclude(sa => sa.Amenity)
+            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                .ThenInclude(r => r.SubUnitAvailabilities)
+            .Where(u => !u.IsDeleted && u.IsFeatured && u.IsActive && u.IsVerified)
+            .AsQueryable();
+
+        // Apply additional filters
+        if (!string.IsNullOrWhiteSpace(filter.Name))
+            query = query.Where(u => u.Name.Contains(filter.Name));
+
+        if (filter.CityId.HasValue)
+            query = query.Where(u => u.CityId == filter.CityId.Value);
+
+        if (filter.UnitTypeId.HasValue)
+            query = query.Where(u => u.UnitTypeId == filter.UnitTypeId.Value);
+
+        if (filter.MinPrice.HasValue)
+            query = query.Where(u => u.BasePrice >= filter.MinPrice.Value);
+
+        if (filter.MaxPrice.HasValue)
+            query = query.Where(u => u.BasePrice <= filter.MaxPrice.Value);
+
+        if (filter.MinRating.HasValue)
+            query = query.Where(u => u.AverageRating >= filter.MinRating.Value);
+
+        // Sorting (default by rating for featured units)
+        query = ApplySorting(query, filter.SortBy ?? "Rating", filter.SortDirection ?? "DESC");
+
+        // Pagination
+        var skip = (filter.Page - 1) * filter.PageSize;
+
+        var units = await query
+            .Skip(skip)
+            .Take(filter.PageSize)
+            .AsNoTracking()
+            .ToListAsync();
+
+        // Get general policies
+        var unitIds = units.Select(u => u.Id).ToList();
+        var generalPolicies = await _context.GeneralPolicies
+            .Include(p => p.CancellationPolicy)
+            .Where(p => unitIds.Contains(p.UnitId.Value) && p.IsActive)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var responses = units.Select(u => MapToComprehensiveResponse(u,
+            generalPolicies.Where(p => p.UnitId == u.Id).ToList())).ToList();
+
+        return Result.Success<IEnumerable<UnitComprehensiveResponse>>(responses);
+    }
 
     #endregion
 }

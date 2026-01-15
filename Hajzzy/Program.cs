@@ -42,6 +42,7 @@ builder.WebHost.ConfigureKestrel(options =>
 });
 
 
+
 var app = builder.Build();
 
 //if (app.Environment.IsDevelopment())
@@ -76,6 +77,7 @@ RecurringJob.AddOrUpdate<INotinficationService>(
     x => x.SendPharmacyNotification(),
     Cron.Monthly);
 
+BackgroundJobsConfiguration.ConfigureRecurringJobs();
 
 
 

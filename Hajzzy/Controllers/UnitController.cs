@@ -422,8 +422,43 @@ public class UnitController(IUnitService service) : ControllerBase
     }
 
     #endregion
+    [HttpPost("{unitId}/toggle-featured")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin")]
+    public async Task<IActionResult> ToggleFeatured(int unitId)
+    {
+        var result = await _service.ToggleFeaturedAsync(unitId);
+        return result.IsSuccess
+            ? Ok(new { message = "Featured status toggled successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Set unit featured status (Admin only)
+    /// </summary>
+    [HttpPut("{unitId}/featured")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin")]
+    public async Task<IActionResult> SetFeatured(int unitId, [FromBody] SetFeaturedRequest request)
+    {
+        var result = await _service.SetFeaturedAsync(unitId, request.IsFeatured);
+        return result.IsSuccess
+            ? Ok(new { message = $"Unit featured status set to {request.IsFeatured}" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Get all featured units (Public endpoint)
+    /// </summary>
+    [HttpGet("featured")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetFeaturedUnits([FromQuery] UnitFilter filter)
+    {
+        var result = await _service.GetFeaturedUnitsAsync(filter);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
 }
 
+// ============= REQUEST DTO =============
+public record SetFeaturedRequest(bool IsFeatured);
 // ============= REQUEST MODELS =============
 
 public record UnverifyUnitRequest
