@@ -1,8 +1,11 @@
-﻿using Application.Abstraction;
+﻿using Amazon.S3;
+using Amazon.S3.Transfer;
+using Application.Abstraction;
 using Application.Abstraction.Consts;
 using Application.Contracts.UnitRegisteration;
 using Application.Helpers;
 using Application.Service.Availability;
+using Application.Service.ImageProcessingJob;
 using Application.Service.S3Image;
 using Domain;
 using Domain.Consts;
@@ -14,6 +17,8 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Webp;
 using System.Text.Json;
 
 namespace Application.Service.UnitRegistration;
@@ -26,7 +31,8 @@ public class UnitRegistrationService(
     IHttpContextAccessor httpContextAccessor,
     ILogger<UnitRegistrationService> logger,
     IConfiguration configuration ,
-    IAvailabilityService service) : IUnitRegistrationService
+    IAvailabilityService service ,
+    IAmazonS3 amazonS3) : IUnitRegistrationService
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly UserManager<ApplicationUser> _userManager = userManager;
@@ -36,6 +42,7 @@ public class UnitRegistrationService(
     private readonly ILogger<UnitRegistrationService> _logger = logger;
     private readonly IConfiguration configuration = configuration;
     private readonly IAvailabilityService service = service;
+    private readonly IAmazonS3 amazonS3 = amazonS3;
 
 
     // ============= PUBLIC METHODS =============
@@ -102,7 +109,7 @@ public class UnitRegistrationService(
                 return Result.Failure<int>(
                     new Error("InvalidUnitType", "Invalid unit type selected", 400));
 
-            // 3. Create registration request entity
+            // 3. Create registration request entity (NO IMAGES YET)
             var registrationRequest = new UnitRegistrationRequest
             {
                 OwnerFullName = request.OwnerFullName,
@@ -126,67 +133,20 @@ public class UnitRegistrationService(
                 Status = RegistrationRequestStatus.Pending,
                 SubmittedAt = DateTime.UtcNow.AddHours(3),
 
-                // Temporary placeholder - will be updated by background job
+                // ⚡ Images will be added in separate endpoint
                 ImageS3Keys = "[]",
-                ImageCount = 0
+                ImageCount = 0,
+                ImageProcessingStatus = ImageProcessingStatus.Pending
             };
 
             await _context.Set<UnitRegistrationRequest>().AddAsync(registrationRequest);
             await _context.SaveChangesAsync();
-
-            // 4. Quick upload of original images (NO processing yet)
-            //_logger.LogInformation(
-            //    "Starting quick upload for {Count} images, request {RequestId}",
-            //    request.Images.Count, registrationRequest.Id);
-
-            var uploadResult = await _s3Service.UploadRegistrationImagesQuickAsync(
-                request.Images,
-                registrationRequest.Id);
-
-            //_logger.LogInformation(
-            //"Upload result - IsSuccess: {IsSuccess}, Value count: {Count}, Value is null: {IsNull}",
-            //uploadResult.IsSuccess,
-            //uploadResult.Value?.Count ?? -1,
-            //uploadResult.Value == null);
-
-
-
-            if (!uploadResult.IsSuccess)
-            {
-                await transaction.RollbackAsync();
-                return Result.Failure<int>(uploadResult.Error);
-            }
-
-            //_logger.LogInformation(
-            //    "Quick upload completed for request {RequestId}. Uploaded {Count} images",
-            //    registrationRequest.Id, uploadResult.Value.Count);
-
-            // 5. Store temporary S3 keys (originals, not processed yet)
-            registrationRequest.ImageS3Keys = JsonSerializer.Serialize(uploadResult.Value);
-            registrationRequest.ImageCount = uploadResult.Value.Count;
-            registrationRequest.ImageProcessingStatus = ImageProcessingStatus.Processing; // ✅ Done!
-            registrationRequest.ImagesProcessedAt = DateTime.UtcNow.AddHours(3);
-
-            _context.Entry(registrationRequest).State = EntityState.Modified;
-
-
-            await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            //// 6. Enqueue background job to process images (convert to WebP)
-            var jobId = BackgroundJob.Enqueue<ImageProcessingJob>(
-                job => job.ProcessRegistrationImagesAsync(
-                    registrationRequest.Id,
-                    uploadResult.Value));
-
-            //_logger.LogInformation(
-            //    "Enqueued image processing job {JobId} for request {RequestId}",
-            //    jobId, registrationRequest.Id);
-
-            // 7. Send confirmation email
+            // Send confirmation email
             await SendRequestConfirmationEmailAsync(registrationRequest);
 
-            // 8. Notify admins
+            // Notify admins
             await NotifyAdminsOfNewRequestAsync(registrationRequest);
 
             return Result.Success(registrationRequest.Id);
@@ -194,113 +154,218 @@ public class UnitRegistrationService(
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            _logger.LogError(ex, "Error submitting registration request");
 
             return Result.Failure<int>(
                 new Error("SubmissionFailed",
                     "Failed to submit registration request. Please try again.", 500));
         }
     }
-    //public async Task<Result<int>> SubmitRegistrationAsync(SubmitUnitRegistrationRequest request)
-    //{
-    //    using var transaction = await _context.Database.BeginTransactionAsync();
 
-    //    try
-    //    {
-    //        // 1. Validate email isn't already in use
-    //        //var emailExists = await _userManager.FindByEmailAsync(request.OwnerEmail) != null;
-    //        //if (emailExists)
-    //        //    return Result.Failure<int>(
-    //        //        new Error("EmailInUse", "This email is already registered", 400));
+    public async Task<Result<ImageUploadResult>> UploadRegistrationImagesAsync(
+        int requestId,
+        List<IFormFile> images)
+    {
+        try
+        {
+            // 1. Validate request exists and is pending
+            var request = await _context.Set<UnitRegistrationRequest>()
+                .FirstOrDefaultAsync(r => r.Id == requestId);
 
-    //        var existingRequest = await _context.Set<UnitRegistrationRequest>()
-    //            .AnyAsync(r => r.OwnerEmail == request.OwnerEmail &&
-    //                          r.Status == RegistrationRequestStatus.Pending);
+            if (request == null)
+                return Result.Failure<ImageUploadResult>(
+                    new Error("NotFound", "Registration request not found", 404));
 
-    //        if (existingRequest)
-    //            return Result.Failure<int>(
-    //                new Error("PendingRequest",
-    //                    "You already have a pending registration request", 400));
+            if (request.Status != RegistrationRequestStatus.Pending)
+                return Result.Failure<ImageUploadResult>(
+                    new Error("InvalidStatus", "Can only upload images for pending requests", 400));
 
-    //        // 2. Validate department and unit type exist
-    //        var departmentExists = await _context.Departments
-    //            .AnyAsync(d => d.Id == request.DepartmentId && !d.IsDeleted);
+            // 2. Validate images
+            var validationResult = ValidateImages(images);
+            if (!validationResult.IsSuccess)
+                return Result.Failure<ImageUploadResult>(validationResult.Error);
 
-    //        if (!departmentExists)
-    //            return Result.Failure<int>(
-    //                new Error("InvalidDepartment", "Invalid department selected", 400));
+            _logger.LogInformation(
+                "Starting image upload and processing for request {RequestId}, {Count} images",
+                requestId, images.Count);
 
-    //        var unitTypeExists = await _context.UnitTypes
-    //            .AnyAsync(ut => ut.Id == request.UnitTypeId && ut.IsActive);
+            // 3. Update status to Processing
+            request.ImageProcessingStatus = ImageProcessingStatus.Processing;
+            await _context.SaveChangesAsync();
 
-    //        if (!unitTypeExists)
-    //            return Result.Failure<int>(
-    //                new Error("InvalidUnitType", "Invalid unit type selected", 400));
+            // 4. Process images synchronously (convert to WebP THEN upload)
+            var uploadedKeys = new List<string>();
+            var failedImages = new List<string>();
+            var transferUtility = new TransferUtility(amazonS3);
 
-    //        // 3. Create registration request entity
-    //        var registrationRequest = new UnitRegistrationRequest
-    //        {
-    //            OwnerFullName = request.OwnerFullName,
-    //            OwnerEmail = request.OwnerEmail.ToLowerInvariant(),
-    //            OwnerPhoneNumber = request.OwnerPhoneNumber,
-    //            OwnerPassword = new PasswordHasher<ApplicationUser>()
-    //                .HashPassword(null!, request.OwnerPassword),
+            for (int i = 0; i < images.Count; i++)
+            {
+                var image = images[i];
 
-    //            UnitName = request.UnitName,
-    //            Description = request.Description,
-    //            Address = request.Address,
-    //            DepartmentId = request.DepartmentId,
-    //            UnitTypeId = request.UnitTypeId,
-    //            Latitude = request.Latitude,
-    //            Longitude = request.Longitude,
-    //            BasePrice = request.BasePrice,
-    //            MaxGuests = request.MaxGuests,
-    //            Bedrooms = request.Bedrooms,
-    //            Bathrooms = request.Bathrooms,
+                try
+                {
 
-    //            Status = RegistrationRequestStatus.Pending,
-    //            SubmittedAt = DateTime.UtcNow.AddHours(3)
-    //        };
+                    // Convert to WebP in memory FIRST
+                    using var inputStream = image.OpenReadStream();
+                    using var webpStream = new MemoryStream();
 
-    //        await _context.Set<UnitRegistrationRequest>().AddAsync(registrationRequest);
-    //        await _context.SaveChangesAsync();
+                    await ConvertToWebpAsync(inputStream, webpStream);
+                    webpStream.Position = 0;
 
-    //        // 4. Upload images to S3
-    //        var uploadResult = await _s3Service.UploadRegistrationImagesAsync(
-    //            request.Images,
-    //            registrationRequest.Id);
+                    // NOW upload the WebP to S3
+                    var s3Key = $"registrations/temp/request-{requestId}/{Guid.NewGuid()}.webp";
 
-    //        if (!uploadResult.IsSuccess)
-    //        {
-    //            await transaction.RollbackAsync();
-    //            return Result.Failure<int>(uploadResult.Error);
-    //        }
+                    var uploadRequest = new TransferUtilityUploadRequest
+                    {
+                        InputStream = webpStream,
+                        Key = s3Key,
+                        BucketName = "hujjzy-bucket",
+                        ContentType = "image/webp",
+                        CannedACL = S3CannedACL.Private,
+                        Metadata =
+                    {
+                        ["original-filename"] = image.FileName,
+                        ["uploaded-at"] = DateTime.UtcNow.ToString("o"),
+                        ["request-id"] = requestId.ToString(),
+                        ["index"] = i.ToString()
+                    }
+                    };
 
-    //        // 5. Store S3 keys as JSON
-    //        registrationRequest.ImageS3Keys = JsonSerializer.Serialize(uploadResult.Value);
-    //        registrationRequest.ImageCount = uploadResult.Value.Count;
+                    await transferUtility.UploadAsync(uploadRequest);
+                    uploadedKeys.Add(s3Key);
 
-    //        await _context.SaveChangesAsync();
-    //        await transaction.CommitAsync();
+                    _logger.LogDebug(
+                        "Successfully uploaded image {Index}/{Total}: {Key}",
+                        i + 1, images.Count, s3Key);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "Failed to process image {Index}/{Total}: {FileName}",
+                        i + 1, images.Count, image.FileName);
 
-    //        // 6. Send confirmation email to requester
-    //        await SendRequestConfirmationEmailAsync(registrationRequest);
+                    failedImages.Add(image.FileName);
+                }
+            }
 
-    //        // 7. Notify admins of new request
-    //        await NotifyAdminsOfNewRequestAsync(registrationRequest);
+            // 5. Update database with results
+            request.ImageS3Keys = JsonSerializer.Serialize(uploadedKeys);
+            request.ImageCount = uploadedKeys.Count;
+            request.ImagesProcessedAt = DateTime.UtcNow.AddHours(3);
 
-    //        return Result.Success(registrationRequest.Id);
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        await transaction.RollbackAsync();
-    //        _logger.LogError(ex, "Error submitting registration request");
+            if (failedImages.Count == 0)
+            {
+                request.ImageProcessingStatus = ImageProcessingStatus.Completed;
+                request.ImageProcessingError = null;
+            }
+            else if (uploadedKeys.Any())
+            {
+                request.ImageProcessingStatus = ImageProcessingStatus.Completed;
+                request.ImageProcessingError = $"{failedImages.Count} images failed: {string.Join(", ", failedImages)}";
+            }
+            else
+            {
+                request.ImageProcessingStatus = ImageProcessingStatus.Failed;
+                request.ImageProcessingError = "All images failed to upload";
+            }
 
-    //        return Result.Failure<int>(
-    //            new Error("SubmissionFailed",
-    //                "Failed to submit registration request. Please try again.", 500));
-    //    }
-    //}
+            await _context.SaveChangesAsync();
+
+
+            return Result.Success(new ImageUploadResult
+            {
+                RequestId = requestId,
+                TotalImages = images.Count,
+                SuccessfulUploads = uploadedKeys.Count,
+                FailedUploads = failedImages.Count,
+                FailedFileNames = failedImages,
+                UploadedKeys = uploadedKeys
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Critical error uploading images for request {RequestId}",
+                requestId);
+
+            // Update status to failed
+            try
+            {
+                var request = await _context.Set<UnitRegistrationRequest>()
+                    .FirstOrDefaultAsync(r => r.Id == requestId);
+
+                if (request != null)
+                {
+                    request.ImageProcessingStatus = ImageProcessingStatus.Failed;
+                    request.ImageProcessingError = ex.Message;
+                    await _context.SaveChangesAsync();
+                }
+            }
+            catch { /* Ignore secondary errors */ }
+
+            return Result.Failure<ImageUploadResult>(
+                new Error("UploadFailed",
+                    $"Failed to upload images: {ex.Message}", 500));
+        }
+    }
+
+    private Result ValidateImages(List<IFormFile> images)
+    {
+        if (images.Count < 1 || images.Count > 15)
+            return Result.Failure(
+                new Error("InvalidImageCount", "Between 1 and 15 images required", 400));
+
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+        var maxFileSize = 10 * 1024 * 1024; // 10MB
+
+        foreach (var image in images)
+        {
+            var extension = Path.GetExtension(image.FileName).ToLowerInvariant();
+
+            if (!allowedExtensions.Contains(extension))
+                return Result.Failure(
+                    new Error("InvalidFormat", $"Invalid image format: {extension}", 400));
+
+            if (image.Length > maxFileSize)
+                return Result.Failure(
+                    new Error("FileTooLarge", "Image size must be less than 10MB", 400));
+
+            if (image.Length == 0)
+                return Result.Failure(
+                    new Error("EmptyFile", "Empty image file detected", 400));
+        }
+
+        return Result.Success();
+    }
+
+    public class ImageUploadResult
+    {
+        public int RequestId { get; set; }
+        public int TotalImages { get; set; }
+        public int SuccessfulUploads { get; set; }
+        public int FailedUploads { get; set; }
+        public List<string> FailedFileNames { get; set; } = new();
+        public List<string> UploadedKeys { get; set; } = new();
+    }
+
+
+    private async Task ConvertToWebpAsync(Stream input, Stream output)
+    {
+        // Run CPU-intensive work on thread pool
+        await Task.Run(() =>
+        {
+            using var image = Image.Load(input);
+
+            var encoder = new WebpEncoder
+            {
+                Quality = 75,
+                Method = WebpEncodingMethod.Fastest,
+                SkipMetadata = true
+            };
+
+            image.Save(output, encoder);
+        });
+    }
+
 
     public async Task<Result<bool>> IsEmailAvailableAsync(string email)
     {
@@ -630,22 +695,6 @@ public class UnitRegistrationService(
                 new Error("ApprovalFailed",
                     $"Failed to approve registration request : {ex}", 500));
         }
-    }
-    private string GetThumbnailKey(string originalKey)
-    {
-        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
-        var filename = Path.GetFileNameWithoutExtension(originalKey);
-        var extension = Path.GetExtension(originalKey);
-
-        return $"{directory}/{filename}_thumb{extension}";
-    }
-
-    private string GetMediumKey(string originalKey)
-    {
-        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
-        var filename = Path.GetFileNameWithoutExtension(originalKey);
-        var extension = Path.GetExtension(originalKey);
-        return $"{directory}/{filename}_medium{extension}";
     }
 
     public async Task<Result> RejectRequestAsync(

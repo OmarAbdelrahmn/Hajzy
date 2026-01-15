@@ -63,11 +63,6 @@ public record SubmitUnitRegistrationRequest
     [Range(0, 100)]
     public int? Bathrooms { get; init; }
 
-    // Images (1-15 required)
-    [Required]
-    [MinLength(1, ErrorMessage = "At least 1 image is required")]
-    [MaxLength(15, ErrorMessage = "Maximum 15 images allowed")]
-    public List<IFormFile> Images { get; init; } = new();
 }
 
 // ============= RESPONSES =============

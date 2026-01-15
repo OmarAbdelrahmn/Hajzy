@@ -39,6 +39,23 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
             RequestId = result.Value
         });
     }
+    
+    [HttpPost("submit-images")]
+    [AllowAnonymous]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> SubmitimagesRegistration(
+        int requestId,
+        [FromForm] List<IFormFile> request)
+    {
+        var result = await _service.UploadRegistrationImagesAsync(requestId,request);
+
+        if (!result.IsSuccess)
+            return result.ToProblem();
+
+        return Ok(
+              result.Value
+        );
+    }
 
 
 

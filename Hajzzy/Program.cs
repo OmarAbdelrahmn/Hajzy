@@ -1,6 +1,6 @@
 using Application;
 using Application.Notifications;
-using Application.Service.S3Image;
+using Application.Service.ImageProcessingJob;
 using Hangfire;
 using Hangfire.Dashboard;
 using Hangfire.SqlServer;

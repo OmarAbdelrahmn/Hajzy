@@ -1,5 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.UnitRegisteration;
+using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -12,7 +13,16 @@ public interface IUnitRegistrationService
     /// <summary>
     /// Allows anonymous users to submit a hotel registration request
     /// </summary>
+    //Task<Result<int>> SubmitRegistrationAsync(SubmitUnitRegistrationRequest request);
+
     Task<Result<int>> SubmitRegistrationAsync(SubmitUnitRegistrationRequest request);
+
+    /// <summary>
+    /// Upload and process images for existing registration - Can take time
+    /// </summary>
+    Task<Result<ImageUploadResult>> UploadRegistrationImagesAsync(
+        int requestId,
+        List<IFormFile> images);
 
     /// <summary>
     /// Check if email is already in use
