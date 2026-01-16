@@ -17,23 +17,16 @@ using System.Threading.Tasks;
 
 namespace Application.Service.AdService;
 
-public class AdService : IAdService
+public class AdService(
+    ApplicationDbcontext context,
+    IAmazonS3 s3Client,
+    ILogger<AdService> logger) : IAdService
 {
-    private readonly ApplicationDbcontext _context;
-    private readonly IAmazonS3 _s3Client;
-    private readonly ILogger<AdService> _logger;
-    private const string CloudFrontUrl = "https://d1rbym46fprmwk.cloudfront.net";
+    private readonly ApplicationDbcontext _context = context;
+    private readonly IAmazonS3 _s3Client = s3Client;
+    private readonly ILogger<AdService> _logger = logger;
+    private const string CloudFrontUrl = "";
     private const string BucketName = "hujjzy-bucket";
-
-    public AdService(
-        ApplicationDbcontext context,
-        IAmazonS3 s3Client,
-        ILogger<AdService> logger)
-    {
-        _context = context;
-        _s3Client = s3Client;
-        _logger = logger;
-    }
 
     public async Task<Result<AdResponse>> CreateAdAsync(CreateAdRequest request, string userId)
     {
@@ -406,7 +399,7 @@ public class AdService : IAdService
             using var image = Image.Load(input);
             var encoder = new WebpEncoder
             {
-                Quality = quality,
+                Quality = 75,
                 Method = WebpEncodingMethod.Fastest,
                 SkipMetadata = true
             };
@@ -460,8 +453,16 @@ public class AdService : IAdService
         }
     }
 
-    private string GetCloudFrontUrl(string s3Key) => $"{CloudFrontUrl}/{s3Key}";
+    public string GetCloudFrontUrl(string s3Key)
+    {
+        if (string.IsNullOrEmpty(s3Key))
+            return string.Empty;
 
+        if (string.IsNullOrEmpty(CloudFrontUrl))
+            return $"https://{BucketName}.s3.amazonaws.com/{s3Key}";
+
+        return $"https://{CloudFrontUrl}/{s3Key}";
+    }
     private AdResponse MapToResponse(Ad ad)
     {
         return new AdResponse(

@@ -82,6 +82,14 @@ public class PublicCancelPolicyDto
     public string DescriptionA { get; set; } = string.Empty;
     public string DescriptionE { get; set; } = string.Empty;
 }
+public class PaymentMethodDto
+{
+    public int Id { get; set; }
+    public string TitleA { get; set; } = string.Empty;
+    public string TitleE { get; set; } = string.Empty;
+    public string DescriptionA { get; set; } = string.Empty;
+    public string DescriptionE { get; set; } = string.Empty;
+}
 
 public class CreatePublicCancelPolicyDto
 {
@@ -90,8 +98,23 @@ public class CreatePublicCancelPolicyDto
     public string DescriptionA { get; set; } = string.Empty;
     public string DescriptionE { get; set; } = string.Empty;
 }
+public class MethodCreateDto
+{
+    public string TitleA { get; set; } = string.Empty;
+    public string TitleE { get; set; } = string.Empty;
+    public string DescriptionA { get; set; } = string.Empty;
+    public string DescriptionE { get; set; } = string.Empty;
+}
 
 public class UpdatePublicCancelPolicyDto
+{
+    public string? TitleA { get; set; }
+    public string? TitleE { get; set; }
+    public string? DescriptionA { get; set; }
+    public string? DescriptionE { get; set; }
+}
+
+public class updatePaymentMethodDto
 {
     public string? TitleA { get; set; }
     public string? TitleE { get; set; }

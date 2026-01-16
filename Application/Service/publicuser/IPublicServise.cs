@@ -25,7 +25,7 @@ namespace Application.Service.publicuser;
     /// <summary>
     /// Get featured units (top rated, most booked, etc.)
     /// </summary>
-    Task<Result<FeaturedUnitsResponse>> GetFeaturedUnitsAsync(int count = 10);
+    Task<Result<List<PublicUnitResponse>>> GetFeaturedUnitsAsync();
 
     // ============= SUBUNITS =============
 

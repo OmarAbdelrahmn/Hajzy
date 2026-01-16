@@ -25,7 +25,7 @@ public class OfferService(
     private readonly ApplicationDbcontext _context = context;
     private readonly IAmazonS3 _s3Client = s3Client;
     private readonly ILogger<OfferService> _logger = logger;
-    private const string CloudFrontUrl = "https://d1rbym46fprmwk.cloudfront.net";
+    private const string CloudFrontUrl = "";
     private const string BucketName = "hujjzy-bucket";
 
     public async Task<Result<OfferResponse>> CreateOfferAsync(CreateOfferRequest request, string userId)
@@ -356,7 +356,7 @@ public class OfferService(
             using var image = Image.Load(input);
             var encoder = new WebpEncoder
             {
-                Quality = quality,
+                Quality = 75,
                 Method = WebpEncodingMethod.Fastest,
                 SkipMetadata = true
             };
@@ -410,8 +410,16 @@ public class OfferService(
         }
     }
 
-    private string GetCloudFrontUrl(string s3Key) => $"{CloudFrontUrl}/{s3Key}";
+    public string GetCloudFrontUrl(string s3Key)
+    {
+        if (string.IsNullOrEmpty(s3Key))
+            return string.Empty;
 
+        if (string.IsNullOrEmpty(CloudFrontUrl))
+            return $"https://{BucketName}.s3.amazonaws.com/{s3Key}";
+
+        return $"https://{CloudFrontUrl}/{s3Key}";
+    }
     private OfferResponse MapToResponse(Offer offer)
     {
         return new OfferResponse(

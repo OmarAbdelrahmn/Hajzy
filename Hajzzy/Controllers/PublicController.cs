@@ -57,9 +57,9 @@ public class PublicController(IPublicServise service) : ControllerBase
     /// Get featured/top-rated units
     /// </summary>
     [HttpGet("units/featured")]
-    public async Task<IActionResult> GetFeaturedUnits([FromQuery] int count = 10)
+    public async Task<IActionResult> GetFeaturedUnits()
     {
-        var result = await _service.GetFeaturedUnitsAsync(count);
+        var result = await _service.GetFeaturedUnitsAsync();
         return result.IsSuccess ?
             Ok(result.Value) :
             result.ToProblem();

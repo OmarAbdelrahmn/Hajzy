@@ -197,20 +197,19 @@ public class PublicService(
         }
     }
 
-    public async Task<Result<FeaturedUnitsResponse>> GetFeaturedUnitsAsync(int count = 10)
+    public async Task<Result<List<PublicUnitResponse>>> GetFeaturedUnitsAsync()
     {
         try
         {
             // Get top rated units
             var topRated = await _context.Units
-                .Where(u => u.IsFeatured)
+                //.Where(u => u.IsFeatured)
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
                 .Include(u => u.Images.Where(i => !i.IsDeleted))
-                // .Where(u => !u.IsDeleted && u.IsActive && u.IsVerified && u.IsFeatured)
+                .Where(u => !u.IsDeleted && u.IsActive && u.IsVerified && u.IsFeatured)
                 .OrderByDescending(u => u.AverageRating)
                 .ThenByDescending(u => u.TotalReviews)
-                .Take(count)
                 .AsNoTracking()
                 .ToListAsync();
 
@@ -222,11 +221,11 @@ public class PublicService(
 
             // Cache for 30 minutes
 
-            return Result.Success(response);
+            return Result.Success(response.Units);
         }
         catch (Exception ex)
         {
-            return Result.Failure<FeaturedUnitsResponse>(
+            return Result.Failure<List<PublicUnitResponse>>(
                 new Error("GetFailed", "Failed to retrieve featured units", 500));
         }
     }
