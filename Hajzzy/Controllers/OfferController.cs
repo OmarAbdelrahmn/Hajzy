@@ -22,7 +22,7 @@ public class OfferController(IOfferService offerService) : ControllerBase
     public async Task<IActionResult> CreateOffer([FromForm] CreateOfferRequest request)
     {
         var userId = User.GetUserId();
-        var result = await _offerService.CreateOfferAsync(request, userId);
+        var result = await _offerService.CreateOfferAsync(request, userId!);
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }

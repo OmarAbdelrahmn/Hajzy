@@ -52,7 +52,7 @@ public class OfferService(
             if (!imageResult.IsSuccess)
                 return Result.Failure<OfferResponse>(imageResult.Error);
 
-            var (originalKey, thumbnailKey, mediumKey) = imageResult.Value;
+            var originalKey = imageResult.Value;
 
             var offer = new Offer
             {
@@ -66,7 +66,7 @@ public class OfferService(
                 DiscountPercentage = request.DiscountPercentage,
                 DiscountAmount = request.DiscountAmount,
                 IsActive = request.IsActive,
-                UploadedByUserId = userId,
+                UserId = userId,
                 CreatedAt = DateTime.UtcNow.AddHours(3)
             };
 
@@ -76,7 +76,7 @@ public class OfferService(
 
             var createdOffer = await _context.Set<Offer>()
                 .Include(o => o.Unit)
-                .Include(o => o.UploadedBy)
+                .Include(o => o.User)
                 .FirstAsync(o => o.Id == offer.Id);
 
             return Result.Success(MapToResponse(createdOffer));
@@ -86,7 +86,7 @@ public class OfferService(
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Error creating offer");
             return Result.Failure<OfferResponse>(
-                new Error("CreateFailed", "Failed to create offer", 500));
+                new Error($"{ex}", "Failed to create offer", 500));
         }
     }
 
@@ -98,7 +98,7 @@ public class OfferService(
         {
             var offer = await _context.Set<Offer>()
                 .Include(o => o.Unit)
-                .Include(o => o.UploadedBy)
+                .Include(o => o.User)
                 .FirstOrDefaultAsync(o => o.Id == offerId && !o.IsDeleted);
 
             if (offer == null)
@@ -127,7 +127,7 @@ public class OfferService(
 
             if (request.Image != null)
             {
-                var oldKeys = new List<string> { offer.S3Key}
+                var oldKeys = new List<string> {offer.S3Key}
                     .Where(k => !string.IsNullOrEmpty(k))
                     .ToList();
 
@@ -137,7 +137,7 @@ public class OfferService(
                 if (!imageResult.IsSuccess)
                     return Result.Failure<OfferResponse>(imageResult.Error);
 
-                var (originalKey, thumbnailKey, mediumKey) = imageResult.Value;
+                var originalKey = imageResult.Value;
 
                 offer.ImageUrl = GetCloudFrontUrl(originalKey);
                 offer.S3Key = originalKey;
@@ -193,7 +193,7 @@ public class OfferService(
     {
         var offer = await _context.Set<Offer>()
             .Include(o => o.Unit)
-            .Include(o => o.UploadedBy)
+            .Include(o => o.User)
             .AsNoTracking()
             .FirstOrDefaultAsync(o => o.Id == offerId && !o.IsDeleted);
 
@@ -208,7 +208,7 @@ public class OfferService(
     {
         var query = _context.Set<Offer>()
             .Include(o => o.Unit)
-            .Include(o => o.UploadedBy)
+            .Include(o => o.User)
             .Where(o => !o.IsDeleted)
             .AsQueryable();
 
@@ -249,7 +249,7 @@ public class OfferService(
 
         var offers = await _context.Set<Offer>()
             .Include(o => o.Unit)
-            .Include(o => o.UploadedBy)
+            .Include(o => o.User)
             .Where(o => !o.IsDeleted &&
                        o.IsActive &&
                        o.StartDate <= now &&
@@ -268,7 +268,7 @@ public class OfferService(
 
         var offers = await _context.Set<Offer>()
             .Include(o => o.Unit)
-            .Include(o => o.UploadedBy)
+            .Include(o => o.User)
             .Where(o => !o.IsDeleted &&
                        (!o.IsActive || o.EndDate < now))
             .OrderByDescending(o => o.CreatedAt)
@@ -313,7 +313,7 @@ public class OfferService(
 
     // ============= HELPER METHODS (same as AdService) =============
 
-    private async Task<Result<(string original, string thumbnail, string medium)>> UploadOfferImageAsync(
+    private async Task<Result<string>> UploadOfferImageAsync(
         Microsoft.AspNetCore.Http.IFormFile image,
         string userId)
     {
@@ -322,7 +322,7 @@ public class OfferService(
             var transferUtility = new TransferUtility(_s3Client);
             var timestamp = DateTime.UtcNow.Ticks;
 
-            var originalKey = $"offers/{userId}/{timestamp}_original.webp";
+            var originalKey = $"offers/{userId}/{timestamp}.webp";
             using (var originalStream = new MemoryStream())
             {
                 await ConvertToWebpAsync(image.OpenReadStream(), originalStream, 75);
@@ -338,44 +338,13 @@ public class OfferService(
                 });
             }
 
-            var thumbnailKey = $"offers/{userId}/{timestamp}_thumbnail.webp";
-            using (var thumbnailStream = new MemoryStream())
-            {
-                await CreateThumbnailAsync(image.OpenReadStream(), thumbnailStream, 150);
-                thumbnailStream.Position = 0;
-
-                await transferUtility.UploadAsync(new TransferUtilityUploadRequest
-                {
-                    InputStream = thumbnailStream,
-                    Key = thumbnailKey,
-                    BucketName = BucketName,
-                    ContentType = "image/webp",
-                    CannedACL = S3CannedACL.Private
-                });
-            }
-
-            var mediumKey = $"offers/{userId}/{timestamp}_medium.webp";
-            using (var mediumStream = new MemoryStream())
-            {
-                await CreateMediumAsync(image.OpenReadStream(), mediumStream, 800);
-                mediumStream.Position = 0;
-
-                await transferUtility.UploadAsync(new TransferUtilityUploadRequest
-                {
-                    InputStream = mediumStream,
-                    Key = mediumKey,
-                    BucketName = BucketName,
-                    ContentType = "image/webp",
-                    CannedACL = S3CannedACL.Private
-                });
-            }
-
-            return Result.Success((originalKey, thumbnailKey, mediumKey));
+          
+            return Result.Success((originalKey));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error uploading offer image");
-            return Result.Failure<(string, string, string)>(
+            return Result.Failure<string>(
                 new Error("UploadFailed", "Failed to upload image", 500));
         }
     }
@@ -458,8 +427,8 @@ public class OfferService(
             offer.DiscountAmount,
             offer.IsActive,
             offer.IsExpired,
-            offer.UploadedByUserId,
-            offer.UploadedBy?.FullName,
+            offer.UserId,
+            offer.User?.FullName,
             offer.CreatedAt
         );
     }

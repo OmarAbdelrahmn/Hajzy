@@ -40,8 +40,8 @@ public class Offer
     public bool IsActive { get; set; } = true;
 
     // Tracking
-    public string UploadedByUserId { get; set; } = string.Empty;
-    public ApplicationUser UploadedBy { get; set; } = default!;
+    public string UserId { get; set; } = string.Empty;
+    public ApplicationUser User { get; set; } = default!;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
