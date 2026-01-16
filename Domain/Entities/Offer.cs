@@ -28,6 +28,9 @@ public class Offer
     public int? UnitId { get; set; }
     public Unit? Unit { get; set; }
 
+
+    public bool IsFeatured { get; set; } = false;
+
     // Date Range
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }

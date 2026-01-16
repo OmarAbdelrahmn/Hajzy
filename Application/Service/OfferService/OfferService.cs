@@ -67,7 +67,8 @@ public class OfferService(
                 DiscountAmount = request.DiscountAmount,
                 IsActive = request.IsActive,
                 UserId = userId,
-                CreatedAt = DateTime.UtcNow.AddHours(3)
+                CreatedAt = DateTime.UtcNow.AddHours(3),
+                IsFeatured = request.IsFeatured,
             };
 
             await _context.Set<Offer>().AddAsync(offer);
@@ -112,6 +113,7 @@ public class OfferService(
             if (request.DiscountPercentage.HasValue) offer.DiscountPercentage = request.DiscountPercentage.Value;
             if (request.DiscountAmount.HasValue) offer.DiscountAmount = request.DiscountAmount.Value;
             if (request.IsActive.HasValue) offer.IsActive = request.IsActive.Value;
+            if (request.IsFeatured.HasValue) offer.IsFeatured = request.IsFeatured.Value;
 
             if (request.UnitId.HasValue && request.UnitId.Value != offer.UnitId)
             {
@@ -214,6 +216,9 @@ public class OfferService(
 
         if (filter.IsActive.HasValue)
             query = query.Where(o => o.IsActive == filter.IsActive.Value);
+     
+        if (filter.IsFeatured.HasValue)
+            query = query.Where(o => o.IsFeatured == filter.IsFeatured.Value);
 
         if (filter.IsExpired.HasValue)
         {
@@ -364,37 +369,6 @@ public class OfferService(
         });
     }
 
-    private async Task CreateThumbnailAsync(Stream input, Stream output, int size)
-    {
-        await Task.Run(() =>
-        {
-            using var image = Image.Load(input);
-            image.Mutate(x => x.Resize(new ResizeOptions
-            {
-                Size = new Size(size, size),
-                Mode = ResizeMode.Crop
-            }));
-
-            var encoder = new WebpEncoder { Quality = 75 };
-            image.Save(output, encoder);
-        });
-    }
-
-    private async Task CreateMediumAsync(Stream input, Stream output, int width)
-    {
-        await Task.Run(() =>
-        {
-            using var image = Image.Load(input);
-            var ratio = (double)width / image.Width;
-            var height = (int)(image.Height * ratio);
-
-            image.Mutate(x => x.Resize(width, height));
-
-            var encoder = new WebpEncoder { Quality = 75 };
-            image.Save(output, encoder);
-        });
-    }
-
     private async Task DeleteS3ImagesAsync(List<string> keys)
     {
         try
@@ -431,6 +405,7 @@ public class OfferService(
             offer.Unit?.Name,
             offer.StartDate,
             offer.EndDate,
+            offer.IsFeatured,
             offer.DiscountPercentage,
             offer.DiscountAmount,
             offer.IsActive,

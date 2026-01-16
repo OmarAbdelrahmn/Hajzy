@@ -1,5 +1,8 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.Aminety;
+using Application.Contracts.other;
 using Application.Contracts.publicuser;
+using Application.Contracts.Unit;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -89,6 +92,9 @@ namespace Application.Service.publicuser;
 
 
     Task<Result<IEnumerable<PublicOfferResponse>>> GetActiveOffersAsync();
+    Task<Result<IEnumerable<PaymentMethodDto>>> GetPaymentMethodesAsync();
+    Task<Result<IEnumerable<UnitTypeResponse>>> GetUnitTypesAsync();
+    Task<Result<IEnumerable<AmenityResponse>>> GetAminitiesAsync();
 
 }
 
@@ -114,6 +120,7 @@ public record PublicOfferResponse
     public string? Title { get; init; }
     public string? Description { get; init; }
     public string? ImageUrl { get; init; }
+    public bool? IsFeatured { get; init; }
     public int? UnitId { get; init; }
     public string? UnitName { get; init; }
     public DateTime StartDate { get; init; }

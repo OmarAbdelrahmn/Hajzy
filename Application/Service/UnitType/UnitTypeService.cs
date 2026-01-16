@@ -6,18 +6,12 @@ using Microsoft.Extensions.Logging;
 
 namespace Application.Service.UnitType;
 
-public class UnitTypeService : IUnitTypeService
+public class UnitTypeService(
+    ApplicationDbcontext context,
+    ILogger<UnitTypeService> logger) : IUnitTypeService
 {
-    private readonly ApplicationDbcontext _context;
-    private readonly ILogger<UnitTypeService> _logger;
-
-    public UnitTypeService(
-        ApplicationDbcontext context,
-        ILogger<UnitTypeService> logger)
-    {
-        _context = context;
-        _logger = logger;
-    }
+    private readonly ApplicationDbcontext _context = context;
+    private readonly ILogger<UnitTypeService> _logger = logger;
 
     #region CRUD Operations
 

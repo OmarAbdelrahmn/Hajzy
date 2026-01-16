@@ -1,6 +1,9 @@
 ﻿// Application/Service/Public/PublicService.cs
 using Application.Abstraction;
+using Application.Contracts.Aminety;
+using Application.Contracts.other;
 using Application.Contracts.publicuser;
+using Application.Contracts.Unit;
 using Application.Service.publicuser;
 using Domain;
 using Domain.Entities;
@@ -765,6 +768,7 @@ public class PublicService(
             Title = offer.Title,
             Description = offer.Description,
             ImageUrl = offer.ImageUrl,
+            IsFeatured = offer.IsFeatured,
             UnitId = offer.UnitId,
             UnitName = offer.Unit?.Name,
             StartDate = offer.StartDate,
@@ -773,5 +777,69 @@ public class PublicService(
             DiscountAmount = offer.DiscountAmount,
             CreatedAt = offer.CreatedAt
         };
+    }
+
+    public async Task<Result<IEnumerable<PaymentMethodDto>>> GetPaymentMethodesAsync()
+    {
+        var policies = await _context.PaymentMethods.ToListAsync();
+
+        var p = policies.Select(p => new PaymentMethodDto
+        {
+            Id = p.Id,
+            TitleA = p.TitleA,
+            TitleE = p.TitleE,
+            DescriptionA = p.DescriptionA,
+            DescriptionE = p.DescriptionE
+        });
+
+
+        return Result.Success<IEnumerable<PaymentMethodDto>>(p);
+    }
+
+    public async Task<Result<IEnumerable<UnitTypeResponse>>> GetUnitTypesAsync()
+    {
+        var query = _context.UnitTypes.AsQueryable();
+
+        var unitTypes = await query
+            .AsNoTracking()
+            .ToListAsync();
+
+        var responses = new List<UnitTypeResponse>();
+
+        foreach (var unitType in unitTypes)
+        {
+            var totalUnits = await _context.Units
+                .CountAsync(u => u.UnitTypeId == unitType.Id && !u.IsDeleted);
+
+            responses.Add(MapToResponse(unitType, totalUnits));
+        }
+
+        return Result.Success<IEnumerable<UnitTypeResponse>>(responses);
+    }
+
+    public async Task<Result<IEnumerable<AmenityResponse>>> GetAminitiesAsync()
+    {
+        var amenities = await _context.Set<Domain.Entities.Amenity>()
+            .AsNoTracking()
+            .ToListAsync();
+
+        var responses = amenities.Select(a => new AmenityResponse(
+            a.Id,
+            a.Name,
+            a.Description,
+            a.Category
+        )).ToList();
+
+        return Result.Success<IEnumerable<AmenityResponse>>(responses);
+    }
+    private static UnitTypeResponse MapToResponse(Domain.Entities.UnitType unitType, int totalUnits)
+    {
+        return new UnitTypeResponse(
+            Id: unitType.Id,
+            Name: unitType.Name,
+            Description: unitType.Description,
+            IsActive: unitType.IsActive,
+            TotalUnits: totalUnits
+        );
     }
 }

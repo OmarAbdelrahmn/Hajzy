@@ -9,6 +9,7 @@ public record CreateOfferRequest(
     string? Description,
     IFormFile Image,
     int? UnitId,
+    bool IsFeatured,
     DateTime StartDate,
     DateTime EndDate,
     decimal? DiscountPercentage,
@@ -23,6 +24,7 @@ public record UpdateOfferRequest(
     IFormFile? Image,
     int? UnitId,
     DateTime? StartDate,
+    bool? IsFeatured,
     DateTime? EndDate,
     decimal? DiscountPercentage,
     decimal? DiscountAmount,
@@ -39,6 +41,7 @@ public record OfferResponse(
     string? UnitName,
     DateTime StartDate,
     DateTime EndDate,
+    bool IsFeatured,
     decimal? DiscountPercentage,
     decimal? DiscountAmount,
     bool IsActive,
@@ -53,6 +56,7 @@ public class OfferListFilter
 {
     public bool? IsActive { get; set; }
     public bool? IsExpired { get; set; }
+    public bool? IsFeatured { get; set; }
     public int? UnitId { get; set; }
     public DateTime? StartDateFrom { get; set; }
     public DateTime? StartDateTo { get; set; }
