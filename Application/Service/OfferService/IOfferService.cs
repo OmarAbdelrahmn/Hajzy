@@ -46,4 +46,5 @@ public interface IOfferService
     /// Deactivate expired offers (background job)
     /// </summary>
     Task<Result> DeactivateExpiredOffersAsync();
+    Task<Result> ToggleFeatured(int OfferId);
 }

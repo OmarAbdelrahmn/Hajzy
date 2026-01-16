@@ -415,4 +415,19 @@ public class OfferService(
             offer.CreatedAt
         );
     }
+
+    public async Task<Result> ToggleFeatured(int OfferId)
+    {
+        var offer = await _context.Offers.FirstOrDefaultAsync(o => o.Id == OfferId && !o.IsDeleted);
+
+        if (offer == null)
+            return Result.Failure(new Error("NotFound", "Offer not found", 404));
+
+        offer.IsFeatured = !offer.IsFeatured;
+        offer.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+        await _context.SaveChangesAsync();
+        return Result.Success();
+
+    }
 }

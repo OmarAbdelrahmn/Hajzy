@@ -104,4 +104,11 @@ public class OfferController(IOfferService offerService) : ControllerBase
         var result = await _offerService.DeactivateExpiredOffersAsync();
         return result.IsSuccess ? Ok(new { message = "Expired offers deactivated" }) : result.ToProblem();
     }
+    [HttpPut("Toggle-Featured")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin")]
+    public async Task<IActionResult> ToggleStatus(int OfferId)
+    {
+        var result = await _offerService.ToggleFeatured(OfferId);
+        return result.IsSuccess ? Ok(new { message = "Done" }) : result.ToProblem();
+    }
 }
