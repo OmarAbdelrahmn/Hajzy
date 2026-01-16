@@ -277,4 +277,28 @@ public class PublicController(IPublicServise service) : ControllerBase
             ? Ok(result.Value)
             : result.ToProblem();
     }
+    [HttpGet("aminities")]
+    public async Task<IActionResult> getam()
+    {
+        var result = await _service.GetAminitiesAsync();
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
+    [HttpGet("unit-type")]
+    public async Task<IActionResult> getunittype()
+    {
+        var result = await _service.GetUnitTypesAsync();
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
+    [HttpGet("payment-method")]
+    public async Task<IActionResult> getpayment()
+    {
+        var result = await _service.GetPaymentMethodesAsync();
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
 }
