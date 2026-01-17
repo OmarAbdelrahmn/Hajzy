@@ -72,6 +72,14 @@ public class OfferController(IOfferService offerService) : ControllerBase
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
+    [HttpGet("featured")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin")]
+    public async Task<IActionResult> GetFeatueredOffers()
+    {
+        var result = await _offerService.GetFeaturedOffersAsync();
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
     /// <summary>
     /// Get current active offers (Public endpoint)
     /// </summary>

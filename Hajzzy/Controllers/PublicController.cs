@@ -1,6 +1,7 @@
 ﻿// Hajzzy/Controllers/PublicController.cs
 using Application.Contracts.publicuser;
 using Application.Extensions;
+using Application.Service.OfferService;
 using Application.Service.publicuser;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -14,9 +15,11 @@ namespace Hajzzy.Controllers;
 [Route("api/public")]
 [ApiController]
 [AllowAnonymous] // All endpoints in this controller are public
-public class PublicController(IPublicServise service) : ControllerBase
+public class PublicController(IPublicServise service,IOfferService service1) : ControllerBase
 {
     private readonly IPublicServise _service = service;
+    private readonly IOfferService service1 = service1;
+
 
     #region UNITS
 
@@ -297,6 +300,15 @@ public class PublicController(IPublicServise service) : ControllerBase
     public async Task<IActionResult> getpayment()
     {
         var result = await _service.GetPaymentMethodesAsync();
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
+
+    [HttpGet("featured-offers")]
+    public async Task<IActionResult> getfeaturedoffers()
+    {
+        var result = await service1.GetFeaturedOffersAsync();
         return result.IsSuccess
             ? Ok(result.Value)
             : result.ToProblem();

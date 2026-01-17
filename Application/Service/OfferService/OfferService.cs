@@ -1,4 +1,5 @@
 ﻿using Amazon.S3;
+using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 using Application.Abstraction;
 using Application.Contracts.Offer;
@@ -14,6 +15,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace Application.Service.OfferService;
 
@@ -429,5 +431,19 @@ public class OfferService(
         await _context.SaveChangesAsync();
         return Result.Success();
 
+    }
+
+    public async Task<Result<IEnumerable<OfferResponse>>> GetFeaturedOffersAsync()
+    { 
+        var query = await _context.Set<Offer>()
+            .Include(o => o.Unit)
+            .Include(o => o.User)
+            .Where(o => !o.IsDeleted && o.IsFeatured)
+            .AsNoTracking()
+            .ToListAsync();
+
+
+        var responses = query.Select(MapToResponse).ToList();
+        return Result.Success<IEnumerable<OfferResponse>>(responses);
     }
 }
