@@ -100,7 +100,7 @@ public class SubUnitService(
             {
                 UnitId = request.UnitId,
                 RoomNumber = request.RoomNumber,
-                Type = request.Type,
+                SubUnitTypeId = request.TypeId,
                 PricePerNight = request.PricePerNight,
                 MaxOccupancy = request.MaxOccupancy,
                 Bedrooms = request.Bedrooms,
@@ -146,7 +146,7 @@ public class SubUnitService(
 
         // Update properties
         if (request.RoomNumber != null) subUnit.RoomNumber = request.RoomNumber;
-        if (request.Type.HasValue) subUnit.Type = request.Type.Value;
+        if (request.TypeId.HasValue) subUnit.SubUnitTypeId = request.TypeId.Value;
         if (request.PricePerNight.HasValue) subUnit.PricePerNight = request.PricePerNight.Value;
         if (request.MaxOccupancy.HasValue) subUnit.MaxOccupancy = request.MaxOccupancy.Value;
         if (request.Bedrooms.HasValue) subUnit.Bedrooms = request.Bedrooms;
@@ -703,7 +703,7 @@ public class SubUnitService(
             UnitId = subUnit.UnitId,
             UnitName = subUnit.Unit?.Name ?? "",
             RoomNumber = subUnit.RoomNumber,
-            Type = subUnit.Type.ToString(),
+            TypeId = subUnit.SubUnitTypeId,
             PricePerNight = subUnit.PricePerNight,
             MaxOccupancy = subUnit.MaxOccupancy,
             Bedrooms = subUnit.Bedrooms,
@@ -743,7 +743,7 @@ public class SubUnitService(
             UnitId = subUnit.UnitId,
             UnitName = subUnit.Unit?.Name ?? "",
             RoomNumber = subUnit.RoomNumber,
-            Type = subUnit.Type.ToString(),
+            TypeId = subUnit.SubUnitTypeId,
             PricePerNight = subUnit.PricePerNight,
             MaxOccupancy = subUnit.MaxOccupancy,
             Bedrooms = subUnit.Bedrooms,

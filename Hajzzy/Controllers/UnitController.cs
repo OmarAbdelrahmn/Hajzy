@@ -45,16 +45,18 @@ public class UnitController(IUnitService service) : ControllerBase
     }
 
     [HttpPost("departmint/filter")]
-    public async Task<IActionResult> GetAlld([FromBody] UnitFilter filter , string UserId)
+    public async Task<IActionResult> GetAlld([FromBody] UnitFilter filter)
     {
-        
+        var UserId = User.GetUserId();
+
         var result = await _service.GetAllByUserDepartmentAsync(UserId ,filter);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
     [HttpPost("hotel/filter")]
-    public async Task<IActionResult> GetAllh([FromBody] UnitFilter filter , string UserId)
+    public async Task<IActionResult> GetAllh([FromBody] UnitFilter filter)
     {
 
+        var UserId = User.GetUserId();
         var result = await _service.GetAllByHotelAdminAsync(UserId,filter);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }

@@ -39,6 +39,7 @@ public record OfferResponse(
     string ImageUrl,
     int? UnitId,
     string? UnitName,
+    string? UnitTypeName,
     DateTime StartDate,
     DateTime EndDate,
     bool IsFeatured,

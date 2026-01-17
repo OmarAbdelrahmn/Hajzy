@@ -25,7 +25,7 @@ public record CreateSubUnitRequest
     public string RoomNumber { get; init; } = string.Empty;
 
     [Required]
-    public SubUnitType Type { get; init; }
+    public int TypeId { get; init; }
 
     [Required]
     public decimal PricePerNight { get; init; }
@@ -46,7 +46,7 @@ public record CreateSubUnitRequest
 public record UpdateSubUnitRequest
 {
     public string? RoomNumber { get; init; }
-    public SubUnitType? Type { get; init; }
+    public int? TypeId { get; init; }
     public decimal? PricePerNight { get; init; }
     public int? MaxOccupancy { get; init; }
     public int? Bedrooms { get; init; }
@@ -94,7 +94,7 @@ public class SubUnitResponse
     public int UnitId { get; init; }
     public string UnitName { get; init; } = string.Empty;
     public string RoomNumber { get; init; } = string.Empty;
-    public string Type { get; init; } = string.Empty;
+    public int TypeId { get; init; }
     public decimal PricePerNight { get; init; }
     public int MaxOccupancy { get; init; }
     public int? Bedrooms { get; init; }
@@ -111,7 +111,7 @@ public class SubUnitDetailsResponse
     public int UnitId { get; init; }
     public string UnitName { get; init; } = string.Empty;
     public string RoomNumber { get; init; } = string.Empty;
-    public string Type { get; init; } = string.Empty;
+    public int TypeId { get; init; } 
     public decimal PricePerNight { get; init; }
     public int MaxOccupancy { get; init; }
     public int? Bedrooms { get; init; }

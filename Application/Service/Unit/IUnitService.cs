@@ -12,7 +12,6 @@ public interface IUnitService
 {
     Task<Result<UnitResponse>> GetByIdAsync(int unitId);
     Task<Result<UnitDetailsResponse>> GetDetailsAsync(int unitId);
-  //  Task<Result<IEnumerable<UnitResponse>>> GetAllAsync(UnitFilter filter);
 
     Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetAllComprehensiveAsync(UnitFilter filter);
 

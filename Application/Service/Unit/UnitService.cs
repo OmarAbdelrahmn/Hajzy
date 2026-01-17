@@ -129,11 +129,11 @@ public class UnitService(
         query = ApplySorting(query, filter.SortBy, filter.SortDirection);
 
         // Pagination
-        var skip = (filter.Page - 1) * filter.PageSize;
+        //var skip = (filter.Page - 1) * filter.PageSize;
 
         var units = await query
-            .Skip(skip)
-            .Take(filter.PageSize)
+          //  .Skip(skip)
+            //.Take(filter.PageSize)
             .AsNoTracking()
             .ToListAsync();
 
@@ -247,6 +247,7 @@ public class UnitService(
         return Result.Success<IEnumerable<UnitComprehensiveResponse>>(responses);
     }
 
+
     private static UnitComprehensiveResponse MapToComprehensiveResponse(
     Domain.Entities.Unit unit,
     List<GeneralPolicy> generalPolicies)
@@ -325,7 +326,7 @@ public class UnitService(
         {
             Id = r.Id,
             RoomNumber = r.RoomNumber,
-            Type = r.Type.ToString(),
+            TypeId = r.SubUnitTypeId,
             PricePerNight = r.PricePerNight,
             MaxOccupancy = r.MaxOccupancy,
             Bedrooms = r.Bedrooms,
@@ -1268,7 +1269,7 @@ public class UnitService(
         var rooms = unit.Rooms?.Where(r => !r.IsDeleted).Select(r => new SubUnitSummary(
             r.Id,
             r.RoomNumber,
-            r.Type.ToString(),
+            r.SubUnitTypeId,
             r.PricePerNight,
             r.MaxOccupancy,
             r.IsAvailable

@@ -79,6 +79,7 @@ public class OfferService(
 
             var createdOffer = await _context.Set<Offer>()
                 .Include(o => o.Unit)
+                .ThenInclude(c=>c.UnitType)
                 .Include(o => o.User)
                 .FirstAsync(o => o.Id == offer.Id);
 
@@ -101,6 +102,7 @@ public class OfferService(
         {
             var offer = await _context.Set<Offer>()
                 .Include(o => o.Unit)
+                .ThenInclude(c=>c.UnitType)
                 .Include(o => o.User)
                 .FirstOrDefaultAsync(o => o.Id == offerId && !o.IsDeleted);
 
@@ -197,6 +199,7 @@ public class OfferService(
     {
         var offer = await _context.Set<Offer>()
             .Include(o => o.Unit)
+            .ThenInclude(c=>c.UnitType)
             .Include(o => o.User)
             .AsNoTracking()
             .FirstOrDefaultAsync(o => o.Id == offerId && !o.IsDeleted);
@@ -212,6 +215,7 @@ public class OfferService(
     {
         var query = _context.Set<Offer>()
             .Include(o => o.Unit)
+            .ThenInclude(c=>c.UnitType)
             .Include(o => o.User)
             .Where(o => !o.IsDeleted)
             .AsQueryable();
@@ -256,6 +260,7 @@ public class OfferService(
 
         var offers = await _context.Set<Offer>()
             .Include(o => o.Unit)
+            .ThenInclude(c=>c.UnitType)
             .Include(o => o.User)
             .Where(o => !o.IsDeleted &&
                        o.IsActive &&
@@ -275,6 +280,7 @@ public class OfferService(
 
         var offers = await _context.Set<Offer>()
             .Include(o => o.Unit)
+            .ThenInclude(c=>c.UnitType)
             .Include(o => o.User)
             .Where(o => !o.IsDeleted &&
                        (!o.IsActive || o.EndDate < now))
@@ -405,6 +411,7 @@ public class OfferService(
             offer.ImageUrl,
             offer.UnitId,
             offer.Unit?.Name,
+            offer.Unit.UnitType.Name,
             offer.StartDate,
             offer.EndDate,
             offer.IsFeatured,
@@ -437,6 +444,7 @@ public class OfferService(
     { 
         var query = await _context.Set<Offer>()
             .Include(o => o.Unit)
+            .ThenInclude(c=>c.UnitType)
             .Include(o => o.User)
             .Where(o => !o.IsDeleted && o.IsFeatured)
             .AsNoTracking()

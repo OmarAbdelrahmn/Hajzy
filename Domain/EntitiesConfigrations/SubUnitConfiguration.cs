@@ -18,10 +18,6 @@ public class SubUnitConfiguration : IEntityTypeConfiguration<SubUnit>
             .IsRequired()
             .HasMaxLength(100);
 
-        builder.Property(r => r.Type)
-            .IsRequired()
-            .HasMaxLength(100);
-
         builder.Property(r => r.Description)
             .HasMaxLength(500);
 

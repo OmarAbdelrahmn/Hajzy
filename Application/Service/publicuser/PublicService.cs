@@ -299,7 +299,7 @@ public class PublicService(
                 .Select(s => new PublicSubUnitSummary(
                     s.Id,
                     s.RoomNumber,
-                    s.Type.ToString(),
+                    s.SubUnitTypeId,
                     s.PricePerNight,
                     s.MaxOccupancy,
                     s.IsAvailable,
@@ -584,7 +584,7 @@ public class PublicService(
                 .Select(r => new PublicSubUnitSummary(
                     r.Id,
                     r.RoomNumber,
-                    r.Type.ToString(),
+                    r.SubUnitTypeId,
                     r.PricePerNight,
                     r.MaxOccupancy,
                     r.IsAvailable,
@@ -628,7 +628,7 @@ public class PublicService(
             UnitId = subUnit.UnitId,
             UnitName = subUnit.Unit?.Name ?? "",
             RoomNumber = subUnit.RoomNumber,
-            Type = subUnit.Type.ToString(),
+            TypeId = subUnit.SubUnitTypeId,
             PricePerNight = subUnit.PricePerNight,
             MaxOccupancy = subUnit.MaxOccupancy,
             Bedrooms = subUnit.Bedrooms,

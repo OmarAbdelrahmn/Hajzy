@@ -14,7 +14,6 @@ public class SubUnit
     [Required, MaxLength(100)]
     public string RoomNumber { get; set; } = string.Empty;
 
-    public SubUnitType Type { get; set; } // Room, Cottage, Tent, RVSpace
     public RoomConfiguration? RoomConfig { get; set; }
     public decimal PricePerNight { get; set; }
     public int MaxOccupancy { get; set; }
@@ -32,6 +31,9 @@ public class SubUnit
 
     // Navigation
     public Unit Unit { get; set; } = default!;
+
+    public int SubUnitTypeId { get; set; }
+    public SubUnitTypee SubUnitType  { get; set; } = default!;
     public ICollection<BookingRoom> BookingRooms { get; set; } = [];
     public ICollection<SubUniteAmenity> SubUnitAmenities { get; set; } = [];
     public ICollection<SubUnitImage> SubUnitImages { get; set; } = [];

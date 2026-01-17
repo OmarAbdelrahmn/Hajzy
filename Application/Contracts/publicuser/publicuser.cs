@@ -74,7 +74,7 @@ public record PublicSubUnitDetailsResponse
     public int UnitId { get; init; }
     public string UnitName { get; init; } = string.Empty;
     public string RoomNumber { get; init; } = string.Empty;
-    public string Type { get; init; } = string.Empty;
+    public int TypeId { get; init; }
     public decimal PricePerNight { get; init; }
     public int MaxOccupancy { get; init; }
     public int? Bedrooms { get; init; }
@@ -132,7 +132,7 @@ public record PublicAmenityInfo(
 public record PublicSubUnitSummary(
     int Id,
     string RoomNumber,
-    string Type,
+    int TypeId,
     decimal PricePerNight,
     int MaxOccupancy,
     bool IsAvailable,

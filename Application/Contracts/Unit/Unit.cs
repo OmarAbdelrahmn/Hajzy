@@ -139,7 +139,7 @@ public class SubUnitComprehensiveDetail
 {
     public int Id { get; set; }
     public string RoomNumber { get; set; } = string.Empty;
-    public string Type { get; set; } = string.Empty;
+    public int  TypeId { get; set; }
     public decimal PricePerNight { get; set; }
     public int MaxOccupancy { get; set; }
     public int? Bedrooms { get; set; }
@@ -329,7 +329,7 @@ public record AmenityInfo(
 public record SubUnitSummary(
     int Id,
     string RoomNumber,
-    string Type,
+    int TypeId,
     decimal PricePerNight,
     int MaxOccupancy,
     bool IsAvailable

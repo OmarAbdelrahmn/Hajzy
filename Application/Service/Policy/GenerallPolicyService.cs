@@ -633,7 +633,7 @@ public class GenerallPolicyService(ApplicationDbcontext dbcontext) : IGenerallPo
             subUnitInfo = new SubUnitBasicInfo(
                 policy.SubUnit.Id,
                 policy.SubUnit.RoomNumber,
-                policy.SubUnit.Type.ToString()
+                policy.SubUnit.SubUnitTypeId
             );
         }
 

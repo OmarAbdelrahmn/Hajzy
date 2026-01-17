@@ -109,7 +109,7 @@ public record CancellationPolicyBasicInfo(
 public record SubUnitBasicInfo(
     int Id,
     string RoomNumber,
-    string Type
+    int TypeId
 );
 
 // Request DTOs

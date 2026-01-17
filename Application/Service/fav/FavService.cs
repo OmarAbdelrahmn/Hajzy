@@ -142,11 +142,11 @@ public class FavService(
         try
         {
             var favoritesQuery = _context.Set<UserFavorite>()
-                .Where(f => f.UserId == userId);
+                .Where(f => f.UserId == userId)
+                .Include(c=>c.SubUnit)
+                .ThenInclude(c=>c.SubUnitType);
 
-            // Apply type filter
-            if (filter.Type.HasValue)
-                favoritesQuery = favoritesQuery.Where(f => f.Type == filter.Type.Value);
+        
 
             var favorites = await favoritesQuery.ToListAsync();
 
@@ -426,6 +426,8 @@ public class FavService(
             .Include(f => f.SubUnit)
                 .ThenInclude(s => s!.Unit)
             .Include(f => f.SubUnit)
+              .ThenInclude(c => c.SubUnitType)
+            .Include(f => f.SubUnit)
                 .ThenInclude(s => s!.SubUnitImages.Where(i => !i.IsDeleted && i.IsPrimary))
             .AsNoTracking()
             .FirstOrDefaultAsync(f => f.Id == favoriteId);
@@ -456,7 +458,7 @@ public class FavService(
 
             // SubUnit info (when Type is SubUnit)
             SubUnitRoomNumber = favorite.SubUnit?.RoomNumber,
-            SubUnitType = favorite.SubUnit?.Type.ToString(),
+            SubUnitType = favorite.SubUnit?.SubUnitType.Name.ToString(),
             SubUnitPricePerNight = favorite.SubUnit?.PricePerNight,
             SubUnitMaxOccupancy = favorite.SubUnit?.MaxOccupancy,
             SubUnitIsAvailable = favorite.SubUnit?.IsAvailable,
