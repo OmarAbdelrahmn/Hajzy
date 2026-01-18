@@ -20,6 +20,7 @@ public class ApplicationDbcontext(DbContextOptions<ApplicationDbcontext> options
     public required DbSet<Department> Departments { get; set; }
     public required DbSet<Unit> Units  { get; set; }
     public required DbSet<UnitType> UnitTypes { get; set; }
+    public required DbSet<SubUnitTypee> SubUnitTypees{ get; set; }
     public required DbSet<SubUnit> SubUnits { get; set; }
     public required DbSet<RoomConfiguration> RoomConfigurations { get; set; }
     public required DbSet<Amenity> Amenities { get; set; }

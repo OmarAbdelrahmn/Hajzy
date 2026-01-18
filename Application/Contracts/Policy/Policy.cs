@@ -195,7 +195,6 @@ public record AllEnumsResponse(
     EnumGroupResponse PricingRuleTypes,
     EnumGroupResponse PricingAdjustmentTypes,
     EnumGroupResponse LoyaltyTiers,
-    EnumGroupResponse SubUnitTypes,
     EnumGroupResponse AmenityCategories,
     EnumGroupResponse AmenityNames,
     EnumGroupResponse GeneralPolicyCategories,

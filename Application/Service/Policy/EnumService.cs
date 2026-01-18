@@ -22,7 +22,6 @@ public class EnumService : IEnumService
             GetPricingRuleTypes(),
             GetPricingAdjustmentTypes(),
             GetLoyaltyTiers(),
-            GetSubUnitTypes(),
             GetAmenityCategories(),
             GetAmenityNames(),
             GetGeneralPolicyCategories(),
@@ -176,19 +175,6 @@ public class EnumService : IEnumService
         );
     }
 
-    public EnumGroupResponse GetSubUnitTypes()
-    {
-        return new EnumGroupResponse(
-            "SubUnitType",
-            Enum.GetValues(typeof(SubUnitType))
-                .Cast<SubUnitType>()
-                .Select(e => new EnumValueResponse(
-                    (int)e,
-                    e.ToString(),
-                    FormatEnumName(e.ToString())))
-                .ToList()
-        );
-    }
 
     public EnumGroupResponse GetAmenityCategories()
     {
@@ -340,5 +326,10 @@ public class EnumService : IEnumService
             " $1"
         );
         return result;
+    }
+
+    public EnumGroupResponse GetSubUnitTypes()
+    {
+        throw new NotImplementedException();
     }
 }
