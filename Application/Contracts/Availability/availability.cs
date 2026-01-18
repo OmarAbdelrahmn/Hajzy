@@ -1,4 +1,5 @@
-﻿using Domain.Entities;
+﻿using Application.Service.Availability;
+using Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -42,7 +43,7 @@ public record SetSpecialPricingRequests(
     string UpdatedByUserId
 );
 
-public record DateRange(DateTime StartDate, DateTime EndDate);
+//public record DateRange(DateTime StartDate, DateTime EndDate);
 
 public record SpecialPriceRange(
     DateTime StartDate,
