@@ -77,7 +77,8 @@ public static class InfraDependencies
         Services.AddScoped<IAvailabilityService, AvailabilityService>();
         Services.AddScoped<IAmenityService, AmenityService>();
         Services.AddScoped<IUnitTypeService, UnitTypeService>();
-        Services.AddScoped<IBookingService, BookingService>();
+        Services.AddScoped<ISubUnitBookingServices, SubUnitBookingService>();
+        Services.AddScoped<IUnitBookingServices, UnitBookingService>();
         Services.AddScoped<IReportService,ReportService>();
         Services.AddScoped<IPublicServise,PublicService>();
         Services.AddScoped<IFavService,FavService>();

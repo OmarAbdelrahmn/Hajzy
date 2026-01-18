@@ -17,6 +17,9 @@ public class Booking
     [Required]
     public string UserId { get; set; } = string.Empty;
 
+    public BookingType BookingType { get; set; } = BookingType.SubUnitBooking;
+
+
     public DateTime CheckInDate { get; set; }
     public DateTime CheckOutDate { get; set; }
 
@@ -51,4 +54,11 @@ public class Booking
     public ICollection<BookingRoom> BookingRooms { get; set; } = [];
     public ICollection<Payment> Payments { get; set; } = [];
     public Review? Review { get; set; }
+}
+
+public enum BookingType
+{
+    UnitBooking = 1,
+    SubUnitBooking = 2
+
 }

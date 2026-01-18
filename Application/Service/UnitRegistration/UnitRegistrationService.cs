@@ -590,7 +590,7 @@ public class UnitRegistrationService(
             await _context.Units.AddAsync(unit);
             await _context.SaveChangesAsync();
 
-            var availabilityInit = await service.InitializeUnitDefaultAvailabilityAsync(unit.Id, 365);
+            var availabilityInit = await service.InitializeUnitAvailabilityAsync(unit.Id, 365);
 
             //if (!availabilityInit.IsSuccess)
             //{

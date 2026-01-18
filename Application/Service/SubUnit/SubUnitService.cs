@@ -111,7 +111,7 @@ public class SubUnitService(
             };
 
             await _context.SubUnits.AddAsync(subUnit);
-            var availabilityInit = await service.InitializeDefaultAvailabilityAsync(subUnit.Id, 365);
+            var availabilityInit = await service.InitializeSubUnitAvailabilityAsync(subUnit.Id, 365);
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
