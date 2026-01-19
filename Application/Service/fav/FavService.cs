@@ -28,7 +28,6 @@ public class FavService(
 
             if (request.Type == FavoriteType.Unit)
             {
-                // Validate unit exists
                 var unitExists = await _context.Units
                     .AnyAsync(u => u.Id == request.FavId!.Value && !u.IsDeleted);
 
@@ -36,7 +35,6 @@ public class FavService(
                     return Result.Failure<FavoriteResponse>(
                         new Error("NotFound", "Unit not found", 404));
 
-                // Check if already favorited
                 var existing = await _context.Set<UserFavorite>()
                     .FirstOrDefaultAsync(f => f.UserId == userId &&
                                              f.FavId == request.FavId.Value &&
@@ -54,9 +52,8 @@ public class FavService(
                     AddedAt = DateTime.UtcNow.AddHours(3)
                 };
             }
-            else // SubUnit
+            else
             {
-                // Validate subunit exists
                 var subUnitExists = await _context.SubUnits
                     .AnyAsync(s => s.Id == request.FavId!.Value && !s.IsDeleted);
 
@@ -64,10 +61,9 @@ public class FavService(
                     return Result.Failure<FavoriteResponse>(
                         new Error("NotFound", "SubUnit not found", 404));
 
-                // Check if already favorited
                 var existing = await _context.Set<UserFavorite>()
                     .FirstOrDefaultAsync(f => f.UserId == userId &&
-                                             f.FavId == request.FavId!.Value &&
+                                             f.FavId == request.FavId.Value &&
                                              f.Type == FavoriteType.SubUnit);
 
                 if (existing != null)
@@ -77,7 +73,7 @@ public class FavService(
                 favorite = new UserFavorite
                 {
                     UserId = userId,
-                    FavId = request.FavId!.Value,
+                    FavId = request.FavId.Value,
                     Type = FavoriteType.SubUnit,
                     AddedAt = DateTime.UtcNow.AddHours(3)
                 };
@@ -91,7 +87,6 @@ public class FavService(
                 "User {UserId} added {Type} favorite: {ItemId}",
                 userId, favorite.Type, favorite.FavId);
 
-            // Reload with navigation properties
             var response = await GetFavoriteResponseAsync(favorite.Id);
             return Result.Success(response!);
         }
@@ -109,7 +104,7 @@ public class FavService(
         try
         {
             var favorite = await _context.Set<UserFavorite>()
-                .FirstOrDefaultAsync(f => f.Id == favoriteId);
+                .FirstOrDefaultAsync(f => f.Id == favoriteId && f.UserId == userId);
 
             if (favorite == null)
                 return Result.Failure(
@@ -141,22 +136,36 @@ public class FavService(
     {
         try
         {
-            var favoritesQuery = _context.Set<UserFavorite>()
+            var query = _context.Set<UserFavorite>()
                 .Where(f => f.UserId == userId)
-                .Include(c=>c.SubUnit)
-                .ThenInclude(c=>c.SubUnitType);
+                .AsQueryable();
 
-        
+            // Apply type filter
+            if (filter.Type.HasValue)
+                query = query.Where(f => f.Type == filter.Type.Value);
 
-            var favorites = await favoritesQuery.ToListAsync();
+            var favorites = await query
+                .OrderByDescending(f => f.AddedAt)
+                .ToListAsync();
 
+            // Separate unit and subunit IDs
+            var unitIds = favorites
+                .Where(f => f.Type == FavoriteType.Unit && f.FavId != null)
+                .Select(f => f.FavId!)
+                .Distinct()
+                .ToList();
 
-            // Load Units with their related data
-            var unitFavorites = favorites.Where(f => f.FavId != null && f.Type == FavoriteType.Unit).ToList();
-            if (unitFavorites.Any())
+            var subUnitIds = favorites
+                .Where(f => f.Type == FavoriteType.SubUnit && f.FavId != null)
+                .Select(f => f.FavId!)
+                .Distinct()
+                .ToList();
+
+            // Load Units with their data
+            Dictionary<int,Domain.Entities.Unit> unitsDict = new();
+            if (unitIds.Any())
             {
-                var unitIds = unitFavorites.Select(f => f.FavId).Distinct().ToList();
-                var units = await _context.Set<Domain.Entities.Unit>()
+                var units = await _context.Units
                     .Include(u => u.City)
                     .Include(u => u.UnitType)
                     .Include(u => u.Images.Where(i => !i.IsDeleted && i.IsPrimary))
@@ -164,33 +173,46 @@ public class FavService(
                     .AsNoTracking()
                     .ToListAsync();
 
-                // Map units back to favorites
-                foreach (var fav in unitFavorites)
-                {
-                    fav.Unit = units.FirstOrDefault(u => u.Id == fav.FavId);
-                }
+                unitsDict = units.ToDictionary(u => u.Id);
             }
 
-            // Load SubUnits with their related data
-            var subUnitFavorites = favorites.Where(f => f.FavId != null && f.Type == FavoriteType.SubUnit).ToList();
-            if (subUnitFavorites.Any())
+            // Load SubUnits with their data
+            Dictionary<int, Domain.Entities.SubUnit> subUnitsDict = new();
+            if (subUnitIds.Any())
             {
-                var subUnitIds = subUnitFavorites.Select(f => f.FavId).Distinct().ToList();
-                var subUnits = await _context.Set<Domain.Entities.SubUnit>()
+                var subUnits = await _context.SubUnits
                     .Include(s => s.Unit)
+                        .ThenInclude(u => u.City)
+                    .Include(s => s.SubUnitType)
                     .Include(s => s.SubUnitImages.Where(i => !i.IsDeleted && i.IsPrimary))
                     .Where(s => subUnitIds.Contains(s.Id))
                     .AsNoTracking()
                     .ToListAsync();
 
-                // Map subunits back to favorites
-                foreach (var fav in subUnitFavorites)
-                {
-                    fav.SubUnit = subUnits.FirstOrDefault(s => s.Id == fav.FavId);
-                }
+                subUnitsDict = subUnits.ToDictionary(s => s.Id);
             }
 
-            var responses = favorites.Select(MapToResponse).ToList();
+            // Map to responses
+            var responses = new List<FavoriteResponse>();
+            foreach (var fav in favorites)
+            {
+                if (fav.Type == FavoriteType.Unit && fav.FavId != 0)
+                {
+                    if (unitsDict.TryGetValue(fav.FavId, out var unit))
+                    {
+                        fav.Unit = unit;
+                        responses.Add(MapToResponse(fav));
+                    }
+                }
+                else if (fav.Type == FavoriteType.SubUnit && fav.FavId !=0)
+                {
+                    if (subUnitsDict.TryGetValue(fav.FavId, out var subUnit))
+                    {
+                        fav.SubUnit = subUnit;
+                        responses.Add(MapToResponse(fav));
+                    }
+                }
+            }
 
             return Result.Success(responses);
         }
@@ -209,36 +231,44 @@ public class FavService(
         try
         {
             var favorite = await _context.Set<UserFavorite>()
-                .Include(f => f.Unit)
-                    .ThenInclude(u => u!.City)
-                .Include(f => f.Unit)
-                    .ThenInclude(u => u!.UnitType)
-                .Include(f => f.Unit)
-                    .ThenInclude(u => u!.Images.Where(i => !i.IsDeleted))
-                .Include(f => f.Unit)
-                    .ThenInclude(u => u!.UnitAmenities)
-                    .ThenInclude(ua => ua.Amenity)
-                .Include(f => f.SubUnit)
-                    .ThenInclude(s => s!.Unit)
-                .Include(f => f.SubUnit)
-                    .ThenInclude(s => s!.SubUnitImages.Where(i => !i.IsDeleted))
-                .Include(f => f.SubUnit)
-                    .ThenInclude(s => s!.SubUnitAmenities)
-                    .ThenInclude(sa => sa.Amenity)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(f => f.Id == favoriteId &&
-                                         f.UserId == userId);
+                .FirstOrDefaultAsync(f => f.Id == favoriteId && f.UserId == userId);
 
             if (favorite == null)
                 return Result.Failure<FavoriteDetailsResponse>(
                     new Error("NotFound", "Favorite not found", 404));
+
+            // Load the appropriate entity with all details
+            if (favorite.Type == FavoriteType.Unit && favorite.FavId != 0)
+            {
+                favorite.Unit = await _context.Units
+                    .Include(u => u.City)
+                    .Include(u => u.UnitType)
+                    .Include(u => u.Images.Where(i => !i.IsDeleted))
+                    .Include(u => u.UnitAmenities)
+                        .ThenInclude(ua => ua.Amenity)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == favorite.FavId);
+            }
+            else if (favorite.Type == FavoriteType.SubUnit && favorite.FavId != 0)
+            {
+                favorite.SubUnit = await _context.SubUnits
+                    .Include(s => s.Unit)
+                        .ThenInclude(u => u.City)
+                    .Include(s => s.SubUnitType)
+                    .Include(s => s.SubUnitImages.Where(i => !i.IsDeleted))
+                    .Include(s => s.SubUnitAmenities)
+                        .ThenInclude(sa => sa.Amenity)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Id == favorite.FavId);
+            }
 
             var response = MapToDetailsResponse(favorite);
             return Result.Success(response);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting favorite details");
+            _logger.LogError(ex, "Error getting favorite details for favorite {FavoriteId}", favoriteId);
             return Result.Failure<FavoriteDetailsResponse>(
                 new Error("QueryFailed", "Failed to get favorite details", 500));
         }
@@ -250,18 +280,34 @@ public class FavService(
 
     public async Task<Result<int>> GetUnitFavoriteCountAsync(int unitId)
     {
-        var count = await _context.Set<UserFavorite>()
-            .CountAsync(f => f.FavId == unitId && f.Type == FavoriteType.Unit);
+        try
+        {
+            var count = await _context.Set<UserFavorite>()
+                .CountAsync(f => f.FavId == unitId && f.Type == FavoriteType.Unit);
 
-        return Result.Success(count);
+            return Result.Success(count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting unit favorite count for unit {UnitId}", unitId);
+            return Result.Failure<int>(new Error("CountFailed", "Failed to get favorite count", 500));
+        }
     }
 
     public async Task<Result<int>> GetSubUnitFavoriteCountAsync(int subUnitId)
     {
-        var count = await _context.Set<UserFavorite>()
-            .CountAsync(f => f.FavId == subUnitId && f.Type == FavoriteType.SubUnit);
+        try
+        {
+            var count = await _context.Set<UserFavorite>()
+                .CountAsync(f => f.FavId == subUnitId && f.Type == FavoriteType.SubUnit);
 
-        return Result.Success(count);
+            return Result.Success(count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting subunit favorite count for subunit {SubUnitId}", subUnitId);
+            return Result.Failure<int>(new Error("CountFailed", "Failed to get favorite count", 500));
+        }
     }
 
     #endregion
@@ -273,13 +319,6 @@ public class FavService(
         try
         {
             var favorites = await _context.Set<UserFavorite>()
-                .Include(f => f.Unit)
-                    .ThenInclude(u => u!.City)
-                .Include(f => f.Unit)
-                    .ThenInclude(u => u!.UnitType)
-                .Include(f => f.SubUnit)
-                    .ThenInclude(s => s!.Unit)
-                    .ThenInclude(u => u.City)
                 .Where(f => f.UserId == userId)
                 .AsNoTracking()
                 .ToListAsync();
@@ -288,22 +327,64 @@ public class FavService(
             var weekAgo = now.AddDays(-7);
             var monthAgo = now.AddMonths(-1);
 
+            // Load necessary data for statistics
+            var unitIds = favorites
+                .Where(f => f.Type == FavoriteType.Unit && f.FavId !=0)
+                .Select(f => f.FavId!)
+                .ToList();
+
+            var subUnitIds = favorites
+                .Where(f => f.Type == FavoriteType.SubUnit && f.FavId !=0)
+                .Select(f => f.FavId!)
+                .ToList();
+
+            var units = unitIds.Any() ? await _context.Units
+                .Include(u => u.City)
+                .Include(u => u.UnitType)
+                .Where(u => unitIds.Contains(u.Id))
+                .AsNoTracking()
+                .ToListAsync() : new List<Domain.Entities.Unit>();
+
+            var subUnits = subUnitIds.Any() ? await _context.SubUnits
+                .Include(s => s.Unit)
+                    .ThenInclude(u => u.City)
+                .Include(s => s.Unit)
+                    .ThenInclude(u => u.UnitType)
+                .Where(s => subUnitIds.Contains(s.Id))
+                .AsNoTracking()
+                .ToListAsync() : new List<Domain.Entities.SubUnit>();
+
+            var favoritesByDepartment = new Dictionary<string, int>();
+            var favoritesByUnitType = new Dictionary<string, int>();
+
+            // Aggregate units
+            foreach (var unit in units)
+            {
+                var deptName = unit.City?.Name ?? "Unknown";
+                var typeName = unit.UnitType?.Name ?? "Unknown";
+
+                favoritesByDepartment[deptName] = favoritesByDepartment.GetValueOrDefault(deptName) + 1;
+                favoritesByUnitType[typeName] = favoritesByUnitType.GetValueOrDefault(typeName) + 1;
+            }
+
+            // Aggregate subunits
+            foreach (var subUnit in subUnits)
+            {
+                var deptName = subUnit.Unit?.City?.Name ?? "Unknown";
+                var typeName = subUnit.Unit?.UnitType?.Name ?? "Unknown";
+
+                favoritesByDepartment[deptName] = favoritesByDepartment.GetValueOrDefault(deptName) + 1;
+                favoritesByUnitType[typeName] = favoritesByUnitType.GetValueOrDefault(typeName) + 1;
+            }
+
             var stats = new FavoriteStatisticsResponse(
                 TotalFavorites: favorites.Count,
                 UnitFavorites: favorites.Count(f => f.Type == FavoriteType.Unit),
                 SubUnitFavorites: favorites.Count(f => f.Type == FavoriteType.SubUnit),
                 FavoritesThisWeek: favorites.Count(f => f.AddedAt >= weekAgo),
                 FavoritesThisMonth: favorites.Count(f => f.AddedAt >= monthAgo),
-                FavoritesByDepartment: favorites
-                    .GroupBy(f => f.Type == FavoriteType.Unit
-                        ? f.Unit!.City.Name
-                        : f.SubUnit!.Unit.City.Name)
-                    .ToDictionary(g => g.Key, g => g.Count()),
-                FavoritesByUnitType: favorites
-                    .GroupBy(f => f.Type == FavoriteType.Unit
-                        ? f.Unit!.UnitType.Name
-                        : f.SubUnit!.Unit.UnitType.Name)
-                    .ToDictionary(g => g.Key, g => g.Count()),
+                FavoritesByDepartment: favoritesByDepartment,
+                FavoritesByUnitType: favoritesByUnitType,
                 TopFavoriteUnits: new List<TopFavoriteItem>()
             );
 
@@ -311,7 +392,7 @@ public class FavService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting user statistics");
+            _logger.LogError(ex, "Error getting user statistics for user {UserId}", userId);
             return Result.Failure<FavoriteStatisticsResponse>(
                 new Error("StatsFailed", "Failed to get statistics", 500));
         }
@@ -322,13 +403,6 @@ public class FavService(
         try
         {
             var favorites = await _context.Set<UserFavorite>()
-                .Include(f => f.Unit)
-                    .ThenInclude(u => u!.City)
-                .Include(f => f.Unit)
-                    .ThenInclude(u => u!.UnitType)
-                .Include(f => f.SubUnit)
-                    .ThenInclude(s => s!.Unit)
-                    .ThenInclude(u => u.City)
                 .AsNoTracking()
                 .ToListAsync();
 
@@ -338,16 +412,79 @@ public class FavService(
 
             // Get top favorited units
             var topUnits = await _context.Set<UserFavorite>()
-                .Where(f => f.Type == FavoriteType.Unit)
-                .GroupBy(f => new { f.FavId, f.Unit!.Name })
-                .Select(g => new TopFavoriteItem(
-                    g.Key.FavId,
-                    g.Key.Name,
-                    FavoriteType.Unit,
-                    g.Count()))
-                .OrderByDescending(t => t.FavoriteCount)
+                .Where(f => f.Type == FavoriteType.Unit && f.FavId != 0)
+                .GroupBy(f => f.FavId!)
+                .Select(g => new { UnitId = g.Key, Count = g.Count() })
+                .OrderByDescending(x => x.Count)
                 .Take(10)
                 .ToListAsync();
+
+            var topUnitIds = topUnits.Select(t => t.UnitId).ToList();
+            var topUnitDetails = await _context.Units
+                .Where(u => topUnitIds.Contains(u.Id))
+                .AsNoTracking()
+                .ToDictionaryAsync(u => u.Id);
+
+            var topFavoriteUnits = topUnits
+                .Where(t => topUnitDetails.ContainsKey(t.UnitId))
+                .Select(t => new TopFavoriteItem(
+                    t.UnitId,
+                    topUnitDetails[t.UnitId].Name,
+                    FavoriteType.Unit,
+                    t.Count))
+                .ToList();
+
+            // Calculate statistics
+            var unitIds = favorites
+                .Where(f => f.Type == FavoriteType.Unit && f.FavId != 0)
+                .Select(f => f.FavId!)
+                .Distinct()
+                .ToList();
+
+            var subUnitIds = favorites
+                .Where(f => f.Type == FavoriteType.SubUnit && f.FavId != 0)
+                .Select(f => f.FavId!)
+                .Distinct()
+                .ToList();
+
+            var units = unitIds.Any() ? await _context.Units
+                .Include(u => u.City)
+                .Include(u => u.UnitType)
+                .Where(u => unitIds.Contains(u.Id))
+                .AsNoTracking()
+                .ToListAsync() : new List<Domain.Entities.Unit>();
+
+            var subUnits = subUnitIds.Any() ? await _context.SubUnits
+                .Include(s => s.Unit)
+                    .ThenInclude(u => u.City)
+                .Include(s => s.Unit)
+                    .ThenInclude(u => u.UnitType)
+                .Where(s => subUnitIds.Contains(s.Id))
+                .AsNoTracking()
+                .ToListAsync() : new List<Domain.Entities.SubUnit>();
+
+            var favoritesByDepartment = new Dictionary<string, int>();
+            var favoritesByUnitType = new Dictionary<string, int>();
+
+            foreach (var unit in units)
+            {
+                var favCount = favorites.Count(f => f.Type == FavoriteType.Unit && f.FavId == unit.Id);
+                var deptName = unit.City?.Name ?? "Unknown";
+                var typeName = unit.UnitType?.Name ?? "Unknown";
+
+                favoritesByDepartment[deptName] = favoritesByDepartment.GetValueOrDefault(deptName) + favCount;
+                favoritesByUnitType[typeName] = favoritesByUnitType.GetValueOrDefault(typeName) + favCount;
+            }
+
+            foreach (var subUnit in subUnits)
+            {
+                var favCount = favorites.Count(f => f.Type == FavoriteType.SubUnit && f.FavId == subUnit.Id);
+                var deptName = subUnit.Unit?.City?.Name ?? "Unknown";
+                var typeName = subUnit.Unit?.UnitType?.Name ?? "Unknown";
+
+                favoritesByDepartment[deptName] = favoritesByDepartment.GetValueOrDefault(deptName) + favCount;
+                favoritesByUnitType[typeName] = favoritesByUnitType.GetValueOrDefault(typeName) + favCount;
+            }
 
             var stats = new FavoriteStatisticsResponse(
                 TotalFavorites: favorites.Count,
@@ -355,17 +492,9 @@ public class FavService(
                 SubUnitFavorites: favorites.Count(f => f.Type == FavoriteType.SubUnit),
                 FavoritesThisWeek: favorites.Count(f => f.AddedAt >= weekAgo),
                 FavoritesThisMonth: favorites.Count(f => f.AddedAt >= monthAgo),
-                FavoritesByDepartment: favorites
-                    .GroupBy(f => f.Type == FavoriteType.Unit
-                        ? f.Unit!.City.Name
-                        : f.SubUnit!.Unit.City.Name)
-                    .ToDictionary(g => g.Key, g => g.Count()),
-                FavoritesByUnitType: favorites
-                    .GroupBy(f => f.Type == FavoriteType.Unit
-                        ? f.Unit!.UnitType.Name
-                        : f.SubUnit!.Unit.UnitType.Name)
-                    .ToDictionary(g => g.Key, g => g.Count()),
-                TopFavoriteUnits: topUnits
+                FavoritesByDepartment: favoritesByDepartment,
+                FavoritesByUnitType: favoritesByUnitType,
+                TopFavoriteUnits: topFavoriteUnits
             );
 
             return Result.Success(stats);
@@ -404,7 +533,7 @@ public class FavService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error clearing all favorites");
+            _logger.LogError(ex, "Error clearing all favorites for user {UserId}", userId);
             return Result.Failure(
                 new Error("ClearFailed", "Failed to clear favorites", 500));
         }
@@ -416,23 +545,42 @@ public class FavService(
 
     private async Task<FavoriteResponse?> GetFavoriteResponseAsync(int favoriteId)
     {
-        var favorite = await _context.Set<UserFavorite>()
-            .Include(f => f.Unit)
-                .ThenInclude(u => u!.City)
-            .Include(f => f.Unit)
-                .ThenInclude(u => u!.UnitType)
-            .Include(f => f.Unit)
-                .ThenInclude(u => u!.Images.Where(i => !i.IsDeleted && i.IsPrimary))
-            .Include(f => f.SubUnit)
-                .ThenInclude(s => s!.Unit)
-            .Include(f => f.SubUnit)
-              .ThenInclude(c => c.SubUnitType)
-            .Include(f => f.SubUnit)
-                .ThenInclude(s => s!.SubUnitImages.Where(i => !i.IsDeleted && i.IsPrimary))
-            .AsNoTracking()
-            .FirstOrDefaultAsync(f => f.Id == favoriteId);
+        try
+        {
+            var favorite = await _context.Set<UserFavorite>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(f => f.Id == favoriteId);
 
-        return favorite != null ? MapToResponse(favorite) : null;
+            if (favorite == null)
+                return null;
+
+            if (favorite.Type == FavoriteType.Unit && favorite.FavId != 0)
+            {
+                favorite.Unit = await _context.Units
+                    .Include(u => u.City)
+                    .Include(u => u.UnitType)
+                    .Include(u => u.Images.Where(i => !i.IsDeleted && i.IsPrimary))
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == favorite.FavId);
+            }
+            else if (favorite.Type == FavoriteType.SubUnit && favorite.FavId != 0)
+            {
+                favorite.SubUnit = await _context.SubUnits
+                    .Include(s => s.Unit)
+                        .ThenInclude(u => u.City)
+                    .Include(s => s.SubUnitType)
+                    .Include(s => s.SubUnitImages.Where(i => !i.IsDeleted && i.IsPrimary))
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Id == favorite.FavId);
+            }
+
+            return MapToResponse(favorite);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting favorite response for favorite {FavoriteId}", favoriteId);
+            return null;
+        }
     }
 
     private static FavoriteResponse MapToResponse(UserFavorite favorite)
@@ -442,9 +590,9 @@ public class FavService(
             Id = favorite.Id,
             Type = favorite.Type,
             AddedAt = favorite.AddedAt,
-            
-            // Unit info (when Type is Unit)
             FavId = favorite.FavId,
+
+            // Unit info
             UnitName = favorite.Unit?.Name,
             UnitAddress = favorite.Unit?.Address,
             UnitBasePrice = favorite.Unit?.BasePrice,
@@ -456,14 +604,13 @@ public class FavService(
             DepartmentName = favorite.Unit?.City?.Name,
             UnitTypeName = favorite.Unit?.UnitType?.Name,
 
-            // SubUnit info (when Type is SubUnit)
+            // SubUnit info
             SubUnitRoomNumber = favorite.SubUnit?.RoomNumber,
-            SubUnitType = favorite.SubUnit?.SubUnitType.Name.ToString(),
+            SubUnitType = favorite.SubUnit?.SubUnitType?.Name,
             SubUnitPricePerNight = favorite.SubUnit?.PricePerNight,
             SubUnitMaxOccupancy = favorite.SubUnit?.MaxOccupancy,
             SubUnitIsAvailable = favorite.SubUnit?.IsAvailable,
             SubUnitPrimaryImageUrl = favorite.SubUnit?.SubUnitImages?.FirstOrDefault()?.ImageUrl,
-
         };
     }
 
@@ -495,56 +642,31 @@ public class FavService(
             SubUnitPrimaryImageUrl = baseResponse.SubUnitPrimaryImageUrl,
 
             // Additional details
-            UnitImageUrls = favorite.Unit?.Images
+            UnitImageUrls = favorite.Unit?.Images?
                 .OrderBy(i => i.DisplayOrder)
                 .Select(i => i.ImageUrl)
                 .ToList(),
 
-            SubUnitImageUrls = favorite.SubUnit?.SubUnitImages
+            SubUnitImageUrls = favorite.SubUnit?.SubUnitImages?
                 .OrderBy(i => i.DisplayOrder)
                 .Select(i => i.ImageUrl)
                 .ToList(),
 
             Amenities = (favorite.Type == FavoriteType.Unit
-                ? favorite.Unit?.UnitAmenities.Select(ua => new AmenityInfo(
+                ? favorite.Unit?.UnitAmenities?.Select(ua => new AmenityInfo(
                     ua.AmenityId,
-                    ua.Amenity.Name.ToString(),
-                    ua.Amenity.Category.ToString(),
+                    ua.Amenity?.Name ?? "Unknown",
+                    ua.Amenity?.Category ?? "Unknown",
                     ua.IsAvailable))
-                : favorite.SubUnit?.SubUnitAmenities.Select(sa => new AmenityInfo(
+                : favorite.SubUnit?.SubUnitAmenities?.Select(sa => new AmenityInfo(
                     sa.AmenityId,
-                    sa.Amenity.Name.ToString(),
-                    sa.Amenity.Category.ToString(),
+                    sa.Amenity?.Name ?? "Unknown",
+                    sa.Amenity?.Category ?? "Unknown",
                     sa.IsAvailable)))?.ToList(),
 
             Description = favorite.Type == FavoriteType.Unit
                 ? favorite.Unit?.Description
                 : favorite.SubUnit?.Description
-        };
-    }
-
-    private static IQueryable<UserFavorite> ApplySorting(
-        IQueryable<UserFavorite> query,
-        string? sortBy,
-        string? sortDirection)
-    {
-        var descending = sortDirection?.ToUpper() == "DESC";
-
-        return sortBy switch
-        {
-            "AddedAt" => descending
-                ? query.OrderByDescending(f => f.AddedAt)
-                : query.OrderBy(f => f.AddedAt),
-
-            "Name" => descending
-                ? query.OrderByDescending(f => f.Unit != null ? f.Unit.Name : f.SubUnit!.RoomNumber)
-                : query.OrderBy(f => f.Unit != null ? f.Unit.Name : f.SubUnit!.RoomNumber),
-
-            "Rating" => descending
-                ? query.OrderByDescending(f => f.Unit != null ? f.Unit.AverageRating : 0)
-                : query.OrderBy(f => f.Unit != null ? f.Unit.AverageRating : 0),
-
-            _ => query.OrderByDescending(f => f.AddedAt)
         };
     }
 

@@ -54,6 +54,8 @@ public class ReviewService(
                 ValueRating = request.ValueRating,
                 Comment = request.Comment?.Trim(),
                 IsVerified = true,
+                CheckInDate = booking.CheckInDate,
+                CheckOutDate = booking.CheckOutDate,
                 CreatedAt = DateTime.UtcNow.AddHours(3)
             };
 
@@ -90,8 +92,6 @@ public class ReviewService(
         try
         {
             var review = await _context.Set<Domain.Entities.Review>()
-                .Include(r => r.Unit)
-                .Include(r => r.User)
                 .FirstOrDefaultAsync(r => r.Id == reviewId);
 
             if (review == null)
@@ -195,6 +195,7 @@ public class ReviewService(
                 .Include(r => r.Unit)
                 .Include(r => r.User)
                 .Include(r => r.Images)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Id == reviewId);
 
             if (review == null)
@@ -208,15 +209,15 @@ public class ReviewService(
             {
                 Id = review.Id,
                 UnitId = review.UnitId,
-                UnitName = review.Unit.Name,
+                UnitName = review.Unit?.Name ?? "Unknown",
                 BookingId = review.BookingId,
                 Reviewer = new ReviewerInfo
                 {
                     UserId = review.UserId,
-                    FullName = review.User.FullName ?? "Anonymous",
-                    AvatarUrl = review.User.AvatarUrl,
+                    FullName = review.User?.FullName ?? "Anonymous",
+                    AvatarUrl = review.User?.AvatarUrl,
                     TotalReviews = userReviewCount,
-                    Nationality = review.User.Nationality
+                    Nationality = review.User?.Nationality
                 },
                 Rating = review.Rating,
                 CleanlinessRating = review.CleanlinessRating,
@@ -231,13 +232,13 @@ public class ReviewService(
                 OwnerResponseDate = review.OwnerResponseDate,
                 CreatedAt = review.CreatedAt,
                 UpdatedAt = review.UpdatedAt,
-                Images = review.Images.Select(img => new ReviewImageResponse
+                Images = review.Images?.Select(img => new ReviewImageResponse
                 {
                     Id = img.Id,
                     ImageUrl = img.ImageUrl,
                     ThumbnailUrl = img.ThumbnailUrl,
                     Caption = img.Caption
-                }).ToList(),
+                }).ToList() ?? new List<ReviewImageResponse>(),
                 ModerationStatus = "Approved"
             };
 
@@ -307,6 +308,7 @@ public class ReviewService(
             var reviews = await query
                 .Skip((filter.Page - 1) * filter.PageSize)
                 .Take(filter.PageSize)
+                .AsNoTracking()
                 .ToListAsync();
 
             var reviewResponses = new List<ReviewResponse>();
@@ -358,6 +360,7 @@ public class ReviewService(
             var reviews = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
+                .AsNoTracking()
                 .ToListAsync();
 
             var reviewResponses = new List<ReviewResponse>();
@@ -395,6 +398,8 @@ public class ReviewService(
         {
             var reviews = await _context.Set<Domain.Entities.Review>()
                 .Where(r => r.UnitId == unitId)
+                .Include(r => r.Images)
+                .AsNoTracking()
                 .ToListAsync();
 
             if (!reviews.Any())
@@ -422,7 +427,7 @@ public class ReviewService(
                     .GroupBy(r => r.Rating)
                     .ToDictionary(g => g.Key, g => g.Count()),
                 VerifiedReviewsCount = reviews.Count(r => r.IsVerified),
-                ReviewsWithPhotosCount = reviews.Count(r => r.Images.Any()),
+                ReviewsWithPhotosCount = reviews.Count(r => r.Images != null && r.Images.Any()),
                 ReviewsWithOwnerResponseCount = reviews.Count(r => !string.IsNullOrEmpty(r.OwnerResponse))
             };
 
@@ -492,14 +497,14 @@ public class ReviewService(
             };
         }
 
-        // Check if checkout was recent enough (within 30 days)
+        // Check if checkout was recent enough (within 60 days)
         var daysSinceCheckout = (DateTime.UtcNow.Date - completedBooking.CheckOutDate.Date).Days;
         if (daysSinceCheckout > 60)
         {
             return new ReviewEligibility
             {
                 IsEligible = false,
-                Reason = "Review period expired (must review within 30 days of checkout)",
+                Reason = "Review period expired (must review within 60 days of checkout)",
                 BookingId = completedBooking.Id
             };
         }
@@ -547,7 +552,9 @@ public class ReviewService(
                 return Result.Failure(new Error("NotFound", "Review not found", 404));
 
             // Verify owner/admin permissions
-            var isOwner = review.Unit.Admins.Any(a => a.UserId == ownerId && a.IsActive);
+            var isOwner = review.Unit?.Admins != null &&
+                         review.Unit.Admins.Any(a => a.UserId == ownerId && a.IsActive);
+
             if (!isOwner)
                 return Result.Failure(
                     new Error("Unauthorized", "Only property owner can respond", 403));
@@ -591,6 +598,7 @@ public class ReviewService(
             var reviews = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
+                .AsNoTracking()
                 .ToListAsync();
 
             var reviewResponses = new List<ReviewResponse>();
@@ -678,8 +686,6 @@ public class ReviewService(
             if (review == null)
                 return Result.Failure(new Error("NotFound", "Review not found", 404));
 
-            // You can implement a separate ReviewHelpful table to track this
-            // For now, just return success
             _logger.LogInformation("Review {ReviewId} marked helpful by {UserId}", reviewId, userId);
 
             return Result.Success();
@@ -703,7 +709,6 @@ public class ReviewService(
         int valueRating,
         string? comment)
     {
-        // Validate ranges
         if (rating < 1 || rating > 5)
             return Result.Failure(new Error("InvalidRating", "Overall rating must be between 1 and 5", 400));
 
@@ -719,20 +724,14 @@ public class ReviewService(
         if (valueRating < 1 || valueRating > 5)
             return Result.Failure(new Error("InvalidRating", "Value rating must be between 1 and 5", 400));
 
-        // Validate average matches overall rating (with tolerance)
         var calculatedAverage = (cleanlinessRating + locationRating + serviceRating + valueRating) / 4.0;
         if (Math.Abs(calculatedAverage - rating) > 0.5)
             return Result.Failure(
                 new Error("RatingMismatch", "Overall rating should match average of detailed ratings", 400));
 
-        // Validate comment length if provided
         if (!string.IsNullOrEmpty(comment))
         {
             var trimmed = comment.Trim();
-            if (trimmed.Length < 0)
-                return Result.Failure(
-                    new Error("CommentTooShort", "Review comment must be at least 10 characters", 400));
-
             if (trimmed.Length > 2000)
                 return Result.Failure(
                     new Error("CommentTooLong", "Review comment must not exceed 2000 characters", 400));
@@ -743,34 +742,58 @@ public class ReviewService(
 
     private async Task UpdateUnitRatingStatisticsAsync(int unitId)
     {
-        var unit = await _context.Units
-            .FirstOrDefaultAsync(u => u.Id == unitId);
-
-        if (unit == null) return;
-
-        var reviews = await _context.Set<Domain.Entities.Review>()
-            .Where(r => r.UnitId == unitId)
-            .ToListAsync();
-
-        if (reviews.Any())
+        try
         {
-            unit.AverageRating = (decimal)reviews.Average(r => r.Rating);
-            unit.TotalReviews = reviews.Count;
-            unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
-        }
-        else
-        {
-            unit.AverageRating = 0;
-            unit.TotalReviews = 0;
-        }
+            var unit = await _context.Units
+                .FirstOrDefaultAsync(u => u.Id == unitId);
 
-        await _context.SaveChangesAsync();
+            if (unit == null) return;
+
+            var reviews = await _context.Set<Domain.Entities.Review>()
+                .Where(r => r.UnitId == unitId)
+                .AsNoTracking()
+                .ToListAsync();
+
+            if (reviews.Any())
+            {
+                unit.AverageRating = (decimal)reviews.Average(r => r.Rating);
+                unit.TotalReviews = reviews.Count;
+                unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
+            }
+            else
+            {
+                unit.AverageRating = 0;
+                unit.TotalReviews = 0;
+            }
+
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating unit rating statistics for unit {UnitId}", unitId);
+        }
     }
 
     private async Task<ReviewResponse> MapToResponseAsync(Domain.Entities.Review review)
     {
         var userReviewCount = await _context.Set<Domain.Entities.Review>()
             .CountAsync(r => r.UserId == review.UserId);
+
+        // Load Unit if not already loaded
+        if (review.Unit == null && review.UnitId > 0)
+        {
+            review.Unit = await _context.Units
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == review.UnitId);
+        }
+
+        // Load User if not already loaded
+        if (review.User == null && !string.IsNullOrEmpty(review.UserId))
+        {
+            review.User = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == review.UserId);
+        }
 
         return new ReviewResponse
         {
@@ -812,7 +835,6 @@ public class ReviewService(
     #endregion
 }
 
-// Supporting classes
 public class ReviewEligibility
 {
     public bool IsEligible { get; set; }
