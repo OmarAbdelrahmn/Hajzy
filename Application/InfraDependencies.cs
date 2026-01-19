@@ -14,6 +14,7 @@ using Application.Service.Department;
 using Application.Service.fav;
 using Application.Service.OfferService;
 using Application.Service.Policy;
+using Application.Service.PromoCode;
 using Application.Service.publicuser;
 using Application.Service.Report;
 using Application.Service.S3Image;
@@ -84,6 +85,7 @@ public static class InfraDependencies
         Services.AddScoped<IFavService,FavService>();
         Services.AddScoped<IAdService,AdService>();
         Services.AddScoped<IOfferService, OfferService>();
+        Services.AddScoped<ICouponService, CouponService>();
         Services.AddScoped<AdExpirationJob>();
         Services.AddScoped<OfferExpirationJob>();
 
