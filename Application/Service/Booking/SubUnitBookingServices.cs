@@ -1,7 +1,9 @@
 ﻿using Application.Abstraction;
+using Application.Contracts;
 using Application.Contracts.Bookin;
 using Application.Helpers;
 using Application.Service.Availability;
+using Application.Service.PromoCode;
 using Domain;
 using Domain.Entities;
 using Hangfire;
@@ -14,11 +16,13 @@ namespace Application.Service.Booking;
 public class SubUnitBookingService(
     ApplicationDbcontext context,
     IAvailabilityService availabilityService,
+    ICouponService couponService,
     IEmailSender emailSender,
     ILogger<SubUnitBookingService> logger) : ISubUnitBookingServices
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly IAvailabilityService _availabilityService = availabilityService;
+    private readonly ICouponService _couponService = couponService;
     private readonly IEmailSender _emailSender = emailSender;
     private readonly ILogger<SubUnitBookingService> _logger = logger;
 
@@ -38,16 +42,16 @@ public class SubUnitBookingService(
 
             if (unit == null)
                 return Result.Failure<SubUnitBookingResponse>(
-                    new Error("UnitNotFound", "Unit not found", 404));
+                    new Abstraction.Error("UnitNotFound", "Unit not found", 404));
 
             // 2. Validate dates
             if (request.CheckInDate >= request.CheckOutDate)
                 return Result.Failure<SubUnitBookingResponse>(
-                    new Error("InvalidDates", "Check-out must be after check-in", 400));
+                    new Abstraction.Error("InvalidDates", "Check-out must be after check-in", 400));
 
             if (request.CheckInDate < DateTime.UtcNow.Date)
                 return Result.Failure<SubUnitBookingResponse>(
-                    new Error("InvalidDates", "Cannot book past dates", 400));
+                    new Abstraction.Error("InvalidDates", "Cannot book past dates", 400));
 
             // 3. Validate subunits exist and belong to this unit
             var subUnits = await _context.SubUnits
@@ -58,11 +62,9 @@ public class SubUnitBookingService(
 
             if (subUnits.Count != request.SubUnitIds.Count)
                 return Result.Failure<SubUnitBookingResponse>(
-                    new Error("InvalidSubUnits", "One or more subunits not found or don't belong to this unit", 400));
+                    new Abstraction.Error("InvalidSubUnits", "One or more subunits not found or don't belong to this unit", 400));
 
             // 4. Check availability for all requested subunits
-
-
             var availabilityCheck = await _availabilityService.CheckMultipleSubUnitsAvailabilityAsync(
                 request.SubUnitIds,
                 request.CheckInDate,
@@ -70,30 +72,63 @@ public class SubUnitBookingService(
 
             if (!availabilityCheck.IsSuccess)
                 return Result.Failure<SubUnitBookingResponse>(
-                    new Error("NotAvailable", "One or more subunits are not available for the requested dates", 400));
+                    new Abstraction.Error("NotAvailable", "One or more subunits are not available for the requested dates", 400));
 
             // 5. Calculate pricing
             var nights = (request.CheckOutDate - request.CheckInDate).Days;
-            var totalPrice = await CalculateTotalPriceAsync(
+            var originalPrice = await CalculateTotalPriceAsync(
                 subUnits,
                 request.CheckInDate,
                 request.CheckOutDate);
 
-            // 6. Generate unique booking number
+            decimal finalPrice = originalPrice;
+            decimal discountAmount = 0;
+            Coupon? appliedCoupon = null;
+
+            // 6. Validate and apply coupon if provided
+            if (!string.IsNullOrWhiteSpace(request.CouponCode))
+            {
+                var couponValidation = await _couponService.ValidateCouponAsync(new ValidateCouponRequest(
+                    CouponCode: request.CouponCode,
+                    BookingAmount: originalPrice,
+                    UnitId: request.UnitId,
+                    CityId: unit.CityId,
+                    UnitTypeId: unit.UnitTypeId,
+                    UserId: request.UserId,
+                    CheckInDate: request.CheckInDate,
+                    CheckOutDate: request.CheckOutDate
+                ));
+
+                if (!couponValidation.IsSuccess || !couponValidation.Value.IsValid)
+                {
+                    return Result.Failure<SubUnitBookingResponse>(
+                        new Abstraction.Error("InvalidCoupon",
+                            couponValidation.Value?.ErrorMessage ?? "Coupon is not valid", 400));
+                }
+
+                discountAmount = couponValidation.Value.DiscountAmount;
+                finalPrice = couponValidation.Value.FinalPrice;
+
+                // Get coupon entity for later use
+                appliedCoupon = await _context.Set<Coupon>()
+                    .FirstOrDefaultAsync(c => c.Code.ToUpper() == request.CouponCode.ToUpper());
+            }
+
+            // 7. Generate unique booking number
             var bookingNumber = await GenerateBookingNumberAsync("ROOM");
 
-            // 7. Create SubUnit booking
+            // 8. Create SubUnit booking
             var booking = new Domain.Entities.Booking
             {
                 BookingNumber = bookingNumber,
                 BookingType = BookingType.SubUnitBooking,
-                UnitId = request.UnitId, // Parent unit for reference
+                UnitId = request.UnitId,
                 UserId = request.UserId,
                 CheckInDate = request.CheckInDate,
                 CheckOutDate = request.CheckOutDate,
                 NumberOfGuests = request.NumberOfGuests,
                 NumberOfNights = nights,
-                TotalPrice = totalPrice,
+                TotalPrice = finalPrice,
                 PaidAmount = 0,
                 Status = BookingStatus.Pending,
                 PaymentStatus = PaymentStatus.Pending,
@@ -104,7 +139,7 @@ public class SubUnitBookingService(
             await _context.Bookings.AddAsync(booking);
             await _context.SaveChangesAsync();
 
-            // 8. Assign subunits to booking
+            // 9. Assign subunits to booking
             foreach (var subUnit in subUnits)
             {
                 var bookingRoom = new BookingRoom
@@ -119,7 +154,30 @@ public class SubUnitBookingService(
 
             await _context.SaveChangesAsync();
 
-            // 9. Mark dates as booked in availability service
+            // 10. Apply coupon to booking if validated
+            if (appliedCoupon != null && discountAmount > 0)
+            {
+                var bookingCoupon = new BookingCoupon
+                {
+                    BookingId = booking.Id,
+                    CouponId = appliedCoupon.Id,
+                    DiscountApplied = discountAmount,
+                    AppliedAt = DateTime.UtcNow.AddHours(3)
+                };
+
+                await _context.Set<BookingCoupon>().AddAsync(bookingCoupon);
+
+                // Update coupon usage count
+                appliedCoupon.CurrentUsageCount++;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Coupon {CouponCode} applied to booking {BookingNumber}. Discount: {Discount}",
+                    appliedCoupon.Code, bookingNumber, discountAmount);
+            }
+
+            // 11. Mark dates as booked in availability service
             var markBooked = await _availabilityService.MarkDatesAsBookedAsync(new MarkDatesAsBookedRequest(
                 BookingType.SubUnitBooking,
                 SubUnitIds: request.SubUnitIds,
@@ -132,19 +190,19 @@ public class SubUnitBookingService(
             {
                 await transaction.RollbackAsync();
                 return Result.Failure<SubUnitBookingResponse>(
-                    new Error("AvailabilityUpdateFailed", "Failed to update availability", 500));
+                    new Abstraction.Error("AvailabilityUpdateFailed", "Failed to update availability", 500));
             }
 
             await transaction.CommitAsync();
 
-            // 10. Send confirmation email
+            // 12. Send confirmation email
             BackgroundJob.Enqueue(() => SendSubUnitBookingConfirmationEmailAsync(booking.Id));
 
             _logger.LogInformation(
-                "SubUnit booking {BookingNumber} created for user {UserId} with {RoomCount} rooms",
-                bookingNumber, request.UserId, request.SubUnitIds.Count);
+                "SubUnit booking {BookingNumber} created for user {UserId} with {RoomCount} rooms. Original price: {OriginalPrice}, Final price: {FinalPrice}",
+                bookingNumber, request.UserId, request.SubUnitIds.Count, originalPrice, finalPrice);
 
-            // 11. Return response
+            // 13. Return response
             var response = await MapToResponseAsync(booking);
             return Result.Success(response);
         }
@@ -153,7 +211,7 @@ public class SubUnitBookingService(
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Error creating subunit booking");
             return Result.Failure<SubUnitBookingResponse>(
-                new Error("BookingFailed", "Failed to create subunit booking", 500));
+                new Abstraction.Error("BookingFailed", "Failed to create subunit booking", 500));
         }
     }
 
@@ -165,7 +223,7 @@ public class SubUnitBookingService(
 
         if (subUnits.Count != request.SubUnitIds.Count)
             return Result.Failure<decimal>(
-                new Error("InvalidSubUnits", "One or more subunits not found", 404));
+                new Abstraction.Error("InvalidSubUnits", "One or more subunits not found", 404));
 
         var totalPrice = await CalculateTotalPriceAsync(
             subUnits,
@@ -185,11 +243,11 @@ public class SubUnitBookingService(
             .FirstOrDefaultAsync(b => b.Id == bookingId && b.BookingType == BookingType.SubUnitBooking);
 
         if (booking == null)
-            return Result.Failure(new Error("NotFound", "Booking not found", 404));
+            return Result.Failure(new Abstraction.Error("NotFound", "Booking not found", 404));
 
         if (booking.Status != BookingStatus.Pending)
             return Result.Failure(
-                new Error("InvalidStatus", $"Cannot confirm booking with status {booking.Status}", 400));
+                new Abstraction.Error("InvalidStatus", $"Cannot confirm booking with status {booking.Status}", 400));
 
         booking.Status = BookingStatus.Confirmed;
         booking.UpdatedAt = DateTime.UtcNow.AddHours(3);
@@ -211,15 +269,15 @@ public class SubUnitBookingService(
             .FirstOrDefaultAsync(b => b.Id == bookingId && b.BookingType == BookingType.SubUnitBooking);
 
         if (booking == null)
-            return Result.Failure(new Error("NotFound", "Booking not found", 404));
+            return Result.Failure(new Abstraction.Error("NotFound", "Booking not found", 404));
 
         if (booking.Status != BookingStatus.Confirmed)
             return Result.Failure(
-                new Error("InvalidStatus", "Only confirmed bookings can be checked in", 400));
+                new Abstraction.Error("InvalidStatus", "Only confirmed bookings can be checked in", 400));
 
         if (DateTime.UtcNow.Date < booking.CheckInDate.Date)
             return Result.Failure(
-                new Error("TooEarly", "Check-in date has not arrived yet", 400));
+                new Abstraction.Error("TooEarly", "Check-in date has not arrived yet", 400));
 
         booking.Status = BookingStatus.CheckedIn;
         booking.UpdatedAt = DateTime.UtcNow.AddHours(3);
@@ -237,18 +295,16 @@ public class SubUnitBookingService(
             .FirstOrDefaultAsync(b => b.Id == bookingId && b.BookingType == BookingType.SubUnitBooking);
 
         if (booking == null)
-            return Result.Failure(new Error("NotFound", "Booking not found", 404));
+            return Result.Failure(new Abstraction.Error("NotFound", "Booking not found", 404));
 
         if (booking.Status != BookingStatus.CheckedIn)
             return Result.Failure(
-                new Error("InvalidStatus", "Only checked-in bookings can be checked out", 400));
+                new Abstraction.Error("InvalidStatus", "Only checked-in bookings can be checked out", 400));
 
         booking.Status = BookingStatus.Completed;
         booking.UpdatedAt = DateTime.UtcNow.AddHours(3);
 
         await _context.SaveChangesAsync();
-
-        // Free up dates in availability (handled automatically by availability service)
 
         BackgroundJob.Enqueue(() => SendSubUnitCheckoutEmailAsync(bookingId));
 
@@ -266,11 +322,11 @@ public class SubUnitBookingService(
             .FirstOrDefaultAsync(b => b.Id == bookingId && b.BookingType == BookingType.SubUnitBooking);
 
         if (booking == null)
-            return Result.Failure(new Error("NotFound", "Booking not found", 404));
+            return Result.Failure(new Abstraction.Error("NotFound", "Booking not found", 404));
 
         if (booking.Status == BookingStatus.Completed || booking.Status == BookingStatus.Cancelled)
             return Result.Failure(
-                new Error("InvalidStatus", "Cannot cancel this booking", 400));
+                new Abstraction.Error("InvalidStatus", "Cannot cancel this booking", 400));
 
         // Calculate refund
         var refundAmount = CalculateRefundAmount(booking);
@@ -281,6 +337,25 @@ public class SubUnitBookingService(
         booking.UpdatedAt = DateTime.UtcNow.AddHours(3);
 
         await _context.SaveChangesAsync();
+
+        // Remove coupon and restore usage count if coupon was applied
+        var bookingCoupon = await _context.Set<BookingCoupon>()
+            .Include(bc => bc.Coupon)
+            .FirstOrDefaultAsync(bc => bc.BookingId == bookingId);
+
+        if (bookingCoupon != null)
+        {
+            var coupon = bookingCoupon.Coupon;
+            if (coupon.CurrentUsageCount > 0)
+                coupon.CurrentUsageCount--;
+
+            _context.Set<BookingCoupon>().Remove(bookingCoupon);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Coupon usage restored for booking {BookingId} cancellation",
+                bookingId);
+        }
 
         // Process refund if applicable
         if (refundAmount > 0)
@@ -312,7 +387,7 @@ public class SubUnitBookingService(
                 .FirstOrDefaultAsync(b => b.Id == bookingId && b.BookingType == BookingType.SubUnitBooking);
 
             if (booking == null)
-                return Result.Failure(new Error("NotFound", "Booking not found", 404));
+                return Result.Failure(new Abstraction.Error("NotFound", "Booking not found", 404));
 
             var payment = new Payment
             {
@@ -353,7 +428,7 @@ public class SubUnitBookingService(
         {
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Error processing payment for subunit booking {BookingId}", bookingId);
-            return Result.Failure(new Error("PaymentFailed", "Failed to process payment", 500));
+            return Result.Failure(new Abstraction.Error("PaymentFailed", "Failed to process payment", 500));
         }
     }
 
@@ -363,7 +438,7 @@ public class SubUnitBookingService(
             .FirstOrDefaultAsync(b => b.Id == bookingId && b.BookingType == BookingType.SubUnitBooking);
 
         if (booking == null)
-            return Result.Failure(new Error("NotFound", "Booking not found", 404));
+            return Result.Failure(new Abstraction.Error("NotFound", "Booking not found", 404));
 
         var refundPayment = new Payment
         {
@@ -403,10 +478,10 @@ public class SubUnitBookingService(
 
         if (booking == null)
             return Result.Failure<SubUnitBookingDetailsResponse>(
-                new Error("NotFound", "Booking not found", 404));
+                new Abstraction.Error("NotFound", "Booking not found", 404));
 
-        var response = MapToDetailsResponse(booking);
-        return Result.Success(response);
+        var response = MapToDetailsResponseAsync(booking);
+        return Result.Success(await response.ConfigureAwait(false));
     }
 
     public async Task<Result<SubUnitBookingDetailsResponse>> GetSubUnitBookingByNumberAsync(string bookingNumber)
@@ -422,10 +497,10 @@ public class SubUnitBookingService(
 
         if (booking == null)
             return Result.Failure<SubUnitBookingDetailsResponse>(
-                new Error("NotFound", "Booking not found", 404));
+                new Abstraction.Error("NotFound", "Booking not found", 404));
 
-        var response = MapToDetailsResponse(booking);
-        return Result.Success(response);
+        var response = MapToDetailsResponseAsync(booking);
+        return Result.Success(await response.ConfigureAwait(false));
     }
 
     public async Task<Result<IEnumerable<SubUnitBookingResponse>>> GetUserSubUnitBookingsAsync(
@@ -615,14 +690,12 @@ public class SubUnitBookingService(
         DateTime checkOut,
         int requestedCount)
     {
-        // Get available subunit IDs
         var availableIds = await _availabilityService.GetAvailableSubUnitIdsAsync(
             unitId, checkIn, checkOut);
 
         if (!availableIds.IsSuccess)
             return Result.Failure<List<AvailableSubUnitInfo>>(availableIds.Error);
 
-        // Get subunit details
         var subUnits = await _context.SubUnits
             .Where(s => availableIds.Value.Contains(s.Id))
             .Take(requestedCount)
@@ -636,7 +709,7 @@ public class SubUnitBookingService(
             PricePerNight = s.PricePerNight,
             MaxOccupancy = s.MaxOccupancy,
             IsAvailable = true,
-            SpecialPrice = null // TODO: Get from availability
+            SpecialPrice = null
         }).ToList();
 
         return Result.Success(result);
@@ -680,7 +753,6 @@ public class SubUnitBookingService(
 
         foreach (var subUnit in subUnits)
         {
-            // Check for special pricing
             var availability = await _context.Set<SubUnitAvailability>()
                 .FirstOrDefaultAsync(a => a.SubUnitId == subUnit.Id &&
                                          checkIn >= a.StartDate &&
@@ -738,6 +810,12 @@ public class SubUnitBookingService(
             SubTotal = br.PricePerNight * br.NumberOfNights
         }).ToList();
 
+        // Get coupon information if applied
+        var bookingCoupon = await _context.Set<BookingCoupon>()
+            .Include(bc => bc.Coupon)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(bc => bc.BookingId == booking.Id);
+
         return new SubUnitBookingResponse
         {
             Id = booking.Id,
@@ -755,11 +833,15 @@ public class SubUnitBookingService(
             PaidAmount = booking.PaidAmount,
             Status = booking.Status,
             PaymentStatus = booking.PaymentStatus,
-            CreatedAt = booking.CreatedAt
+            CreatedAt = booking.CreatedAt,
+
+            // Coupon information
+            AppliedCouponCode = bookingCoupon?.Coupon?.Code ?? "non",
+            CouponDiscount = bookingCoupon?.DiscountApplied.ToString() ?? "non"
         };
     }
 
-    private SubUnitBookingDetailsResponse MapToDetailsResponse(Domain.Entities.Booking booking)
+    private async Task<SubUnitBookingDetailsResponse> MapToDetailsResponseAsync(Domain.Entities.Booking booking)
     {
         var subUnits = booking.BookingRooms.Select(br => new BookedSubUnitInfo
         {
@@ -769,6 +851,12 @@ public class SubUnitBookingService(
             NumberOfNights = br.NumberOfNights,
             SubTotal = br.PricePerNight * br.NumberOfNights
         }).ToList();
+
+        // Get coupon information if applied
+        var bookingCoupon = await _context.Set<BookingCoupon>()
+            .Include(bc => bc.Coupon)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(bc => bc.BookingId == booking.Id);
 
         return new SubUnitBookingDetailsResponse
         {
@@ -801,9 +889,91 @@ public class SubUnitBookingService(
                 Status = p.Status.ToString(),
                 PaymentDate = p.PaymentDate
             }).ToList() ?? new List<PaymentInfo>(),
-            UpdatedAt = booking.UpdatedAt
+            UpdatedAt = booking.UpdatedAt,
+
+            // Coupon information
+            AppliedCouponCode = bookingCoupon?.Coupon?.Code,
+            CouponDiscount = bookingCoupon?.DiscountApplied.ToString()
         };
     }
+
+    //private async Task<SubUnitBookingResponse> MapToResponseAsync(Domain.Entities.Booking booking)
+    //{
+    //    var subUnits = booking.BookingRooms.Select(br => new BookedSubUnitInfo
+    //    {
+    //        SubUnitId = br.RoomId,
+    //        RoomNumber = br.Room.RoomNumber,
+    //        PricePerNight = br.PricePerNight,
+    //        NumberOfNights = br.NumberOfNights,
+    //        SubTotal = br.PricePerNight * br.NumberOfNights
+    //    }).ToList();
+
+    //    return new SubUnitBookingResponse
+    //    {
+    //        Id = booking.Id,
+    //        BookingNumber = booking.BookingNumber,
+    //        UnitId = booking.UnitId,
+    //        UnitName = booking.Unit?.Name ?? "",
+    //        SubUnits = subUnits,
+    //        UserId = booking.UserId,
+    //        UserName = booking.User?.FullName ?? "",
+    //        CheckInDate = booking.CheckInDate,
+    //        CheckOutDate = booking.CheckOutDate,
+    //        NumberOfGuests = booking.NumberOfGuests,
+    //        NumberOfNights = booking.NumberOfNights,
+    //        TotalPrice = booking.TotalPrice,
+    //        PaidAmount = booking.PaidAmount,
+    //        Status = booking.Status,
+    //        PaymentStatus = booking.PaymentStatus,
+    //        CreatedAt = booking.CreatedAt
+    //    };
+    //}
+
+    //private SubUnitBookingDetailsResponse MapToDetailsResponse(Domain.Entities.Booking booking)
+    //{
+    //    var subUnits = booking.BookingRooms.Select(br => new BookedSubUnitInfo
+    //    {
+    //        SubUnitId = br.RoomId,
+    //        RoomNumber = br.Room.RoomNumber,
+    //        PricePerNight = br.PricePerNight,
+    //        NumberOfNights = br.NumberOfNights,
+    //        SubTotal = br.PricePerNight * br.NumberOfNights
+    //    }).ToList();
+
+    //    return new SubUnitBookingDetailsResponse
+    //    {
+    //        Id = booking.Id,
+    //        BookingNumber = booking.BookingNumber,
+    //        UnitId = booking.UnitId,
+    //        UnitName = booking.Unit?.Name ?? "",
+    //        UnitAddress = booking.Unit?.Address ?? "",
+    //        SubUnits = subUnits,
+    //        UserId = booking.UserId,
+    //        UserName = booking.User?.FullName ?? "",
+    //        UserEmail = booking.User?.Email ?? "",
+    //        UserPhone = booking.User?.PhoneNumber,
+    //        CheckInDate = booking.CheckInDate,
+    //        CheckOutDate = booking.CheckOutDate,
+    //        NumberOfGuests = booking.NumberOfGuests,
+    //        NumberOfNights = booking.NumberOfNights,
+    //        TotalPrice = booking.TotalPrice,
+    //        PaidAmount = booking.PaidAmount,
+    //        Status = booking.Status,
+    //        PaymentStatus = booking.PaymentStatus,
+    //        SpecialRequests = booking.SpecialRequests,
+    //        CancellationReason = booking.CancellationReason,
+    //        CancelledAt = booking.CancelledAt,
+    //        Payments = booking.Payments?.Select(p => new PaymentInfo
+    //        {
+    //            Id = p.Id,
+    //            Amount = p.Amount,
+    //            PaymentMethod = p.PaymentMethod.ToString(),
+    //            Status = p.Status.ToString(),
+    //            PaymentDate = p.PaymentDate
+    //        }).ToList() ?? new List<PaymentInfo>(),
+    //        UpdatedAt = booking.UpdatedAt
+    //    };
+    //}
 
     #endregion
 

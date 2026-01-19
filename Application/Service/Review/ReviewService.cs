@@ -203,7 +203,8 @@ public class ReviewService(
                     new Error("NotFound", "Review not found", 404));
 
             var userReviewCount = await _context.Set<Domain.Entities.Review>()
-                .CountAsync(r => r.UserId == review.UserId);
+                .Where(r => r.UserId == review.UserId)
+                .CountAsync();
 
             var response = new ReviewDetailsResponse
             {
@@ -262,8 +263,15 @@ public class ReviewService(
     {
         try
         {
+            // Verify unit exists
+            var unitExists = await _context.Units.AnyAsync(u => u.Id == unitId);
+            if (!unitExists)
+                return Result.Failure<PagedReviewResponse>(
+                    new Error("UnitNotFound", "Unit not found", 404));
+
             var query = _context.Set<Domain.Entities.Review>()
                 .Include(r => r.User)
+                .Include(r => r.Unit)
                 .Include(r => r.Images)
                 .Where(r => r.UnitId == unitId);
 
@@ -280,9 +288,9 @@ public class ReviewService(
             if (filter.HasOwnerResponse.HasValue)
             {
                 if (filter.HasOwnerResponse.Value)
-                    query = query.Where(r => r.OwnerResponse != null);
+                    query = query.Where(r => r.OwnerResponse != null && r.OwnerResponse != "");
                 else
-                    query = query.Where(r => r.OwnerResponse == null);
+                    query = query.Where(r => r.OwnerResponse == null || r.OwnerResponse == "");
             }
 
             if (filter.FromDate.HasValue)
@@ -295,8 +303,11 @@ public class ReviewService(
             query = filter.SortBy?.ToLower() switch
             {
                 "rating" => filter.SortDescending
-                    ? query.OrderByDescending(r => r.Rating)
-                    : query.OrderBy(r => r.Rating),
+                    ? query.OrderByDescending(r => r.Rating).ThenByDescending(r => r.CreatedAt)
+                    : query.OrderBy(r => r.Rating).ThenByDescending(r => r.CreatedAt),
+                "helpful" => filter.SortDescending
+                    ? query.OrderByDescending(r => r.CreatedAt)
+                    : query.OrderBy(r => r.CreatedAt),
                 _ => filter.SortDescending
                     ? query.OrderByDescending(r => r.CreatedAt)
                     : query.OrderBy(r => r.CreatedAt)
@@ -312,9 +323,56 @@ public class ReviewService(
                 .ToListAsync();
 
             var reviewResponses = new List<ReviewResponse>();
+
+            // Get all user IDs to batch fetch review counts
+            var userIds = reviews.Select(r => r.UserId).Distinct().ToList();
+            var userReviewCounts = await _context.Set<Domain.Entities.Review>()
+                .Where(r => userIds.Contains(r.UserId))
+                .GroupBy(r => r.UserId)
+                .Select(g => new { UserId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.UserId, x => x.Count);
+
             foreach (var review in reviews)
             {
-                reviewResponses.Add(await MapToResponseAsync(review));
+                var userReviewCount = userReviewCounts.ContainsKey(review.UserId)
+                    ? userReviewCounts[review.UserId]
+                    : 0;
+
+                reviewResponses.Add(new ReviewResponse
+                {
+                    Id = review.Id,
+                    UnitId = review.UnitId,
+                    UnitName = review.Unit?.Name ?? "Unknown",
+                    BookingId = review.BookingId,
+                    Reviewer = new ReviewerInfo
+                    {
+                        UserId = review.UserId,
+                        FullName = review.User?.FullName ?? "Anonymous",
+                        AvatarUrl = review.User?.AvatarUrl,
+                        TotalReviews = userReviewCount,
+                        Nationality = review.User?.Nationality
+                    },
+                    Rating = review.Rating,
+                    CleanlinessRating = review.CleanlinessRating,
+                    LocationRating = review.LocationRating,
+                    ServiceRating = review.ServiceRating,
+                    ValueRating = review.ValueRating,
+                    Comment = review.Comment,
+                    IsVerified = review.IsVerified,
+                    CheckInDate = review.CheckInDate,
+                    CheckOutDate = review.CheckOutDate,
+                    OwnerResponse = review.OwnerResponse,
+                    OwnerResponseDate = review.OwnerResponseDate,
+                    CreatedAt = review.CreatedAt,
+                    UpdatedAt = review.UpdatedAt,
+                    Images = review.Images?.Select(img => new ReviewImageResponse
+                    {
+                        Id = img.Id,
+                        ImageUrl = img.ImageUrl,
+                        ThumbnailUrl = img.ThumbnailUrl,
+                        Caption = img.Caption
+                    }).ToList() ?? new List<ReviewImageResponse>()
+                });
             }
 
             var response = new PagedReviewResponse
@@ -332,7 +390,7 @@ public class ReviewService(
         {
             _logger.LogError(ex, "Error getting reviews for unit {UnitId}", unitId);
             return Result.Failure<PagedReviewResponse>(
-                new Error("GetFailed", "Failed to retrieve reviews", 500));
+                new Error("GetFailed", $"Failed to retrieve reviews: {ex.Message}", 500));
         }
     }
 
@@ -363,11 +421,43 @@ public class ReviewService(
                 .AsNoTracking()
                 .ToListAsync();
 
-            var reviewResponses = new List<ReviewResponse>();
-            foreach (var review in reviews)
+            var userReviewCount = totalCount;
+
+            var reviewResponses = reviews.Select(review => new ReviewResponse
             {
-                reviewResponses.Add(await MapToResponseAsync(review));
-            }
+                Id = review.Id,
+                UnitId = review.UnitId,
+                UnitName = review.Unit?.Name ?? "Unknown",
+                BookingId = review.BookingId,
+                Reviewer = new ReviewerInfo
+                {
+                    UserId = review.UserId,
+                    FullName = review.User?.FullName ?? "Anonymous",
+                    AvatarUrl = review.User?.AvatarUrl,
+                    TotalReviews = userReviewCount,
+                    Nationality = review.User?.Nationality
+                },
+                Rating = review.Rating,
+                CleanlinessRating = review.CleanlinessRating,
+                LocationRating = review.LocationRating,
+                ServiceRating = review.ServiceRating,
+                ValueRating = review.ValueRating,
+                Comment = review.Comment,
+                IsVerified = review.IsVerified,
+                CheckInDate = review.CheckInDate,
+                CheckOutDate = review.CheckOutDate,
+                OwnerResponse = review.OwnerResponse,
+                OwnerResponseDate = review.OwnerResponseDate,
+                CreatedAt = review.CreatedAt,
+                UpdatedAt = review.UpdatedAt,
+                Images = review.Images?.Select(img => new ReviewImageResponse
+                {
+                    Id = img.Id,
+                    ImageUrl = img.ImageUrl,
+                    ThumbnailUrl = img.ThumbnailUrl,
+                    Caption = img.Caption
+                }).ToList() ?? new List<ReviewImageResponse>()
+            }).ToList();
 
             var response = new PagedReviewResponse
             {
@@ -396,6 +486,12 @@ public class ReviewService(
     {
         try
         {
+            // Verify unit exists
+            var unitExists = await _context.Units.AnyAsync(u => u.Id == unitId);
+            if (!unitExists)
+                return Result.Failure<ReviewStatisticsResponse>(
+                    new Error("UnitNotFound", "Unit not found", 404));
+
             var reviews = await _context.Set<Domain.Entities.Review>()
                 .Where(r => r.UnitId == unitId)
                 .Include(r => r.Images)
@@ -408,27 +504,34 @@ public class ReviewService(
                 {
                     TotalReviews = 0,
                     AverageRating = 0,
+                    AverageCleanlinessRating = 0,
+                    AverageLocationRating = 0,
+                    AverageServiceRating = 0,
+                    AverageValueRating = 0,
                     RatingDistribution = new Dictionary<int, int>
                     {
                         { 1, 0 }, { 2, 0 }, { 3, 0 }, { 4, 0 }, { 5, 0 }
-                    }
+                    },
+                    VerifiedReviewsCount = 0,
+                    ReviewsWithPhotosCount = 0,
+                    ReviewsWithOwnerResponseCount = 0
                 });
             }
 
             var stats = new ReviewStatisticsResponse
             {
                 TotalReviews = reviews.Count,
-                AverageRating = (decimal)reviews.Average(r => r.Rating),
-                AverageCleanlinessRating = (decimal)reviews.Average(r => r.CleanlinessRating),
-                AverageLocationRating = (decimal)reviews.Average(r => r.LocationRating),
-                AverageServiceRating = (decimal)reviews.Average(r => r.ServiceRating),
-                AverageValueRating = (decimal)reviews.Average(r => r.ValueRating),
+                AverageRating = Math.Round((decimal)reviews.Average(r => r.Rating), 2),
+                AverageCleanlinessRating = Math.Round((decimal)reviews.Average(r => r.CleanlinessRating), 2),
+                AverageLocationRating = Math.Round((decimal)reviews.Average(r => r.LocationRating), 2),
+                AverageServiceRating = Math.Round((decimal)reviews.Average(r => r.ServiceRating), 2),
+                AverageValueRating = Math.Round((decimal)reviews.Average(r => r.ValueRating), 2),
                 RatingDistribution = reviews
                     .GroupBy(r => r.Rating)
                     .ToDictionary(g => g.Key, g => g.Count()),
                 VerifiedReviewsCount = reviews.Count(r => r.IsVerified),
                 ReviewsWithPhotosCount = reviews.Count(r => r.Images != null && r.Images.Any()),
-                ReviewsWithOwnerResponseCount = reviews.Count(r => !string.IsNullOrEmpty(r.OwnerResponse))
+                ReviewsWithOwnerResponseCount = reviews.Count(r => !string.IsNullOrWhiteSpace(r.OwnerResponse))
             };
 
             // Ensure all ratings 1-5 exist in distribution
@@ -444,7 +547,7 @@ public class ReviewService(
         {
             _logger.LogError(ex, "Error getting statistics for unit {UnitId}", unitId);
             return Result.Failure<ReviewStatisticsResponse>(
-                new Error("GetFailed", "Failed to retrieve statistics", 500));
+                new Error("GetFailed", $"Failed to retrieve statistics: {ex.Message}", 500));
         }
     }
 
@@ -454,82 +557,130 @@ public class ReviewService(
 
     public async Task<Result<bool>> CanUserReviewAsync(string userId, int unitId)
     {
-        var eligibility = await ValidateReviewEligibilityAsync(userId, unitId);
-        return Result.Success(eligibility.IsEligible);
+        try
+        {
+            var eligibility = await ValidateReviewEligibilityAsync(userId, unitId);
+            return Result.Success(eligibility.IsEligible);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking review eligibility for user {UserId} and unit {UnitId}", userId, unitId);
+            return Result.Failure<bool>(new Error("EligibilityCheckFailed", "Failed to check eligibility", 500));
+        }
     }
 
     public async Task<Result<ReviewEligibilityResponse>> GetReviewEligibilityAsync(
         string userId,
         int unitId)
     {
-        var eligibility = await ValidateReviewEligibilityAsync(userId, unitId);
-
-        var response = new ReviewEligibilityResponse
+        try
         {
-            CanReview = eligibility.IsEligible,
-            Reason = eligibility.Reason,
-            BookingId = eligibility.BookingId,
-            CheckOutDate = eligibility.CheckOutDate,
-            DaysRemaining = eligibility.DaysRemaining
-        };
+            var eligibility = await ValidateReviewEligibilityAsync(userId, unitId);
 
-        return Result.Success(response);
+            var response = new ReviewEligibilityResponse
+            {
+                CanReview = eligibility.IsEligible,
+                Reason = eligibility.Reason,
+                BookingId = eligibility.BookingId,
+                CheckOutDate = eligibility.CheckOutDate,
+                DaysRemaining = eligibility.DaysRemaining
+            };
+
+            return Result.Success(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting review eligibility for user {UserId} and unit {UnitId}", userId, unitId);
+            return Result.Failure<ReviewEligibilityResponse>(
+                new Error("EligibilityCheckFailed", "Failed to check eligibility", 500));
+        }
     }
 
     private async Task<ReviewEligibility> ValidateReviewEligibilityAsync(
         string userId,
         int unitId)
     {
-        // Find completed bookings for this user at this unit
-        var completedBooking = await _context.Bookings
-            .Where(b => b.UserId == userId &&
-                       b.UnitId == unitId &&
-                       b.Status == BookingStatus.Completed)
-            .OrderByDescending(b => b.CheckOutDate)
-            .FirstOrDefaultAsync();
-
-        if (completedBooking == null)
+        try
         {
+            // Verify unit exists
+            var unitExists = await _context.Units.AnyAsync(u => u.Id == unitId);
+            if (!unitExists)
+            {
+                return new ReviewEligibility
+                {
+                    IsEligible = false,
+                    Reason = "Unit not found"
+                };
+            }
+
+            // Find completed bookings for this user at this unit
+            var completedBooking = await _context.Bookings
+                .Where(b => b.UserId == userId &&
+                           b.UnitId == unitId &&
+                           b.Status == BookingStatus.Completed)
+                .OrderByDescending(b => b.CheckOutDate)
+                .FirstOrDefaultAsync();
+
+            if (completedBooking == null)
+            {
+                return new ReviewEligibility
+                {
+                    IsEligible = false,
+                    Reason = "You must complete a stay at this property before reviewing"
+                };
+            }
+
+            // Get current date in the same timezone (UTC+3)
+            var currentDate = DateTime.UtcNow.AddHours(3).Date;
+            var checkoutDate = completedBooking.CheckOutDate.Date;
+
+            // Check if checkout was recent enough (within 60 days)
+            var daysSinceCheckout = (currentDate - checkoutDate).Days;
+
+            if (daysSinceCheckout > 60)
+            {
+                return new ReviewEligibility
+                {
+                    IsEligible = false,
+                    Reason = "Review period expired (must review within 60 days of checkout)",
+                    BookingId = completedBooking.Id,
+                    CheckOutDate = completedBooking.CheckOutDate
+                };
+            }
+
+            // Check if already reviewed
+            var existingReview = await _context.Set<Domain.Entities.Review>()
+                .AnyAsync(r => r.BookingId == completedBooking.Id);
+
+            if (existingReview)
+            {
+                return new ReviewEligibility
+                {
+                    IsEligible = false,
+                    Reason = "You have already reviewed this booking",
+                    BookingId = completedBooking.Id,
+                    CheckOutDate = completedBooking.CheckOutDate
+                };
+            }
+
+            return new ReviewEligibility
+            {
+                IsEligible = true,
+                Reason = "Eligible to review",
+                BookingId = completedBooking.Id,
+                CheckOutDate = completedBooking.CheckOutDate,
+                DaysRemaining = Math.Max(0, 60 - daysSinceCheckout)
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error validating review eligibility");
             return new ReviewEligibility
             {
                 IsEligible = false,
-                Reason = "You must complete a stay at this property before reviewing"
+                Reason = "Error checking eligibility"
             };
         }
-
-        // Check if checkout was recent enough (within 60 days)
-        var daysSinceCheckout = (DateTime.UtcNow.Date - completedBooking.CheckOutDate.Date).Days;
-        if (daysSinceCheckout > 60)
-        {
-            return new ReviewEligibility
-            {
-                IsEligible = false,
-                Reason = "Review period expired (must review within 60 days of checkout)",
-                BookingId = completedBooking.Id
-            };
-        }
-
-        // Check if already reviewed
-        var existingReview = await _context.Set<Domain.Entities.Review>()
-            .AnyAsync(r => r.BookingId == completedBooking.Id);
-
-        if (existingReview)
-        {
-            return new ReviewEligibility
-            {
-                IsEligible = false,
-                Reason = "You have already reviewed this booking",
-                BookingId = completedBooking.Id
-            };
-        }
-
-        return new ReviewEligibility
-        {
-            IsEligible = true,
-            BookingId = completedBooking.Id,
-            CheckOutDate = completedBooking.CheckOutDate,
-            DaysRemaining = 60 - daysSinceCheckout
-        };
     }
 
     #endregion
@@ -590,6 +741,7 @@ public class ReviewService(
             var query = _context.Set<Domain.Entities.Review>()
                 .Include(r => r.Unit)
                 .Include(r => r.User)
+                .Include(r => r.Images)
                 .OrderByDescending(r => r.CreatedAt);
 
             var totalCount = await query.CountAsync();
@@ -756,7 +908,7 @@ public class ReviewService(
 
             if (reviews.Any())
             {
-                unit.AverageRating = (decimal)reviews.Average(r => r.Rating);
+                unit.AverageRating = Math.Round((decimal)reviews.Average(r => r.Rating), 2);
                 unit.TotalReviews = reviews.Count;
                 unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
             }
@@ -776,60 +928,76 @@ public class ReviewService(
 
     private async Task<ReviewResponse> MapToResponseAsync(Domain.Entities.Review review)
     {
-        var userReviewCount = await _context.Set<Domain.Entities.Review>()
-            .CountAsync(r => r.UserId == review.UserId);
-
-        // Load Unit if not already loaded
-        if (review.Unit == null && review.UnitId > 0)
+        try
         {
-            review.Unit = await _context.Units
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == review.UnitId);
-        }
+            var userReviewCount = await _context.Set<Domain.Entities.Review>()
+                .Where(r => r.UserId == review.UserId)
+                .CountAsync();
 
-        // Load User if not already loaded
-        if (review.User == null && !string.IsNullOrEmpty(review.UserId))
-        {
-            review.User = await _context.Users
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == review.UserId);
-        }
-
-        return new ReviewResponse
-        {
-            Id = review.Id,
-            UnitId = review.UnitId,
-            UnitName = review.Unit?.Name ?? "Unknown",
-            BookingId = review.BookingId,
-            Reviewer = new ReviewerInfo
+            // Load related entities if not already loaded
+            if (review.Unit == null && review.UnitId > 0)
             {
-                UserId = review.UserId,
-                FullName = review.User?.FullName ?? "Anonymous",
-                AvatarUrl = review.User?.AvatarUrl,
-                TotalReviews = userReviewCount,
-                Nationality = review.User?.Nationality
-            },
-            Rating = review.Rating,
-            CleanlinessRating = review.CleanlinessRating,
-            LocationRating = review.LocationRating,
-            ServiceRating = review.ServiceRating,
-            ValueRating = review.ValueRating,
-            Comment = review.Comment,
-            IsVerified = review.IsVerified,
-            CheckInDate = review.CheckInDate,
-            CheckOutDate = review.CheckOutDate,
-            OwnerResponse = review.OwnerResponse,
-            OwnerResponseDate = review.OwnerResponseDate,
-            CreatedAt = review.CreatedAt,
-            UpdatedAt = review.UpdatedAt,
-            Images = review.Images?.Select(img => new ReviewImageResponse
+                review.Unit = await _context.Units
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == review.UnitId);
+            }
+
+            if (review.User == null && !string.IsNullOrEmpty(review.UserId))
             {
-                Id = img.Id,
-                ImageUrl = img.ImageUrl,
-                ThumbnailUrl = img.ThumbnailUrl,
-                Caption = img.Caption
-            }).ToList() ?? new List<ReviewImageResponse>()
-        };
+                review.User = await _context.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == review.UserId);
+            }
+
+            if (review.Images == null)
+            {
+                review.Images = await _context.Set<ReviewImage>()
+                    .Where(ri => ri.ReviewId == review.Id)
+                    .AsNoTracking()
+                    .ToListAsync();
+            }
+
+            return new ReviewResponse
+            {
+                Id = review.Id,
+                UnitId = review.UnitId,
+                UnitName = review.Unit?.Name ?? "Unknown",
+                BookingId = review.BookingId,
+                Reviewer = new ReviewerInfo
+                {
+                    UserId = review.UserId,
+                    FullName = review.User?.FullName ?? "Anonymous",
+                    AvatarUrl = review.User?.AvatarUrl,
+                    TotalReviews = userReviewCount,
+                    Nationality = review.User?.Nationality
+                },
+                Rating = review.Rating,
+                CleanlinessRating = review.CleanlinessRating,
+                LocationRating = review.LocationRating,
+                ServiceRating = review.ServiceRating,
+                ValueRating = review.ValueRating,
+                Comment = review.Comment,
+                IsVerified = review.IsVerified,
+                CheckInDate = review.CheckInDate,
+                CheckOutDate = review.CheckOutDate,
+                OwnerResponse = review.OwnerResponse,
+                OwnerResponseDate = review.OwnerResponseDate,
+                CreatedAt = review.CreatedAt,
+                UpdatedAt = review.UpdatedAt,
+                Images = review.Images?.Select(img => new ReviewImageResponse
+                {
+                    Id = img.Id,
+                    ImageUrl = img.ImageUrl ?? string.Empty,
+                    ThumbnailUrl = img.ThumbnailUrl,
+                    Caption = img.Caption
+                }).ToList() ?? new List<ReviewImageResponse>()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error mapping review {ReviewId} to response", review.Id);
+            throw;
+        }
     }
 
     #endregion

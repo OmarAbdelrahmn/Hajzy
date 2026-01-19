@@ -3,6 +3,7 @@ using Application.Contracts.Availability;
 using Application.Contracts.SubUnit;
 using Domain;
 using Domain.Entities;
+using System.ComponentModel.DataAnnotations;
 
 namespace Application.Service.Availability;
 
@@ -149,13 +150,15 @@ public record CreateUnitBookingRequest(
     DateTime CheckInDate,
     DateTime CheckOutDate,
     int NumberOfGuests,
+    string? CouponCode,  // ADDED: Optional coupon code
     string? SpecialRequests = null
 );
 
 public record CalculateUnitBookingPriceRequest(
     int UnitId,
     DateTime CheckInDate,
-    DateTime CheckOutDate
+    DateTime CheckOutDate,
+    string? CouponCode  // ADDED: Optional coupon code for price calculation
 );
 
 public record UnitBookingStatisticsFilter(
@@ -175,6 +178,8 @@ public record UnitBookingResponse
     public string BookingNumber { get; init; } = string.Empty;
     public int UnitId { get; init; }
     public string UnitName { get; init; } = string.Empty;
+    public string CouponDiscount { get; init; } = string.Empty;
+    public string AppliedCouponCode { get; init; } = string.Empty;
     public string UserId { get; init; } = string.Empty;
     public string UserName { get; init; } = string.Empty;
     public DateTime CheckInDate { get; init; }
@@ -198,6 +203,7 @@ public record UnitBookingDetailsResponse : UnitBookingResponse
     public DateTime? CancelledAt { get; init; }
     public List<PaymentInfo> Payments { get; init; } = new();
     public DateTime? UpdatedAt { get; init; }
+
 }
 
 public record UnitBookingStatisticsResponse
@@ -231,13 +237,15 @@ public record CreateSubUnitBookingRequest(
     DateTime CheckInDate,
     DateTime CheckOutDate,
     int NumberOfGuests,
+    string? CouponCode,  // ADDED: Optional coupon code
     string? SpecialRequests = null
 );
 
 public record CalculateSubUnitBookingPriceRequest(
     List<int> SubUnitIds,
     DateTime CheckInDate,
-    DateTime CheckOutDate
+    DateTime CheckOutDate,
+    string? CouponCode  // ADDED: Optional coupon code for price calculation
 );
 
 public record SubUnitBookingStatisticsFilter(
@@ -260,6 +268,8 @@ public record SubUnitBookingResponse
     public string UnitName { get; init; } = string.Empty;
     public List<BookedSubUnitInfo> SubUnits { get; init; } = new();
     public string UserId { get; init; } = string.Empty;
+    public string AppliedCouponCode { get; init; } = string.Empty;
+    public string CouponDiscount { get; init; } = string.Empty;
     public string UserName { get; init; } = string.Empty;
     public DateTime CheckInDate { get; init; }
     public DateTime CheckOutDate { get; init; }
@@ -329,10 +339,10 @@ public record SubUnitBookingStatisticsResponse
 // ============================================================================
 
 public record ProcessPaymentRequest(
-    string TransactionId,
-    decimal Amount,
-    PaymentMethod PaymentMethod,
-    string? Notes = null
+    [Required] string TransactionId,
+    [Required][Range(0.01, double.MaxValue)] decimal Amount,
+    [Required] PaymentMethod PaymentMethod,
+    string? Notes
 );
 
 public record PaymentInfo
