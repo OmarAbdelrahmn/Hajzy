@@ -390,7 +390,7 @@ public class ReviewService(
         {
             _logger.LogError(ex, "Error getting reviews for unit {UnitId}", unitId);
             return Result.Failure<PagedReviewResponse>(
-                new Error("GetFailed", $"Failed to retrieve reviews: {ex.Message}", 500));
+                new Error(ex.Message, $"Failed to retrieve reviews: {ex.Message}", 500));
         }
     }
 

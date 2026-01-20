@@ -66,6 +66,7 @@ public class AvailabilityService(
         }
     }
 
+
     public async Task<Result<List<AvailabilityResponse>>> GetUnitAvailabilityAsync(
         int unitId,
         DateTime startDate,
@@ -99,7 +100,6 @@ public class AvailabilityService(
                 new Error("GetFailed", "Failed to get availability", 500));
         }
     }
-
     public async Task<Result<UnitAvailabilityStatus>> CheckUnitAvailabilityAsync(
         int unitId,
         DateTime checkIn,
@@ -107,10 +107,28 @@ public class AvailabilityService(
     {
         try
         {
+            // Check if unit exists and is active
+            var unit = await _context.Units
+                .Include(u => u.Rooms)
+                .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+
+            if (unit == null)
+                return Result.Failure<UnitAvailabilityStatus>(
+                    new Error("NotFound", "Unit not found", 404));
+
+            if (!unit.IsActive)
+                return Result.Success(new UnitAvailabilityStatus
+                {
+                    IsAvailable = false,
+                    Reason = "Unit is not active",
+                    AvailableSubUnitsCount = 0,
+                    TotalSubUnitsCount = 0
+                });
+
             // Check if unit has any available subunits
-            var subUnits = await _context.SubUnits
-                .Where(r => r.UnitId == unitId && !r.IsDeleted && r.IsAvailable)
-                .ToListAsync();
+            var subUnits = unit.Rooms
+                .Where(r => !r.IsDeleted && r.IsAvailable)
+                .ToList();
 
             if (!subUnits.Any())
                 return Result.Success(new UnitAvailabilityStatus
@@ -122,9 +140,10 @@ public class AvailabilityService(
                 });
 
             // Check for unit-level blocks (manual unavailability)
+            // ONLY block if there's an EXPLICIT unavailable record
             var hasUnitBlock = await _context.Set<UnitAvailability>()
                 .AnyAsync(a => a.UnitId == unitId &&
-                              !a.IsAvailable &&
+                              !a.IsAvailable &&  // ONLY unavailable records block
                               a.StartDate < checkOut &&
                               a.EndDate > checkIn);
 
@@ -149,11 +168,11 @@ public class AvailabilityService(
             // Check for active UNIT-level bookings (entire property booked)
             var hasUnitBooking = await _context.Bookings
                 .AnyAsync(b => b.UnitId == unitId &&
-                              b.BookingType.ToString() == BookingType.UnitBooking.ToString() &&
+                              b.BookingType == BookingType.UnitBooking &&
                               b.CheckInDate < checkOut &&
                               b.CheckOutDate > checkIn &&
-                              b.Status.ToString() != BookingStatus.Cancelled.ToString() &&
-                              b.Status.ToString() != BookingStatus.Completed.ToString());
+                              b.Status != BookingStatus.Cancelled &&
+                              b.Status != BookingStatus.Completed);
 
             if (hasUnitBooking)
                 return Result.Success(new UnitAvailabilityStatus
@@ -165,23 +184,24 @@ public class AvailabilityService(
                     TotalSubUnitsCount = subUnits.Count
                 });
 
-            // If checking for unit booking, ensure ALL subunits are available
+            // Check for subunit-level bookings
             var bookedSubUnitIds = await _context.BookingRooms
                 .Include(br => br.Booking)
                 .Where(br => br.Room.UnitId == unitId &&
                             br.Booking.CheckInDate < checkOut &&
                             br.Booking.CheckOutDate > checkIn &&
-                            br.Booking.Status.ToString() != BookingStatus.Cancelled.ToString() &&
-                            br.Booking.Status.ToString() != BookingStatus.Completed.ToString())
+                            br.Booking.Status != BookingStatus.Cancelled &&
+                            br.Booking.Status != BookingStatus.Completed)
                 .Select(br => br.RoomId)
                 .Distinct()
                 .ToListAsync();
 
             var availableSubUnitsCount = subUnits.Count - bookedSubUnitIds.Count;
 
+            // For unit booking, ALL subunits must be free
             return Result.Success(new UnitAvailabilityStatus
             {
-                IsAvailable = availableSubUnitsCount == subUnits.Count, // All rooms must be free for unit booking
+                IsAvailable = availableSubUnitsCount == subUnits.Count,
                 Reason = availableSubUnitsCount == subUnits.Count ? null : "Some rooms are booked",
                 HasManualBlock = false,
                 HasActiveBooking = availableSubUnitsCount < subUnits.Count,
@@ -301,7 +321,6 @@ public class AvailabilityService(
     }
 
     #endregion
-
     #region SUBUNIT AVAILABILITY
 
     public async Task<Result> SetSubUnitAvailabilityAsync(SetSubUnitAvailabilityRequest request)
@@ -408,10 +427,10 @@ public class AvailabilityService(
                     Reason = "SubUnit not found or disabled"
                 });
 
-            // Check for manual blocks
+            // Check for manual blocks - ONLY block if explicitly marked unavailable
             var hasBlock = await _context.Set<SubUnitAvailability>()
                 .AnyAsync(a => a.SubUnitId == subUnitId &&
-                              !a.IsAvailable &&
+                              !a.IsAvailable &&  // ONLY unavailable records block
                               a.StartDate < checkOut &&
                               a.EndDate > checkIn);
 
@@ -435,11 +454,11 @@ public class AvailabilityService(
             // Check for unit-level bookings (if entire unit is booked, all rooms unavailable)
             var hasUnitBooking = await _context.Bookings
                 .AnyAsync(b => b.UnitId == subUnit.UnitId &&
-                              b.BookingType.ToString() == BookingType.UnitBooking.ToString() &&
+                              b.BookingType == BookingType.UnitBooking &&
                               b.CheckInDate < checkOut &&
                               b.CheckOutDate > checkIn &&
-                              b.Status.ToString() != BookingStatus.Cancelled.ToString() &&
-                              b.Status.ToString() != BookingStatus.Completed.ToString());
+                              b.Status != BookingStatus.Cancelled &&
+                              b.Status != BookingStatus.Completed);
 
             if (hasUnitBooking)
                 return Result.Success(new SubUnitAvailabilityStatus
@@ -456,8 +475,8 @@ public class AvailabilityService(
                 .AnyAsync(br => br.RoomId == subUnitId &&
                                br.Booking.CheckInDate < checkOut &&
                                br.Booking.CheckOutDate > checkIn &&
-                               br.Booking.Status.ToString() != BookingStatus.Cancelled.ToString() &&
-                               br.Booking.Status .ToString() != BookingStatus.Completed.ToString());
+                               br.Booking.Status != BookingStatus.Cancelled &&
+                               br.Booking.Status != BookingStatus.Completed);
 
             if (hasBooking)
                 return Result.Success(new SubUnitAvailabilityStatus
@@ -475,6 +494,7 @@ public class AvailabilityService(
                                          checkIn >= a.StartDate &&
                                          checkOut <= a.EndDate);
 
+            // IF NO BLOCKS AND NO BOOKINGS = AVAILABLE BY DEFAULT
             return Result.Success(new SubUnitAvailabilityStatus
             {
                 IsAvailable = true,
@@ -487,6 +507,77 @@ public class AvailabilityService(
             _logger.LogError(ex, "Error checking subunit availability");
             return Result.Failure<SubUnitAvailabilityStatus>(
                 new Error("CheckFailed", "Failed to check availability", 500));
+        }
+    }
+
+
+    #endregion
+
+    #region BULK QUERIES
+
+    public async Task<Result<List<int>>> GetAvailableSubUnitIdsAsync(
+        int unitId,
+        DateTime checkIn,
+        DateTime checkOut)
+    {
+        try
+        {
+            // Get all subunits for this unit
+            var allSubUnits = await _context.SubUnits
+                .Where(s => s.UnitId == unitId && !s.IsDeleted && s.IsAvailable)
+                .Select(s => s.Id)
+                .ToListAsync();
+
+            if (!allSubUnits.Any())
+                return Result.Success(new List<int>());
+
+            // Check if entire unit is booked
+            var hasUnitBooking = await _context.Bookings
+                .AnyAsync(b => b.UnitId == unitId &&
+                              b.BookingType == BookingType.UnitBooking &&
+                              b.CheckInDate < checkOut &&
+                              b.CheckOutDate > checkIn &&
+                              b.Status != BookingStatus.Cancelled &&
+                              b.Status != BookingStatus.Completed);
+
+            if (hasUnitBooking)
+                return Result.Success(new List<int>());
+
+            // Get booked subunits
+            var bookedSubUnitIds = await _context.BookingRooms
+                .Include(br => br.Booking)
+                .Where(br => allSubUnits.Contains(br.RoomId) &&
+                            br.Booking.CheckInDate < checkOut &&
+                            br.Booking.CheckOutDate > checkIn &&
+                            br.Booking.Status != BookingStatus.Cancelled &&
+                            br.Booking.Status != BookingStatus.Completed)
+                .Select(br => br.RoomId)
+                .Distinct()
+                .ToListAsync();
+
+            // Get manually blocked subunits - ONLY those explicitly marked unavailable
+            var blockedSubUnitIds = await _context.Set<SubUnitAvailability>()
+                .Where(a => allSubUnits.Contains(a.SubUnitId) &&
+                           !a.IsAvailable &&  // ONLY unavailable records block
+                           a.StartDate < checkOut &&
+                           a.EndDate > checkIn)
+                .Select(a => a.SubUnitId)
+                .Distinct()
+                .ToListAsync();
+
+            // Available = all - booked - blocked
+            var availableIds = allSubUnits
+                .Except(bookedSubUnitIds)
+                .Except(blockedSubUnitIds)
+                .ToList();
+
+            return Result.Success(availableIds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting available subunit IDs");
+            return Result.Failure<List<int>>(
+                new Error("GetFailed", "Failed to get available subunits", 500));
         }
     }
 
@@ -824,71 +915,71 @@ public class AvailabilityService(
 
     #region BULK QUERIES
 
-    public async Task<Result<List<int>>> GetAvailableSubUnitIdsAsync(
-        int unitId,
-        DateTime checkIn,
-        DateTime checkOut)
-    {
-        try
-        {
-            // Get all subunits for this unit
-            var allSubUnits = await _context.SubUnits
-                .Where(s => s.UnitId == unitId && !s.IsDeleted && s.IsAvailable)
-                .Select(s => s.Id)
-                .ToListAsync();
+    //public async Task<Result<List<int>>> GetAvailableSubUnitIdsAsync(
+    //    int unitId,
+    //    DateTime checkIn,
+    //    DateTime checkOut)
+    //{
+    //    try
+    //    {
+    //        // Get all subunits for this unit
+    //        var allSubUnits = await _context.SubUnits
+    //            .Where(s => s.UnitId == unitId && !s.IsDeleted && s.IsAvailable)
+    //            .Select(s => s.Id)
+    //            .ToListAsync();
 
-            if (!allSubUnits.Any())
-                return Result.Success(new List<int>());
+    //        if (!allSubUnits.Any())
+    //            return Result.Success(new List<int>());
 
-            // Check if entire unit is booked
-            var hasUnitBooking = await _context.Bookings
-                .AnyAsync(b => b.UnitId == unitId &&
-                              b.BookingType.ToString() == BookingType.UnitBooking.ToString() &&
-                              b.CheckInDate < checkOut &&
-                              b.CheckOutDate > checkIn &&
-                              b.Status.ToString() != BookingStatus.Cancelled.ToString() &&
-                              b.Status.ToString() != BookingStatus.Completed.ToString());
+    //        // Check if entire unit is booked
+    //        var hasUnitBooking = await _context.Bookings
+    //            .AnyAsync(b => b.UnitId == unitId &&
+    //                          b.BookingType.ToString() == BookingType.UnitBooking.ToString() &&
+    //                          b.CheckInDate < checkOut &&
+    //                          b.CheckOutDate > checkIn &&
+    //                          b.Status.ToString() != BookingStatus.Cancelled.ToString() &&
+    //                          b.Status.ToString() != BookingStatus.Completed.ToString());
 
-            if (hasUnitBooking)
-                return Result.Success(new List<int>());
+    //        if (hasUnitBooking)
+    //            return Result.Success(new List<int>());
 
-            // Get booked subunits
-            var bookedSubUnitIds = await _context.BookingRooms
-                .Include(br => br.Booking)
-                .Where(br => allSubUnits.Contains(br.RoomId) &&
-                            br.Booking.CheckInDate < checkOut &&
-                            br.Booking.CheckOutDate > checkIn &&
-                            br.Booking.Status.ToString() != BookingStatus.Cancelled.ToString() &&
-                            br.Booking.Status.ToString() != BookingStatus.Completed.ToString())
-                .Select(br => br.RoomId)
-                .Distinct()
-                .ToListAsync();
+    //        // Get booked subunits
+    //        var bookedSubUnitIds = await _context.BookingRooms
+    //            .Include(br => br.Booking)
+    //            .Where(br => allSubUnits.Contains(br.RoomId) &&
+    //                        br.Booking.CheckInDate < checkOut &&
+    //                        br.Booking.CheckOutDate > checkIn &&
+    //                        br.Booking.Status.ToString() != BookingStatus.Cancelled.ToString() &&
+    //                        br.Booking.Status.ToString() != BookingStatus.Completed.ToString())
+    //            .Select(br => br.RoomId)
+    //            .Distinct()
+    //            .ToListAsync();
 
-            // Get manually blocked subunits
-            var blockedSubUnitIds = await _context.Set<SubUnitAvailability>()
-                .Where(a => allSubUnits.Contains(a.SubUnitId) &&
-                           !a.IsAvailable &&
-                           a.StartDate < checkOut &&
-                           a.EndDate > checkIn)
-                .Select(a => a.SubUnitId)
-                .Distinct()
-                .ToListAsync();
+    //        // Get manually blocked subunits
+    //        var blockedSubUnitIds = await _context.Set<SubUnitAvailability>()
+    //            .Where(a => allSubUnits.Contains(a.SubUnitId) &&
+    //                       !a.IsAvailable &&
+    //                       a.StartDate < checkOut &&
+    //                       a.EndDate > checkIn)
+    //            .Select(a => a.SubUnitId)
+    //            .Distinct()
+    //            .ToListAsync();
 
-            // Available = all - booked - blocked
-            var availableIds = allSubUnits
-                .Except(bookedSubUnitIds)
-                .Except(blockedSubUnitIds)
-                .ToList();
+    //        // Available = all - booked - blocked
+    //        var availableIds = allSubUnits
+    //            .Except(bookedSubUnitIds)
+    //            .Except(blockedSubUnitIds)
+    //            .ToList();
 
-            return Result.Success(availableIds);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting available subunit IDs");
-            return Result.Failure<List<int>>(
-                new Error("GetFailed", "Failed to get available subunits", 500));
-        }
-    }
+    //        return Result.Success(availableIds);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error getting available subunit IDs");
+    //        return Result.Failure<List<int>>(
+    //            new Error("GetFailed", "Failed to get available subunits", 500));
+    //    }
+    //}
 
     public async Task<Result<Dictionary<int, bool>>> CheckMultipleSubUnitsAvailabilityAsync(
         List<int> subUnitIds,

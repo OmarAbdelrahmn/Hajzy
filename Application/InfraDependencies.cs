@@ -17,10 +17,12 @@ using Application.Service.Policy;
 using Application.Service.PromoCode;
 using Application.Service.publicuser;
 using Application.Service.Report;
+using Application.Service.Review;
 using Application.Service.S3Image;
 using Application.Service.SubUnit;
 using Application.Service.SubUnitAmenity;
 using Application.Service.SubUnitImage;
+using Application.Service.SubUnitType;
 using Application.Service.Unit;
 using Application.Service.UnitAmenity;
 using Application.Service.UnitImage;
@@ -86,6 +88,8 @@ public static class InfraDependencies
         Services.AddScoped<IAdService,AdService>();
         Services.AddScoped<IOfferService, OfferService>();
         Services.AddScoped<ICouponService, CouponService>();
+        Services.AddScoped<IReviewService, ReviewService>();
+        Services.AddScoped<ISubUnitTypeService,SubUnitTypeService>();
         Services.AddScoped<AdExpirationJob>();
         Services.AddScoped<OfferExpirationJob>();
 

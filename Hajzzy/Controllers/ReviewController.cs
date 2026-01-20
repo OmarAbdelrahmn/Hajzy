@@ -86,10 +86,10 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     /// <summary>
     /// Get all reviews for a specific unit with filtering and pagination
     /// </summary>
-    [HttpGet("unit/{unitId:int}")]
+    [HttpPost("unit/{unitId:int}")]
     public async Task<IActionResult> GetUnitReviews(
         int unitId,
-        [FromQuery] ReviewFilter filter)
+        [FromBody] ReviewFilter filter)
     {
         var result = await _reviewService.GetUnitReviewsAsync(unitId, filter);
 
