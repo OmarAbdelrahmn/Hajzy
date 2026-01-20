@@ -224,6 +224,18 @@ public class AvailabilityService(
     {
         try
         {
+            if(month < 1 || month > 12)
+            {
+                return Result.Failure<Dictionary<DateTime, UnitDayAvailability>>(
+                    new Error("InvalidMonth", "Month must be between 1 and 12", 400));
+            }
+
+            if(year < 1 || year > 9999)
+            {
+                return Result.Failure<Dictionary<DateTime, UnitDayAvailability>>(
+                    new Error("InvalidYear", "Year must be between 1 and 9999", 400));
+            }
+
             var unit = await _context.Units
                 .Include(u => u.Rooms.Where(r => !r.IsDeleted))
                 .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
