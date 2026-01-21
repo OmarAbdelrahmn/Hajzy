@@ -1,5 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts;
+using Application.Contracts.Availability;
 using Application.Contracts.Bookin;
 using Application.Helpers;
 using Application.Service.Availability;

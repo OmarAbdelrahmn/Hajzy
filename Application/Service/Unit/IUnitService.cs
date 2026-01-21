@@ -10,7 +10,7 @@ namespace Application.Service.Unit;
 
 public interface IUnitService
 {
-    Task<Result<UnitResponse>> GetByIdAsync(int unitId);
+    Task<Result<UnitResponses>> GetByIdAsync(int unitId);
     Task<Result<UnitDetailsResponse>> GetDetailsAsync(int unitId);
 
     Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetAllComprehensiveAsync(UnitFilter filter);

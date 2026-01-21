@@ -102,12 +102,13 @@ public class PublicService(
         }
     }
 
-    public async Task<Result<PublicUnitDetailsResponse>> GetUnitDetailsAsync(int unitId)
+    public async Task<Result<PublicUnitDetailsResponses>> GetUnitDetailsAsync(int unitId)
     {
         try
         {
 
             var unit = await _context.Units
+                .Include(c=>c.Rooms)
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
                 .Include(u => u.Images.Where(i => !i.IsDeleted))
@@ -122,7 +123,7 @@ public class PublicService(
                 .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted && u.IsActive && u.IsVerified);
 
             if (unit == null)
-                return Result.Failure<PublicUnitDetailsResponse>(
+                return Result.Failure<PublicUnitDetailsResponses>(
                     new Error("NotFound", "Unit not found or not available", 404));
 
             // Get general policies
@@ -131,7 +132,94 @@ public class PublicService(
                 .AsNoTracking()
                 .ToListAsync();
 
-            var response = MapToPublicDetailsResponse(unit, policies);
+            var subUnits = unit.Rooms
+                .Where(r => !r.IsDeleted && r.IsAvailable)
+                .ToList();
+
+            var isStandaloneUnit = !subUnits.Any();
+
+
+
+
+            var response =  new PublicUnitDetailsResponses
+            {
+                Id = unit.Id,
+                Name = unit.Name,
+                IsStandaloneUnit = isStandaloneUnit,
+                Description = unit.Description,
+                Address = unit.Address,
+                Latitude = unit.Latitude,
+                Longitude = unit.Longitude,
+                City = new PublicCityInfo(
+                unit.City!.Id,
+                unit.City.Name,
+                unit.City.Country,
+                unit.City.Description,
+                unit.City.Latitude,
+                unit.City.Longitude
+            ),
+                UnitTypeName = unit.UnitType?.Name ?? "",
+                BasePrice = unit.BasePrice,
+                MaxGuests = unit.MaxGuests,
+                Bedrooms = unit.Bedrooms,
+                Bathrooms = unit.Bathrooms,
+                AverageRating = unit.AverageRating,
+                TotalReviews = unit.TotalReviews,
+                Images = unit.Images?.Where(i => !i.IsDeleted)
+                .OrderBy(i => i.DisplayOrder)
+                .Select(i => new PublicImageInfo
+                {
+                    ImageUrl = i.ImageUrl,
+                    ThumbnailUrl = i.ThumbnailUrl,
+                    MediumUrl = i.MediumUrl,
+                    IsPrimary = i.IsPrimary,
+                    DisplayOrder = i.DisplayOrder,
+                    Caption = i.Caption
+                }).ToList() ?? new(),
+                Amenities = unit.UnitAmenities?.Where(ua => ua.IsAvailable)
+                .Select(ua => new PublicAmenityInfo(
+                    ua.Amenity.Name.ToString(),
+                    ua.Amenity.Description,
+                    ua.Amenity.Category.ToString()
+                )).ToList() ?? new(),
+                SubUnits = unit.Rooms?.Where(r => !r.IsDeleted && r.IsAvailable)
+                .Select(r => new PublicSubUnitSummary(
+                    r.Id,
+                    r.RoomNumber,
+                    r.SubUnitTypeId,
+                    r.PricePerNight,
+                    r.MaxOccupancy,
+                    r.IsAvailable,
+                    r.SubUnitImages.FirstOrDefault(i => i.IsPrimary)?.ImageUrl
+                )).ToList() ?? new(),
+                RecentReviews = unit.Reviews?
+                .OrderByDescending(r => r.CreatedAt)
+                .Take(10)
+                .Select(r => new PublicReviewSummary
+                {
+                    Rating = r.Rating,
+                    Comment = r.Comment,
+                    CreatedAt = r.CreatedAt,
+                    ReviewerName = "Guest", // Never expose real names
+                    ImageUrls = r.Images.Where(i => !i.IsDeleted)
+                        .Select(i => i.ImageUrl).ToList()
+                }).ToList() ?? new(),
+                CancellationPolicy = unit.CancellationPolicy != null
+                ? new PublicCancellationPolicy(
+                    unit.CancellationPolicy.Name,
+                    unit.CancellationPolicy.Description,
+                    unit.CancellationPolicy.FullRefundDays,
+                    unit.CancellationPolicy.PartialRefundDays,
+                    unit.CancellationPolicy.PartialRefundPercentage
+                )
+                : null,
+                Policies = policies.Select(p => new PublicPolicyInfo(
+                    p.Title,
+                    p.Description,
+                    p.PolicyType.ToString(),
+                    p.IsMandatory
+                )).ToList()
+            };
 
             // Cache for 5 minutes
 
@@ -139,7 +227,7 @@ public class PublicService(
         }
         catch (Exception ex)
         {
-            return Result.Failure<PublicUnitDetailsResponse>(
+            return Result.Failure<PublicUnitDetailsResponses>(
                 new Error("GetFailed", "Failed to retrieve unit details", 500));
         }
     }

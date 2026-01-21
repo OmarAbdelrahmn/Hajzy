@@ -1,4 +1,5 @@
 ﻿using Domain;
+using Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -7,6 +8,137 @@ namespace Application.Contracts.Bookin;
 
 internal class Booking
 {
+}
+public class BookingAdminFilter
+{
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 5;
+
+    public BookingType? BookingType { get; set; }
+    public BookingStatus? Status { get; set; }
+    public PaymentStatus? PaymentStatus { get; set; }
+
+    public int? UnitId { get; set; }
+    public int? CityId { get; set; }
+    public string? UserId { get; set; }
+    public string? BookingNumber { get; set; }
+
+    public DateTime? CheckInFrom { get; set; }
+    public DateTime? CheckInTo { get; set; }
+    public DateTime? CreatedFrom { get; set; }
+    public DateTime? CreatedTo { get; set; }
+
+    public string? SortBy { get; set; } = "BookingDate"; // BookingDate, CheckIn, TotalPrice, Status
+    public bool SortDescending { get; set; } = true;
+}
+
+public class PaginatedBookingsResponse
+{
+    public List<AdminBookingResponse> Bookings { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+    public int TotalPages { get; set; }
+    public BookingStatistics Statistics { get; set; } = new();
+}
+
+public class AdminBookingResponse
+{
+    // Basic Info
+    public int Id { get; set; }
+    public string BookingNumber { get; set; } = string.Empty;
+    public string BookingType { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string PaymentStatus { get; set; } = string.Empty;
+
+    // Unit Info
+    public int UnitId { get; set; }
+    public string UnitName { get; set; } = string.Empty;
+    public string UnitAddress { get; set; } = string.Empty;
+    public string UnitType { get; set; } = string.Empty;
+    public string CityName { get; set; } = string.Empty;
+    public int CityId { get; set; }
+
+    // SubUnit Info (only for SubUnit bookings)
+    public List<SubUnitSummary> SubUnits { get; set; } = new();
+
+    // Guest Info
+    public string UserId { get; set; } = string.Empty;
+    public string GuestName { get; set; } = string.Empty;
+    public string GuestEmail { get; set; } = string.Empty;
+    public string? GuestPhone { get; set; }
+
+    // Booking Details
+    public DateTime CheckInDate { get; set; }
+    public DateTime CheckOutDate { get; set; }
+    public int NumberOfGuests { get; set; }
+    public int NumberOfNights { get; set; }
+
+    // Financial Info
+    public decimal TotalPrice { get; set; }
+    public decimal PaidAmount { get; set; }
+    public decimal RemainingAmount { get; set; }
+
+    // Coupon Info
+    public string? CouponCode { get; set; }
+    public decimal? CouponDiscount { get; set; }
+
+    // Payment Info
+    public List<PaymentSummary> Payments { get; set; } = new();
+
+    // Additional Info
+    public string? SpecialRequests { get; set; }
+    public string? CancellationReason { get; set; }
+    public DateTime? CancelledAt { get; set; }
+
+    // Timestamps
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public class SubUnitSummary
+{
+    public int SubUnitId { get; set; }
+    public string RoomNumber { get; set; } = string.Empty;
+    public string SubUnitType { get; set; } = string.Empty;
+    public decimal PricePerNight { get; set; }
+    public int NumberOfNights { get; set; }
+    public decimal Subtotal { get; set; }
+    public int MaxOccupancy { get; set; }
+    public int? Bedrooms { get; set; }
+    public int? Bathrooms { get; set; }
+    public decimal? Size { get; set; }
+}
+
+public class PaymentSummary
+{
+    public int Id { get; set; }
+    public string TransactionId { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string PaymentMethod { get; set; } = string.Empty;
+    public DateTime PaymentDate { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string? Notes { get; set; }
+}
+
+public class BookingStatistics
+{
+    public int TotalBookings { get; set; }
+    public decimal TotalRevenue { get; set; }
+    public decimal PaidRevenue { get; set; }
+    public decimal PendingRevenue { get; set; }
+
+    public int PendingCount { get; set; }
+    public int ConfirmedCount { get; set; }
+    public int CheckedInCount { get; set; }
+    public int CompletedCount { get; set; }
+    public int CancelledCount { get; set; }
+
+    public int UnitBookingsCount { get; set; }
+    public int SubUnitBookingsCount { get; set; }
+
+    public decimal AverageBookingValue { get; set; }
+    public double AverageNightsPerBooking { get; set; }
 }
 
 //public record CreateSubUnitBookingRequest(

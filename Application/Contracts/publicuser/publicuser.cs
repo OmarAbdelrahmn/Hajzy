@@ -66,6 +66,37 @@ public record PublicUnitDetailsResponse
     public List<PublicPolicyInfo> Policies { get; init; } = new();
 }
 
+public record PublicUnitDetailsResponses
+{
+    public int Id { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string Address { get; init; } = string.Empty;
+    public bool IsStandaloneUnit { get; init; } 
+
+    public decimal Latitude { get; init; }
+    public decimal Longitude { get; init; }
+
+    public PublicCityInfo City { get; init; } = default!;
+    public string UnitTypeName { get; init; } = string.Empty;
+
+    public decimal BasePrice { get; init; }
+    public int? MaxGuests { get; init; }
+    public int? Bedrooms { get; init; }
+    public int? Bathrooms { get; init; }
+
+    public decimal AverageRating { get; init; }
+    public int TotalReviews { get; init; }
+
+    public List<PublicImageInfo> Images { get; init; } = new();
+    public List<PublicAmenityInfo> Amenities { get; init; } = new();
+    public List<PublicSubUnitSummary> SubUnits { get; init; } = new();
+    public List<PublicReviewSummary> RecentReviews { get; init; } = new();
+
+    public PublicCancellationPolicy? CancellationPolicy { get; init; }
+    public List<PublicPolicyInfo> Policies { get; init; } = new();
+}
+
 // ============= SUBUNIT RESPONSES =============
 
 public record PublicSubUnitDetailsResponse

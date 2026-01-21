@@ -403,18 +403,18 @@ public record BookingFilter(
 //    string UpdatedByUserId
 //);
 
-public record BlockUnitDatesRequest(
-    int UnitId,
-    List<DateRange> DateRanges,
-    UnavailabilityReason Reason,
-    string UpdatedByUserId
-);
+//public record BlockUnitDatesRequest(
+//    int UnitId,
+//    List<DateRange> DateRanges,
+//    UnavailabilityReason Reason,
+//    string UpdatedByUserId
+//);
 
-public record SetSpecialPricingRequest(
-    int SubUnitId,
-    List<PriceRange> PriceRanges,
-    string UpdatedByUserId
-);
+//public record SetSpecialPricingRequest(
+//    int SubUnitId,
+//    List<PriceRange> PriceRanges,
+//    string UpdatedByUserId
+//);
 
 public record DateRange(
     DateTime StartDate,
@@ -428,18 +428,17 @@ public record PriceRange(
     decimal? WeekendPrice = null
 );
 
-public record MarkDatesAsBookedRequest(
-    BookingType BookingType,
-    int? UnitId = null,
-    List<int>? SubUnitIds = null,
-    int BookingId = 0,
-    DateTime CheckInDate = default,
-    DateTime CheckOutDate = default
-);
+//public record MarkDatesAsBookedRequest(
+//    BookingType BookingType,
+//    int? UnitId = null,
+//    List<int>? SubUnitIds = null,
+//    int BookingId = 0,
+//    DateTime CheckInDate = default,
+//    DateTime CheckOutDate = default
+//);
 
 #endregion
 
-#region Availability Responses
 
 //public record AvailabilityResponse(
 //    int Id,
@@ -451,93 +450,94 @@ public record MarkDatesAsBookedRequest(
 //    decimal? WeekendPrice
 //);
 
-public record UnitAvailabilityStatus
-{
-    public bool IsAvailable { get; init; }
-    public string? Reason { get; init; }
-    public bool HasManualBlock { get; init; }
-    public bool HasActiveBooking { get; init; }
-    public int AvailableSubUnitsCount { get; init; }
-    public int TotalSubUnitsCount { get; init; }
-}
-
-public record SubUnitAvailabilityStatus
-{
-    public bool IsAvailable { get; init; }
-    public string? Reason { get; init; }
-    public bool HasManualBlock { get; init; }
-    public bool HasActiveBooking { get; init; }
-    public decimal? CurrentPrice { get; init; }
-    public decimal? SpecialPrice { get; init; }
-}
-
-public record UnitDayAvailability
-{
-    public DateTime Date { get; init; }
-    public bool IsAvailable { get; init; }
-    public bool IsBooked { get; init; }
-    public bool IsManuallyBlocked { get; init; }
-    public int AvailableSubUnits { get; init; }
-    public int TotalSubUnits { get; init; }
-    public decimal? MinPrice { get; init; }
-    public decimal? MaxPrice { get; init; }
-    public UnavailabilityReason? UnavailabilityReason { get; init; }
-}
-
-public record SubUnitDayAvailability
-{
-    public DateTime Date { get; init; }
-    public bool IsAvailable { get; init; }
-    public bool IsBooked { get; init; }
-    public bool IsManuallyBlocked { get; init; }
-    public decimal Price { get; init; }
-    public bool IsWeekend { get; init; }
-    public decimal? SpecialPrice { get; init; }
-    public UnavailabilityReason? UnavailabilityReason { get; init; }
-}
-
-#endregion
-
-// ============================================================================
-// ENUMS
-// ============================================================================
-
-//public enum BookingType
+//public record UnitAvailabilityStatus
 //{
-//    UnitBooking = 1,
-//    SubUnitBooking = 2
+//    public bool IsAvailable { get; init; }
+//    public string? Reason { get; init; }
+//    public bool HasManualBlock { get; init; }
+//    public bool HasActiveBooking { get; init; }
+//    public int AvailableSubUnitsCount { get; init; }
+//    public int TotalSubUnitsCount { get; init; }
 //}
 
-//public enum BookingStatus
+//public record SubUnitAvailabilityStatus
 //{
-//    Pending = 1,
-//    Confirmed = 2,
-//    CheckedIn = 3,
-//    Completed = 4,
-//    Cancelled = 5
+//    public bool IsAvailable { get; init; }
+//    public string? Reason { get; init; }
+//    public bool HasManualBlock { get; init; }
+//    public bool HasActiveBooking { get; init; }
+//    public decimal? CurrentPrice { get; init; }
+//    public decimal? SpecialPrice { get; init; }
 //}
 
-//public enum PaymentStatus
+//public record UnitDayAvailability
 //{
-//    Pending = 1,
-//    PartiallyPaid = 2,
-//    Paid = 3,
-//    Refunded = 4
+//    public DateTime Date { get; init; }
+//    public bool IsAvailable { get; init; }
+//    public bool IsBooked { get; init; }
+//    public bool IsManuallyBlocked { get; init; }
+//    public int AvailableSubUnits { get; init; }
+//    public int TotalSubUnits { get; init; }
+//    public decimal? MinPrice { get; init; }
+//    public decimal? MaxPrice { get; init; }
+//    public UnavailabilityReason? UnavailabilityReason { get; init; }
 //}
 
-//public enum PaymentMethod
+//public record SubUnitDayAvailability
 //{
-//    CreditCard = 1,
-//    DebitCard = 2,
-//    Cash = 3,
-//    BankTransfer = 4
+//    public DateTime Date { get; init; }
+//    public bool IsAvailable { get; init; }
+//    public bool IsBooked { get; init; }
+//    public bool IsManuallyBlocked { get; init; }
+//    public decimal Price { get; init; }
+//    public bool IsWeekend { get; init; }
+//    public decimal? SpecialPrice { get; init; }
+//    public UnavailabilityReason? UnavailabilityReason { get; init; }
 //}
 
-//public enum UnavailabilityReason
-//{
-//    Booked = 1,
-//    Maintenance = 2,
-//    OwnerBlocked = 3,
-//    SeasonallyClosed = 4,
-//    Other = 5
-//}
+//#endregion
+
+//// ============================================================================
+//// ENUMS
+//// ============================================================================
+
+////public enum BookingType
+////{
+////    UnitBooking = 1,
+////    SubUnitBooking = 2
+////}
+
+////public enum BookingStatus
+////{
+////    Pending = 1,
+////    Confirmed = 2,
+////    CheckedIn = 3,
+////    Completed = 4,
+////    Cancelled = 5
+////}
+
+////public enum PaymentStatus
+////{
+////    Pending = 1,
+////    PartiallyPaid = 2,
+////    Paid = 3,
+////    Refunded = 4
+////}
+
+////public enum PaymentMethod
+////{
+////    CreditCard = 1,
+////    DebitCard = 2,
+////    Cash = 3,
+////    BankTransfer = 4
+////}
+
+////public enum UnavailabilityReason
+////{
+////    Booked = 1,
+////    Maintenance = 2,
+////    OwnerBlocked = 3,
+////    SeasonallyClosed = 4,
+////    Other = 5
+////}}
+///

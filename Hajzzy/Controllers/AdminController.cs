@@ -1,5 +1,6 @@
-﻿using Application.Admin;
-using Application.Contracts.Admin;
+﻿using Application.Contracts.Admin;
+using Application.Contracts.Bookin;
+using Application.Service.Admin;
 using Application.User;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -14,6 +15,18 @@ public class AdminController(IAdminService service,IUserService service1) : Cont
 {
     private readonly IAdminService service = service;
     private readonly IUserService service1 = service1;
+
+
+    [HttpGet("bookings")]
+    public async Task<IActionResult> GetAllBookings([FromQuery] BookingAdminFilter filter)
+    {
+        var result = await service.GetAllBookingsAsync(filter);
+
+        if (!result.IsSuccess)
+            return result.ToProblem();
+
+        return Ok(result.Value);
+    }
 
     [HttpGet("users")]
     public async Task<IActionResult> GetUsers()

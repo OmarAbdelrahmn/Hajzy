@@ -1,7 +1,7 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Roles;
 
-namespace Application.Roles;
+namespace Application.Service.Roles;
 
 public interface IRoleService
 {

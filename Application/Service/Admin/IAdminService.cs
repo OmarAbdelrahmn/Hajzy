@@ -1,8 +1,9 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Admin;
+using Application.Contracts.Bookin;
 
 
-namespace Application.Admin;
+namespace Application.Service.Admin;
 
 public interface IAdminService
 {
@@ -14,4 +15,6 @@ public interface IAdminService
     Task<Result> ToggleStatusAsync(string UserId);
     Task<Result> EndLockOutAsync(string UserId);
     Task<Result> DeletaUserAsync(string UserId);
+    Task<Result<PaginatedBookingsResponse>> GetAllBookingsAsync(BookingAdminFilter filter);
+
 }

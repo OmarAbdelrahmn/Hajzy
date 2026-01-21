@@ -1,6 +1,5 @@
 ﻿using Application.Contracts.Roles;
-using Application.Roles;
-using Medical_E_Commerce.Service.Roles;
+using Application.Service.Roles;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

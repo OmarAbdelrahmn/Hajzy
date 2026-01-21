@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Identity.Data;
 using ResetPasswordRequest = Application.Contracts.Auth.ResetPasswordRequest;
 
 
-namespace Application.Auth;
+namespace Application.Service.Auth;
 
 public interface IAuthService
 {

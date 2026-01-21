@@ -270,6 +270,33 @@ public class UnitResponse
     public DateTime? UpdatedAt { get; init; }
 }
 
+public class UnitResponses
+{
+    public int Id { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string Address { get; init; } = string.Empty;
+    public decimal Latitude { get; init; }
+    public decimal Longitude { get; init; }
+    public int CityId { get; init; }
+    public string CityName { get; init; } = string.Empty;
+    public int UnitTypeId { get; init; }
+    public string UnitTypeName { get; init; } = string.Empty;
+    public decimal BasePrice { get; init; }
+    public int? MaxGuests { get; init; }
+    public int? Bedrooms { get; init; }
+    public int? Bathrooms { get; init; }
+    public bool IsActive { get; init; }
+    public bool IsVerified { get; init; }
+    public bool IsStandaloneUnit { get; init; }
+    public decimal AverageRating { get; init; }
+    public int TotalReviews { get; init; }
+    public string? PrimaryImageUrl { get; init; }
+    public int AdminCount { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime? UpdatedAt { get; init; }
+}
+
 public class UnitDetailsResponse
 {
     public int Id { get; init; }

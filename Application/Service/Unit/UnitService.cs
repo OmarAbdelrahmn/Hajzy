@@ -22,9 +22,10 @@ public class UnitService(
 
     #region BASIC CRUD
 
-    public async Task<Result<UnitResponse>> GetByIdAsync(int unitId)
+    public async Task<Result<UnitResponses>> GetByIdAsync(int unitId)
     {
         var unit = await _context.Units
+            .Include(c=>c.Rooms)
             .Include(u => u.City)
             .Include(u => u.UnitType)
             .Include(u => u.CancellationPolicy)
@@ -35,10 +36,43 @@ public class UnitService(
             .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
 
         if (unit == null)
-            return Result.Failure<UnitResponse>(
+            return Result.Failure<UnitResponses>(
                 new Error("NotFound", "Unit not found", 404));
 
-        return Result.Success(MapToResponse(unit));
+        var subUnits = unit.Rooms
+            .Where(r => !r.IsDeleted && r.IsAvailable)
+            .ToList();
+
+        var isStandaloneUnit = !subUnits.Any();
+
+        var reustl = new UnitResponses
+        {
+            Id = unit.Id,
+            Name = unit.Name,
+            Description = unit.Description,
+            Address = unit.Address,
+            Latitude = unit.Latitude,
+            Longitude = unit.Longitude,
+            CityId = unit.CityId,
+            CityName = unit.City?.Name ?? "",
+            UnitTypeId = unit.UnitTypeId,
+            UnitTypeName = unit.UnitType?.Name ?? "",
+            BasePrice = unit.BasePrice,
+            MaxGuests = unit.MaxGuests,
+            Bedrooms = unit.Bedrooms,
+            Bathrooms = unit.Bathrooms,
+            IsActive = unit.IsActive,
+            IsVerified = unit.IsVerified,
+            AverageRating = unit.AverageRating,
+            TotalReviews = unit.TotalReviews,
+            PrimaryImageUrl = unit.Images?.FirstOrDefault(i => i.IsPrimary)?.ImageUrl,
+            AdminCount = unit.Admins?.Count(a => a.IsActive) ?? 0,
+            CreatedAt = unit.CreatedAt,
+            UpdatedAt = unit.UpdatedAt,
+            IsStandaloneUnit = isStandaloneUnit
+        };
+
+        return Result.Success(reustl);
     }
 
     public async Task<Result<UnitDetailsResponse>> GetDetailsAsync(int unitId)

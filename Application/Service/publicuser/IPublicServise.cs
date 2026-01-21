@@ -18,7 +18,7 @@ namespace Application.Service.publicuser;
     /// <summary>
     /// Get single unit details (public view)
     /// </summary>
-    Task<Result<PublicUnitDetailsResponse>> GetUnitDetailsAsync(int unitId);
+    Task<Result<PublicUnitDetailsResponses>> GetUnitDetailsAsync(int unitId);
 
     /// <summary>
     /// Search units by keyword

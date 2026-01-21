@@ -1,6 +1,6 @@
-﻿using Application.Auth;
-using Application.Contracts.Auth;
+﻿using Application.Contracts.Auth;
 using Application.Contracts.Auth.RefreshTokem;
+using Application.Service.Auth;
 using Hajzzy;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;

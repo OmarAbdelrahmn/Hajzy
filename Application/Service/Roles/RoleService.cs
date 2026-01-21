@@ -1,7 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Abstraction.Errors;
 using Application.Contracts.Roles;
-using Application.Roles;
 using Domain;
 using Domain.Entities;
 using Mapster;
@@ -9,7 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
-namespace Medical_E_Commerce.Service.Roles;
+namespace Application.Service.Roles;
 
 public class RoleService(RoleManager<ApplicationRole> roleManager, ApplicationDbcontext dbcontext) : IRoleService
 {

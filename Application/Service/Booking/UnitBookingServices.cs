@@ -1,8 +1,9 @@
 ﻿using Application.Abstraction;
+using Application.Contracts;
+using Application.Contracts.Availability;
 using Application.Contracts.Bookin;
 using Application.Service.Availability;
 using Application.Service.PromoCode;
-using Application.Contracts;
 using Domain;
 using Domain.Entities;
 using Hangfire;
@@ -12,6 +13,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Application.Service.Booking;
 
+/// <summary>
+/// UPDATED: Unit Booking Service now handles BOTH:
+/// 1. Standalone Units (gardens, pools, event halls) - no subunits, rent the entire unit
+/// 2. Units with Subunits (hotels, apartments) - rent all rooms together
+/// </summary>
 public class UnitBookingService(
     ApplicationDbcontext context,
     IAvailabilityService availabilityService,
@@ -33,14 +39,22 @@ public class UnitBookingService(
 
         try
         {
-            // 1. Validate Unit exists
+            // 1. Validate Unit exists and load related data
             var unit = await _context.Units
+                .Include(u => u.Rooms.Where(r => !r.IsDeleted)) // Load subunits
                 .Include(u => u.CancellationPolicy)
                 .FirstOrDefaultAsync(u => u.Id == request.UnitId && !u.IsDeleted);
 
             if (unit == null)
                 return Result.Failure<UnitBookingResponse>(
                     new Error("UnitNotFound", "Unit not found", 404));
+
+            // NEW: Determine if this is a standalone unit
+            var isStandaloneUnit = !unit.Rooms.Any();
+
+            _logger.LogInformation(
+                "Creating booking for {UnitType} unit {UnitId}",
+                isStandaloneUnit ? "standalone" : "multi-subunit", request.UnitId);
 
             // 2. Validate dates
             if (request.CheckInDate >= request.CheckOutDate)
@@ -51,20 +65,31 @@ public class UnitBookingService(
                 return Result.Failure<UnitBookingResponse>(
                     new Error("InvalidDates", "Cannot book past dates", 400));
 
-            // 3. Check unit availability (entire property must be free)
+            // 3. Check unit availability
+            // This works for BOTH standalone and regular units
             var availabilityCheck = await _availabilityService.CheckUnitAvailabilityAsync(
                 request.UnitId,
                 request.CheckInDate,
                 request.CheckOutDate);
 
             if (!availabilityCheck.IsSuccess || !availabilityCheck.Value.IsAvailable)
-                return Result.Failure<UnitBookingResponse>(
-                    new Error("NotAvailable",
-                        $"Unit not available: {availabilityCheck.Value?.Reason ?? "Unknown"}", 400));
+            {
+                var reason = availabilityCheck.Value?.Reason ?? "Unit not available";
+                _logger.LogWarning(
+                    "Unit {UnitId} is not available: {Reason}",
+                    request.UnitId, reason);
 
-            // 4. Calculate pricing for entire unit
+                return Result.Failure<UnitBookingResponse>(
+                    new Error("NotAvailable", $"Unit not available: {reason}", 400));
+            }
+
+            // 4. Calculate pricing
             var nights = (request.CheckOutDate - request.CheckInDate).Days;
-            var originalPrice = unit.BasePrice * nights;
+
+            // NEW: Use BasePrice for standalone units, calculate from rooms for others
+            decimal originalPrice = isStandaloneUnit
+                ? unit.BasePrice * nights
+                : await CalculateUnitWithRoomsPriceAsync(unit, request.CheckInDate, request.CheckOutDate);
 
             decimal finalPrice = originalPrice;
             decimal discountAmount = 0;
@@ -94,19 +119,20 @@ public class UnitBookingService(
                 discountAmount = couponValidation.Value.DiscountAmount;
                 finalPrice = couponValidation.Value.FinalPrice;
 
-                // Get coupon entity for later use
                 appliedCoupon = await _context.Set<Coupon>()
                     .FirstOrDefaultAsync(c => c.Code.ToUpper() == request.CouponCode.ToUpper());
             }
 
             // 6. Generate unique booking number
-            var bookingNumber = await GenerateBookingNumberAsync("UNIT");
+            var bookingPrefix = isStandaloneUnit ? "STAND" : "UNIT";
+            var bookingNumber = await GenerateBookingNumberAsync(bookingPrefix);
 
-            // 7. Create unit booking (BookingRooms will be EMPTY for unit bookings)
+            // 7. Create booking record
+            // NOTE: BookingRooms will be EMPTY for both standalone units AND full unit bookings
             var booking = new Domain.Entities.Booking
             {
                 BookingNumber = bookingNumber,
-                BookingType = BookingType.UnitBooking,
+                BookingType = BookingType.UnitBooking, // Always UnitBooking type
                 UnitId = request.UnitId,
                 UserId = request.UserId,
                 CheckInDate = request.CheckInDate,
@@ -124,7 +150,7 @@ public class UnitBookingService(
             await _context.Bookings.AddAsync(booking);
             await _context.SaveChangesAsync();
 
-            // 8. Apply coupon to booking if validated
+            // 8. Apply coupon if validated
             if (appliedCoupon != null && discountAmount > 0)
             {
                 var bookingCoupon = new BookingCoupon
@@ -136,10 +162,7 @@ public class UnitBookingService(
                 };
 
                 await _context.Set<BookingCoupon>().AddAsync(bookingCoupon);
-
-                // Update coupon usage count
                 appliedCoupon.CurrentUsageCount++;
-
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation(
@@ -169,7 +192,8 @@ public class UnitBookingService(
             BackgroundJob.Enqueue(() => SendUnitBookingConfirmationEmailAsync(booking.Id));
 
             _logger.LogInformation(
-                "Unit booking {BookingNumber} created for user {UserId}. Original price: {OriginalPrice}, Final price: {FinalPrice}",
+                "{UnitType} booking {BookingNumber} created for user {UserId}. Original: {Original}, Final: {Final}",
+                isStandaloneUnit ? "Standalone unit" : "Full unit",
                 bookingNumber, request.UserId, originalPrice, finalPrice);
 
             // 11. Return response
@@ -188,6 +212,7 @@ public class UnitBookingService(
     public async Task<Result<decimal>> CalculateUnitBookingPriceAsync(CalculateUnitBookingPriceRequest request)
     {
         var unit = await _context.Units
+            .Include(u => u.Rooms.Where(r => !r.IsDeleted && r.IsAvailable))
             .FirstOrDefaultAsync(u => u.Id == request.UnitId && !u.IsDeleted);
 
         if (unit == null)
@@ -195,7 +220,27 @@ public class UnitBookingService(
                 new Error("UnitNotFound", "Unit not found", 404));
 
         var nights = (request.CheckOutDate - request.CheckInDate).Days;
-        var totalPrice = unit.BasePrice * nights;
+
+        // NEW: Check if standalone unit
+        var isStandaloneUnit = !unit.Rooms.Any();
+
+        decimal totalPrice;
+        if (isStandaloneUnit)
+        {
+            // Standalone: use base price
+            totalPrice = unit.BasePrice * nights;
+            _logger.LogInformation(
+                "Calculating price for standalone unit {UnitId}: {BasePrice} × {Nights} nights = {Total}",
+                request.UnitId, unit.BasePrice, nights, totalPrice);
+        }
+        else
+        {
+            // Units with rooms: sum all room prices
+            totalPrice = await CalculateUnitWithRoomsPriceAsync(unit, request.CheckInDate, request.CheckOutDate);
+            _logger.LogInformation(
+                "Calculating price for unit {UnitId} with {RoomCount} rooms: {Total}",
+                request.UnitId, unit.Rooms.Count, totalPrice);
+        }
 
         return Result.Success(totalPrice);
     }
@@ -306,7 +351,7 @@ public class UnitBookingService(
 
         await _context.SaveChangesAsync();
 
-        // Remove coupon and restore usage count if coupon was applied
+        // Remove coupon and restore usage count
         var bookingCoupon = await _context.Set<BookingCoupon>()
             .Include(bc => bc.Coupon)
             .FirstOrDefaultAsync(bc => bc.BookingId == bookingId);
@@ -634,6 +679,35 @@ public class UnitBookingService(
         return $"{bookingPrefix}-{sequence:D4}";
     }
 
+    /// <summary>
+    /// NEW: Calculate price for units with rooms (sum all room prices)
+    /// </summary>
+    private async Task<decimal> CalculateUnitWithRoomsPriceAsync(
+       Domain.Entities.Unit unit,
+        DateTime checkIn,
+        DateTime checkOut)
+    {
+        if (!unit.Rooms.Any())
+            return 0;
+
+        decimal total = 0;
+        var nights = (checkOut - checkIn).Days;
+
+        foreach (var room in unit.Rooms)
+        {
+            // Check for special pricing
+            var availability = await _context.Set<SubUnitAvailability>()
+                .FirstOrDefaultAsync(a => a.SubUnitId == room.Id &&
+                                         checkIn >= a.StartDate &&
+                                         checkOut <= a.EndDate);
+
+            var calculator = new PricingCalculator();
+            total += calculator.CalculatePrice(room, checkIn, checkOut, availability);
+        }
+
+        return total;
+    }
+
     private decimal CalculateRefundAmount(Domain.Entities.Booking booking)
     {
         if (booking.Unit?.CancellationPolicy == null)
@@ -670,10 +744,8 @@ public class UnitBookingService(
         return query;
     }
 
-
     private async Task<UnitBookingResponse> MapToResponseAsync(Domain.Entities.Booking booking)
     {
-        // Get coupon information if applied
         var bookingCoupon = await _context.Set<BookingCoupon>()
             .Include(bc => bc.Coupon)
             .AsNoTracking()
@@ -696,16 +768,13 @@ public class UnitBookingService(
             Status = booking.Status,
             PaymentStatus = booking.PaymentStatus,
             CreatedAt = booking.CreatedAt,
-
-            // Coupon information
-            AppliedCouponCode = bookingCoupon?.Coupon?.Code,
-            CouponDiscount = bookingCoupon?.DiscountApplied.ToString()
+            AppliedCouponCode = bookingCoupon?.Coupon?.Code ?? "non",
+            CouponDiscount = bookingCoupon?.DiscountApplied.ToString() ?? "non"
         };
     }
 
     private async Task<UnitBookingDetailsResponse> MapToDetailsResponseAsync(Domain.Entities.Booking booking)
     {
-        // Get coupon information if applied
         var bookingCoupon = await _context.Set<BookingCoupon>()
             .Include(bc => bc.Coupon)
             .AsNoTracking()
@@ -742,69 +811,10 @@ public class UnitBookingService(
                 PaymentDate = p.PaymentDate
             }).ToList() ?? new List<PaymentInfo>(),
             UpdatedAt = booking.UpdatedAt,
-
-            // Coupon information
             AppliedCouponCode = bookingCoupon?.Coupon?.Code,
             CouponDiscount = bookingCoupon?.DiscountApplied.ToString()
         };
     }
-    //private async Task<UnitBookingResponse> MapToResponseAsync(Domain.Entities.Booking booking)
-    //{
-    //    return new UnitBookingResponse
-    //    {
-    //        Id = booking.Id,
-    //        BookingNumber = booking.BookingNumber,
-    //        UnitId = booking.UnitId,
-    //        UnitName = booking.Unit?.Name ?? "",
-    //        UserId = booking.UserId,
-    //        UserName = booking.User?.FullName ?? "",
-    //        CheckInDate = booking.CheckInDate,
-    //        CheckOutDate = booking.CheckOutDate,
-    //        NumberOfGuests = booking.NumberOfGuests,
-    //        NumberOfNights = booking.NumberOfNights,
-    //        TotalPrice = booking.TotalPrice,
-    //        PaidAmount = booking.PaidAmount,
-    //        Status = booking.Status,
-    //        PaymentStatus = booking.PaymentStatus,
-    //        CreatedAt = booking.CreatedAt
-    //    };
-    //}
-
-    //private UnitBookingDetailsResponse MapToDetailsResponse(Domain.Entities.Booking booking)
-    //{
-    //    return new UnitBookingDetailsResponse
-    //    {
-    //        Id = booking.Id,
-    //        BookingNumber = booking.BookingNumber,
-    //        UnitId = booking.UnitId,
-    //        UnitName = booking.Unit?.Name ?? "",
-    //        UnitAddress = booking.Unit?.Address ?? "",
-    //        UserId = booking.UserId,
-    //        UserName = booking.User?.FullName ?? "",
-    //        UserEmail = booking.User?.Email ?? "",
-    //        UserPhone = booking.User?.PhoneNumber,
-    //        CheckInDate = booking.CheckInDate,
-    //        CheckOutDate = booking.CheckOutDate,
-    //        NumberOfGuests = booking.NumberOfGuests,
-    //        NumberOfNights = booking.NumberOfNights,
-    //        TotalPrice = booking.TotalPrice,
-    //        PaidAmount = booking.PaidAmount,
-    //        Status = booking.Status,
-    //        PaymentStatus = booking.PaymentStatus,
-    //        SpecialRequests = booking.SpecialRequests,
-    //        CancellationReason = booking.CancellationReason,
-    //        CancelledAt = booking.CancelledAt,
-    //        Payments = booking.Payments?.Select(p => new PaymentInfo
-    //        {
-    //            Id = p.Id,
-    //            Amount = p.Amount,
-    //            PaymentMethod = p.PaymentMethod.ToString(),
-    //            Status = p.Status.ToString(),
-    //            PaymentDate = p.PaymentDate
-    //        }).ToList() ?? new List<PaymentInfo>(),
-    //        UpdatedAt = booking.UpdatedAt
-    //    };
-    //}
 
     #endregion
 

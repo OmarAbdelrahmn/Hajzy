@@ -21,7 +21,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 
-namespace Application.Auth;
+namespace Application.Service.Auth;
 
 public class AuthService(
     UserManager<ApplicationUser> manager,
