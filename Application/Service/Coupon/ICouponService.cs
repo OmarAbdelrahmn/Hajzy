@@ -7,6 +7,16 @@ namespace Application.Service.PromoCode;
 public interface ICouponService
 {
     // ============= CRUD OPERATIONS =============
+    Task<Result<CouponResponse>> CreateCouponForMyUnitsAsync(
+    CreateCouponForUnitAdminRequest request,
+    string userId);
+
+    /// <summary>
+    /// Get coupons created by current unit admin for their units
+    /// </summary>
+    Task<Result<PagedCouponResponse>> GetMyCouponsAsAdminAsync(
+        string userId,
+        CouponFilter filter);
 
     /// <summary>
     /// Create a new coupon/promo code

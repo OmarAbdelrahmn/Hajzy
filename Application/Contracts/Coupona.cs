@@ -11,7 +11,20 @@ internal class Coupona
 
 
 // ========== REQUEST DTOs ==========
-
+public record CreateCouponForUnitAdminRequest(
+    string Code,
+    string? Description,
+    CouponType Type,
+    decimal DiscountAmount,
+    decimal? MinimumSpend,
+    decimal? MaximumDiscount,
+    int? MaxUsageCount,
+    int? MaxUsagePerUser,
+    DateTime ValidFrom,
+    DateTime ValidUntil,
+    bool IsActive = true,
+    int? SpecificUnitId = null  // Optional: if admin manages multiple units and wants to target a specific one
+);
 public record CreateCouponRequest(
     string Code,
     string? Description,

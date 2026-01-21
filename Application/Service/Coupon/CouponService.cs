@@ -1193,4 +1193,205 @@ public class CouponService(
     }
 
     #endregion
+
+
+    // Add these methods to CouponService class (after CreateCouponAsync method)
+
+    #region UNIT ADMIN SPECIFIC OPERATIONS
+
+    public async Task<Result<CouponResponse>> CreateCouponForMyUnitsAsync(
+        CreateCouponForUnitAdminRequest request,
+        string userId)
+    {
+        try
+        {
+            // Get all units this user administers
+            var adminUnits = await _context.Set<UniteAdmin>()
+                .Include(ua => ua.Unit)
+                .Where(ua => ua.UserId == userId && ua.IsActive && !ua.Unit.IsDeleted)
+                .Select(ua => ua.Unit)
+                .ToListAsync();
+
+            if (!adminUnits.Any())
+                return Result.Failure<CouponResponse>(
+                    new Error("NoUnitsFound", "You are not an administrator of any units", 403));
+
+            // If specific unit requested, validate user has access
+            int? targetUnitId = null;
+            if (request.SpecificUnitId.HasValue)
+            {
+                var hasAccess = adminUnits.Any(u => u.Id == request.SpecificUnitId.Value);
+                if (!hasAccess)
+                    return Result.Failure<CouponResponse>(
+                        new Error("Unauthorized", "You do not have access to the specified unit", 403));
+
+                targetUnitId = request.SpecificUnitId.Value;
+            }
+            else if (adminUnits.Count == 1)
+            {
+                // If user only administers one unit, automatically target it
+                targetUnitId = adminUnits.First().Id;
+            }
+            // If multiple units and no specific target, leave as null (applies to all their units)
+
+            // Validate coupon code is unique
+            var existingCoupon = await _context.Set<Coupon>()
+                .FirstOrDefaultAsync(c => c.Code.ToUpper() == request.Code.ToUpper());
+
+            if (existingCoupon != null)
+                return Result.Failure<CouponResponse>(
+                    new Error("DuplicateCode", "A coupon with this code already exists", 400));
+
+            // Validate dates
+            if (request.ValidFrom >= request.ValidUntil)
+                return Result.Failure<CouponResponse>(
+                    new Error("InvalidDates", "Valid until date must be after valid from date", 400));
+
+            // Validate discount amount
+            if (request.DiscountAmount <= 0)
+                return Result.Failure<CouponResponse>(
+                    new Error("InvalidDiscount", "Discount amount must be greater than zero", 400));
+
+            if (request.Type == CouponType.Percentage && request.DiscountAmount > 100)
+                return Result.Failure<CouponResponse>(
+                    new Error("InvalidPercentage", "Percentage discount cannot exceed 100%", 400));
+
+            // Create coupon
+            var coupon = new Coupon
+            {
+                Code = request.Code.ToUpper(),
+                Description = request.Description,
+                Type = request.Type,
+                DiscountAmount = request.DiscountAmount,
+                MinimumSpend = request.MinimumSpend,
+                MaximumDiscount = request.MaximumDiscount,
+                MaxUsageCount = request.MaxUsageCount,
+                MaxUsagePerUser = request.MaxUsagePerUser,
+                ValidFrom = request.ValidFrom,
+                ValidUntil = request.ValidUntil,
+                TargetUnitId = targetUnitId,
+                IsActive = request.IsActive,
+                CreatedBy = userId,
+                CreatedAt = DateTime.UtcNow.AddHours(3)
+            };
+
+            await _context.Set<Coupon>().AddAsync(coupon);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Coupon {CouponCode} created by unit admin {UserId} for unit {UnitId}",
+                coupon.Code, userId, targetUnitId);
+
+            var response = await MapToResponseAsync(coupon);
+            return Result.Success(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating coupon for unit admin {UserId}", userId);
+            return Result.Failure<CouponResponse>(
+                new Error("CreateFailed", "Failed to create coupon", 500));
+        }
+    }
+
+    public async Task<Result<PagedCouponResponse>> GetMyCouponsAsAdminAsync(
+        string userId,
+        CouponFilter filter)
+    {
+        try
+        {
+            // Get all units this user administers
+            var adminUnitIds = await _context.Set<UniteAdmin>()
+                .Where(ua => ua.UserId == userId && ua.IsActive)
+                .Select(ua => ua.UnitId)
+                .ToListAsync();
+
+            if (!adminUnitIds.Any())
+                return Result.Failure<PagedCouponResponse>(
+                    new Error("NoUnitsFound", "You are not an administrator of any units", 403));
+
+            var query = _context.Set<Coupon>()
+                .Include(c => c.TargetUnit)
+                .Include(c => c.TargetCity)
+                .Include(c => c.TargetUnitType)
+                .Where(c => c.CreatedBy == userId &&
+                           (!c.TargetUnitId.HasValue || adminUnitIds.Contains(c.TargetUnitId.Value)))
+                .AsQueryable();
+
+            // Apply filters
+            if (!string.IsNullOrEmpty(filter.Code))
+                query = query.Where(c => c.Code.Contains(filter.Code.ToUpper()));
+
+            if (filter.Type.HasValue)
+                query = query.Where(c => c.Type == filter.Type.Value);
+
+            if (filter.IsActive.HasValue)
+                query = query.Where(c => c.IsActive == filter.IsActive.Value);
+
+            if (filter.IsExpired.HasValue)
+            {
+                var now = DateTime.UtcNow;
+                if (filter.IsExpired.Value)
+                    query = query.Where(c => c.ValidUntil < now);
+                else
+                    query = query.Where(c => c.ValidUntil >= now);
+            }
+
+            if (filter.TargetUnitId.HasValue)
+                query = query.Where(c => c.TargetUnitId == filter.TargetUnitId.Value);
+
+            // Apply sorting
+            query = filter.SortBy?.ToLower() switch
+            {
+                "code" => filter.SortDescending
+                    ? query.OrderByDescending(c => c.Code)
+                    : query.OrderBy(c => c.Code),
+                "usage" => filter.SortDescending
+                    ? query.OrderByDescending(c => c.CurrentUsageCount)
+                    : query.OrderBy(c => c.CurrentUsageCount),
+                "discount" => filter.SortDescending
+                    ? query.OrderByDescending(c => c.DiscountAmount)
+                    : query.OrderBy(c => c.DiscountAmount),
+                "expiry" => filter.SortDescending
+                    ? query.OrderByDescending(c => c.ValidUntil)
+                    : query.OrderBy(c => c.ValidUntil),
+                _ => filter.SortDescending
+                    ? query.OrderByDescending(c => c.CreatedAt)
+                    : query.OrderBy(c => c.CreatedAt)
+            };
+
+            var totalCount = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)filter.PageSize);
+
+            var coupons = await query
+                .Skip((filter.Page - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var couponResponses = new List<CouponResponse>();
+            foreach (var coupon in coupons)
+            {
+                couponResponses.Add(await MapToResponseAsync(coupon));
+            }
+
+            var response = new PagedCouponResponse
+            {
+                Coupons = couponResponses,
+                TotalCount = totalCount,
+                Page = filter.Page,
+                PageSize = filter.PageSize,
+                TotalPages = totalPages
+            };
+
+            return Result.Success(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting coupons for unit admin {UserId}", userId);
+            return Result.Failure<PagedCouponResponse>(
+                new Error("GetFailed", "Failed to retrieve coupons", 500));
+        }
+    }
+
+    #endregion
 }

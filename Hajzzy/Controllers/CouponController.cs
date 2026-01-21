@@ -19,7 +19,7 @@ public class CouponController(ICouponService couponService) : ControllerBase
     /// Create a new coupon/promo code (Admin only)
     /// </summary>
     [HttpPost]
-    [Authorize(Roles = "SuperAdmin,CityAdmin,UnitAdmin")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin,HotelAdmin")]
     public async Task<IActionResult> CreateCoupon([FromBody] CreateCouponRequest request)
     {
         var userId = User.GetUserId();
@@ -34,7 +34,7 @@ public class CouponController(ICouponService couponService) : ControllerBase
     /// Update an existing coupon (Admin only)
     /// </summary>
     [HttpPut("{couponId:int}")]
-    [Authorize(Roles = "SuperAdmin,CityAdmin,UnitAdmin")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin,HotelAdmin")]
     public async Task<IActionResult> UpdateCoupon(int couponId, [FromBody] UpdateCouponRequest request)
     {
         var userId = User.GetUserId();
@@ -49,7 +49,7 @@ public class CouponController(ICouponService couponService) : ControllerBase
     /// Delete a coupon (Admin only)
     /// </summary>
     [HttpDelete("{couponId:int}")]
-    [Authorize(Roles = "SuperAdmin,CityAdmin,UnitAdmin")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin,HotelAdmin")]
     public async Task<IActionResult> DeleteCoupon(int couponId)
     {
         var result = await _couponService.DeleteCouponAsync(couponId);
@@ -63,7 +63,7 @@ public class CouponController(ICouponService couponService) : ControllerBase
     /// Get coupon by ID
     /// </summary>
     [HttpGet("{couponId:int}")]
-    [Authorize(Roles = "SuperAdmin,CityAdmin,UnitAdmin")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin,HotelAdmin")]
     public async Task<IActionResult> GetCouponById(int couponId)
     {
         var result = await _couponService.GetCouponByIdAsync(couponId);
@@ -77,7 +77,7 @@ public class CouponController(ICouponService couponService) : ControllerBase
     /// Get coupon by code
     /// </summary>
     [HttpGet("code/{code}")]
-    [Authorize(Roles = "SuperAdmin,CityAdmin,UnitAdmin")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin,HotelAdmin")]
     public async Task<IActionResult> GetCouponByCode(string code)
     {
         var result = await _couponService.GetCouponByCodeAsync(code);
@@ -91,7 +91,7 @@ public class CouponController(ICouponService couponService) : ControllerBase
     /// Get all coupons with filtering and pagination (Admin only)
     /// </summary>
     [HttpGet]
-    [Authorize(Roles = "SuperAdmin,CityAdmin,UnitAdmin")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin,HotelAdmin")]
     public async Task<IActionResult> GetCoupons([FromQuery] CouponFilter filter)
     {
         var result = await _couponService.GetCouponsAsync(filter);
@@ -192,7 +192,7 @@ public class CouponController(ICouponService couponService) : ControllerBase
     /// Toggle coupon active status (Admin only)
     /// </summary>
     [HttpPatch("{couponId:int}/toggle-status")]
-    [Authorize(Roles = "SuperAdmin,CityAdmin,UnitAdmin")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin,HotelAdmin")]
     public async Task<IActionResult> ToggleCouponStatus(int couponId, [FromBody] bool isActive)
     {
         var result = await _couponService.ToggleCouponStatusAsync(couponId, isActive);
@@ -206,7 +206,7 @@ public class CouponController(ICouponService couponService) : ControllerBase
     /// Get coupon statistics (Admin only)
     /// </summary>
     [HttpGet("{couponId:int}/statistics")]
-    [Authorize(Roles = "SuperAdmin,CityAdmin,UnitAdmin")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin,HotelAdmin")]
     public async Task<IActionResult> GetCouponStatistics(int couponId)
     {
         var result = await _couponService.GetCouponStatisticsAsync(couponId);
@@ -234,7 +234,7 @@ public class CouponController(ICouponService couponService) : ControllerBase
     /// Get expiring coupons (Admin only)
     /// </summary>
     [HttpGet("expiring")]
-    [Authorize(Roles = "SuperAdmin,CityAdmin,UnitAdmin")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin,HotelAdmin")]
     public async Task<IActionResult> GetExpiringCoupons([FromQuery] int days = 7)
     {
         var result = await _couponService.GetExpiringCouponsAsync(days);
@@ -252,6 +252,41 @@ public class CouponController(ICouponService couponService) : ControllerBase
     public async Task<IActionResult> GetTopPerformingCoupons([FromQuery] int count = 10)
     {
         var result = await _couponService.GetTopPerformingCouponsAsync(count);
+
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
+
+    // Add these endpoints to CouponController (after the existing CreateCoupon endpoint)
+
+    // ========== UNIT ADMIN SPECIFIC OPERATIONS ==========
+
+    /// <summary>
+    /// Create a coupon for your own units (Unit Admin only)
+    /// Automatically sets the coupon to target your administered unit(s)
+    /// </summary>
+    [HttpPost("my-units")]
+    [Authorize(Roles = "UnitAdmin")]
+    public async Task<IActionResult> CreateCouponForMyUnits([FromBody] CreateCouponForUnitAdminRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _couponService.CreateCouponForMyUnitsAsync(request, userId);
+
+        return result.IsSuccess
+            ? CreatedAtAction(nameof(GetCouponById), new { couponId = result.Value.Id }, result.Value)
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Get all coupons you created for your units (Unit Admin only)
+    /// </summary>
+    [HttpGet("my-units")]
+    [Authorize(Roles = "UnitAdmin")]
+    public async Task<IActionResult> GetMyCouponsAsAdmin([FromQuery] CouponFilter filter)
+    {
+        var userId = User.GetUserId();
+        var result = await _couponService.GetMyCouponsAsAdminAsync(userId, filter);
 
         return result.IsSuccess
             ? Ok(result.Value)
