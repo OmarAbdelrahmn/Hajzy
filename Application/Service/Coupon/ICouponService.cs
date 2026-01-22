@@ -1,5 +1,5 @@
 ﻿using Application.Abstraction;
-using Application.Contracts;
+using Application.Contracts.couponcontract;
 using Domain;
 
 namespace Application.Service.PromoCode;

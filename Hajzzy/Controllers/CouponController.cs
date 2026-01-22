@@ -1,4 +1,4 @@
-﻿using Application.Contracts;
+﻿using Application.Contracts.couponcontract;
 using Application.Extensions;
 using Application.Service.PromoCode;
 using Domain;
