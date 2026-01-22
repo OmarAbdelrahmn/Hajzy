@@ -1,9 +1,7 @@
-﻿using Application.Abstraction;
-using Application.Abstraction.Consts;
+﻿using Application.Abstraction.Consts;
 using Application.Contracts.hoteladmincont;
 using Application.Extensions;
 using Application.Service.HotelAdmin;
-using Domain.Consts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -474,7 +472,7 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     /// </summary>
     [HttpPost("cancellation-policies/custom")]
     public async Task<IActionResult> CreateCustomCancellationPolicy(
-        [FromBody] CreateCancellationPolicyRequest request)
+        [FromBody] Application.Contracts.hoteladmincont.CreateCancellationPolicyRequest request)
     {
         var userId = User.GetUserId();
         var result = await _hotelAdminService.CreateCustomCancellationPolicyAsync(userId!, request);
@@ -926,4 +924,167 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
 
     #endregion
 
+    // ============================================================================
+    // PART 2: Add these endpoints to HotelAdminController.cs
+    // ============================================================================
+
+    #region IMAGE MANAGEMENT ENDPOINTS
+
+    /// <summary>
+    /// Get all images for a unit
+    /// </summary>
+    [HttpGet("units/{unitId}/images")]
+    public async Task<IActionResult> GetUnitImages(int unitId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.GetUnitImagesAsync(userId!, unitId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Update image order and primary status for a unit
+    /// </summary>
+    [HttpPut("units/{unitId}/images/order")]
+    public async Task<IActionResult> UpdateImageOrder(int unitId, [FromBody] UpdateImageOrderRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.UpdateImageOrderAsync(userId!, unitId, request);
+        return result.IsSuccess
+            ? Ok(new { message = "Image order updated successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Delete a unit image
+    /// </summary>
+    [HttpDelete("images/{imageId}")]
+    public async Task<IActionResult> DeleteUnitImage(int imageId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.DeleteUnitImageAsync(userId!, imageId);
+        return result.IsSuccess
+            ? Ok(new { message = "Image deleted successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Get all images for a subunit
+    /// </summary>
+    [HttpGet("subunits/{subUnitId}/images")]
+    public async Task<IActionResult> GetSubUnitImages(int subUnitId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.GetSubUnitImagesAsync(userId!, subUnitId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Delete a subunit image
+    /// </summary>
+    [HttpDelete("subunits/images/{imageId}")]
+    public async Task<IActionResult> DeleteSubUnitImage(int imageId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.DeleteSubUnitImageAsync(userId!, imageId);
+        return result.IsSuccess
+            ? Ok(new { message = "SubUnit image deleted successfully" })
+            : result.ToProblem();
+    }
+
+    #endregion
+
+    #region NOTIFICATIONS & ALERTS ENDPOINTS
+
+    /// <summary>
+    /// Get admin notifications with filtering
+    /// </summary>
+    //[HttpGet("notifications")]
+    //public async Task<IActionResult> GetAdminNotifications([FromQuery] NotificationFilter filter)
+    //{
+    //    var userId = User.GetUserId();
+    //    var result = await _hotelAdminService.GetAdminNotificationsAsync(userId!, filter);
+    //    return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    //}
+
+    ///// <summary>
+    ///// Mark a notification as read
+    ///// </summary>
+    //[HttpPatch("notifications/{notificationId}/mark-read")]
+    //public async Task<IActionResult> MarkNotificationAsRead(int notificationId)
+    //{
+    //    var userId = User.GetUserId();
+    //    var result = await _hotelAdminService.MarkNotificationAsReadAsync(userId!, notificationId);
+    //    return result.IsSuccess
+    //        ? Ok(new { message = "Notification marked as read" })
+    //        : result.ToProblem();
+    //}
+
+    ///// <summary>
+    ///// Get alert settings for the admin
+    ///// </summary>
+    //[HttpGet("alerts/settings")]
+    //public async Task<IActionResult> GetAlertSettings()
+    //{
+    //    var userId = User.GetUserId();
+    //    var result = await _hotelAdminService.GetAlertSettingsAsync(userId!);
+    //    return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    //}
+
+    ///// <summary>
+    ///// Update alert settings
+    ///// </summary>
+    //[HttpPut("alerts/settings")]
+    //public async Task<IActionResult> UpdateAlertSettings([FromBody] UpdateAlertSettingsRequest request)
+    //{
+    //    var userId = User.GetUserId();
+    //    var result = await _hotelAdminService.UpdateAlertSettingsAsync(userId!, request);
+    //    return result.IsSuccess
+    //        ? Ok(new { message = "Alert settings updated successfully" })
+    //        : result.ToProblem();
+    //}
+
+    //#endregion
+
+    //#region BULK OPERATIONS ENDPOINTS
+
+    ///// <summary>
+    ///// Bulk update availability for multiple subunits
+    ///// </summary>
+    //[HttpPost("subunits/bulk-availability")]
+    //public async Task<IActionResult> BulkUpdateSubUnitAvailability([FromBody] BulkAvailabilityUpdateRequest request)
+    //{
+    //    var userId = User.GetUserId();
+    //    var result = await _hotelAdminService.BulkUpdateSubUnitAvailabilityAsync(userId!, request);
+    //    return result.IsSuccess
+    //        ? Ok(new { message = $"Availability updated for {request.SubUnitIds.Count} subunits" })
+    //        : result.ToProblem();
+    //}
+
+    ///// <summary>
+    ///// Bulk update pricing for multiple subunits
+    ///// </summary>
+    //[HttpPost("subunits/bulk-pricing")]
+    //public async Task<IActionResult> BulkUpdatePricing([FromBody] BulkPricingUpdateRequest request)
+    //{
+    //    var userId = User.GetUserId();
+    //    var result = await _hotelAdminService.BulkUpdatePricingAsync(userId!, request);
+    //    return result.IsSuccess
+    //        ? Ok(new { message = $"Pricing updated for {request.SubUnitIds.Count} subunits" })
+    //        : result.ToProblem();
+    //}
+
+    ///// <summary>
+    ///// Copy availability settings from one subunit to others
+    ///// </summary>
+    //[HttpPost("subunits/copy-availability")]
+    //public async Task<IActionResult> CopyAvailabilitySettings([FromBody] CopyAvailabilityRequest request)
+    //{
+    //    var userId = User.GetUserId();
+    //    var result = await _hotelAdminService.CopyAvailabilitySettingsAsync(userId!, request);
+    //    return result.IsSuccess
+    //        ? Ok(new { message = $"Availability copied to {request.TargetSubUnitIds.Count} subunits" })
+    //        : result.ToProblem();
+    //}
+
+    #endregion
 }

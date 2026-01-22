@@ -89,7 +89,7 @@ public class SubUnitBookingService(
             // 6. Validate and apply coupon if provided
             if (!string.IsNullOrWhiteSpace(request.CouponCode))
             {
-                var couponValidation = await _couponService.ValidateCouponAsync(new ValidateCouponRequest(
+                var couponValidation = await _couponService.ValidateCouponAsync(new Contracts.couponcontract.ValidateCouponRequest(
                     CouponCode: request.CouponCode,
                     BookingAmount: originalPrice,
                     UnitId: request.UnitId,
@@ -685,7 +685,7 @@ public class SubUnitBookingService(
         return Result.Success(availabilityCheck.Value.All(kvp => kvp.Value));
     }
 
-    public async Task<Result<List<AvailableSubUnitInfo>>> GetAvailableSubUnitsAsync(
+    public async Task<Result<List<Contracts.hoteladmincont.AvailableSubUnitInfo>>> GetAvailableSubUnitsAsync(
         int unitId,
         DateTime checkIn,
         DateTime checkOut,
@@ -695,14 +695,14 @@ public class SubUnitBookingService(
             unitId, checkIn, checkOut);
 
         if (!availableIds.IsSuccess)
-            return Result.Failure<List<AvailableSubUnitInfo>>(availableIds.Error);
+            return Result.Failure<List<Contracts.hoteladmincont.AvailableSubUnitInfo>>(availableIds.Error);
 
         var subUnits = await _context.SubUnits
             .Where(s => availableIds.Value.Contains(s.Id))
             .Take(requestedCount)
             .ToListAsync();
 
-        var result = subUnits.Select(s => new AvailableSubUnitInfo
+        var result = subUnits.Select(s => new Contracts.hoteladmincont.AvailableSubUnitInfo
         {
             Id = s.Id,
             RoomNumber = s.RoomNumber,

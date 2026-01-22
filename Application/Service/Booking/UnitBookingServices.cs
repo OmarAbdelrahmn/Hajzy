@@ -98,7 +98,7 @@ public class UnitBookingService(
             // 5. Validate and apply coupon if provided
             if (!string.IsNullOrWhiteSpace(request.CouponCode))
             {
-                var couponValidation = await _couponService.ValidateCouponAsync(new ValidateCouponRequest(
+                var couponValidation = await _couponService.ValidateCouponAsync(new Contracts.couponcontract.ValidateCouponRequest(
                     CouponCode: request.CouponCode,
                     BookingAmount: originalPrice,
                     UnitId: request.UnitId,

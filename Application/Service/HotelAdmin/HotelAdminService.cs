@@ -3346,6 +3346,634 @@ public class HotelAdminService(
 
     #endregion
 
-    // Remaining implementations (Image Management, Notifications, Bulk Operations)
-    // would follow the same pattern...
+    // ============================================================================
+    // PART 1: Add these implementations to HotelAdminService.cs
+    // ============================================================================
+
+    #region IMAGE MANAGEMENT
+
+    public async Task<Result<IEnumerable<ImageDetailResponse>>> GetUnitImagesAsync(
+        string userId,
+        int unitId)
+    {
+        try
+        {
+            var adminUnits = await GetUserAdminUnitsAsync(userId);
+            if (!adminUnits.Any())
+                return Result.Failure<IEnumerable<ImageDetailResponse>>(
+                    new Error("NoAccess", "User is not a hotel administrator", 403));
+
+            var unit = adminUnits.FirstOrDefault(u => u.Id == unitId);
+            if (unit == null)
+                return Result.Failure<IEnumerable<ImageDetailResponse>>(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            var images = await _context.Set<Domain.Entities.UnitImage>()
+                .Where(i => i.UnitId == unitId && !i.IsDeleted)
+                .OrderBy(i => i.DisplayOrder)
+                .Select(i => new ImageDetailResponse
+                {
+                    Id = i.Id,
+                    ImageUrl = i.ImageUrl,
+                    ThumbnailUrl = i.ThumbnailUrl,
+                    IsPrimary = i.IsPrimary,
+                    DisplayOrder = i.DisplayOrder,
+                    Caption = i.Caption,
+                    AltText = i.AltText,
+                    Width = i.Width,
+                    Height = i.Height,
+                    FileSizeBytes = i.FileSizeBytes,
+                    UploadedAt = i.UploadedAt
+                })
+                .ToListAsync();
+
+            return Result.Success<IEnumerable<ImageDetailResponse>>(images);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting unit images for user {UserId}", userId);
+            return Result.Failure<IEnumerable<ImageDetailResponse>>(
+                new Error("GetImagesFailed", "Failed to get unit images", 500));
+        }
+    }
+
+    public async Task<Result> UpdateImageOrderAsync(
+        string userId,
+        int unitId,
+        UpdateImageOrderRequest request)
+    {
+        try
+        {
+            var adminUnits = await GetUserAdminUnitsAsync(userId);
+            if (!adminUnits.Any())
+                return Result.Failure(
+                    new Error("NoAccess", "User is not a hotel administrator", 403));
+
+            var unit = adminUnits.FirstOrDefault(u => u.Id == unitId);
+            if (unit == null)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            var images = await _context.Set<Domain.Entities.UnitImage>()
+                .Where(i => i.UnitId == unitId && !i.IsDeleted)
+                .ToListAsync();
+
+            // Reset primary if setting new primary
+            if (request.PrimaryImageId.HasValue)
+            {
+                foreach (var img in images)
+                    img.IsPrimary = false;
+
+                var primaryImage = images.FirstOrDefault(i => i.Id == request.PrimaryImageId.Value);
+                if (primaryImage != null)
+                    primaryImage.IsPrimary = true;
+            }
+
+            // Update display order
+            if (request.ImageOrders != null && request.ImageOrders.Any())
+            {
+                foreach (var order in request.ImageOrders)
+                {
+                    var image = images.FirstOrDefault(i => i.Id == order.ImageId);
+                    if (image != null)
+                        image.DisplayOrder = order.Order;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Image order updated for unit {UnitId} by user {UserId}",
+                unitId, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating image order for user {UserId}", userId);
+            return Result.Failure(
+                new Error("UpdateOrderFailed", "Failed to update image order", 500));
+        }
+    }
+
+    public async Task<Result> DeleteUnitImageAsync(string userId, int imageId)
+    {
+        try
+        {
+            var adminUnits = await GetUserAdminUnitsAsync(userId);
+            if (!adminUnits.Any())
+                return Result.Failure(
+                    new Error("NoAccess", "User is not a hotel administrator", 403));
+
+            var image = await _context.Set<Domain.Entities.UnitImage>()
+                .Include(i => i.Unit)
+                .FirstOrDefaultAsync(i => i.Id == imageId && !i.IsDeleted);
+
+            if (image == null)
+                return Result.Failure(new Error("NotFound", "Image not found", 404));
+
+            var unit = adminUnits.FirstOrDefault(u => u.Id == image.UnitId);
+            if (unit == null)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this image", 403));
+
+            image.IsDeleted = true;
+            image.DeletedAt = DateTime.UtcNow.AddHours(3);
+            image.DeletedByUserId = userId;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Image {ImageId} deleted by user {UserId}",
+                imageId, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting unit image for user {UserId}", userId);
+            return Result.Failure(
+                new Error("DeleteImageFailed", "Failed to delete image", 500));
+        }
+    }
+
+    public async Task<Result<IEnumerable<ImageDetailResponse>>> GetSubUnitImagesAsync(
+        string userId,
+        int subUnitId)
+    {
+        try
+        {
+            var adminUnits = await GetUserAdminUnitsAsync(userId);
+            if (!adminUnits.Any())
+                return Result.Failure<IEnumerable<ImageDetailResponse>>(
+                    new Error("NoAccess", "User is not a hotel administrator", 403));
+
+            var subUnit = await _context.SubUnits
+                .Include(s => s.Unit)
+                .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
+
+            if (subUnit == null)
+                return Result.Failure<IEnumerable<ImageDetailResponse>>(
+                    new Error("NotFound", "SubUnit not found", 404));
+
+            var unit = adminUnits.FirstOrDefault(u => u.Id == subUnit.UnitId);
+            if (unit == null)
+                return Result.Failure<IEnumerable<ImageDetailResponse>>(
+                    new Error("NoAccess", "You do not have access to this subunit", 403));
+
+            var images = await _context.Set<Domain.Entities.SubUnitImage>()
+                .Where(i => i.SubUnitId == subUnitId && !i.IsDeleted)
+                .OrderBy(i => i.DisplayOrder)
+                .Select(i => new ImageDetailResponse
+                {
+                    Id = i.Id,
+                    ImageUrl = i.ImageUrl,
+                    ThumbnailUrl = i.ThumbnailUrl,
+                    IsPrimary = i.IsPrimary,
+                    DisplayOrder = i.DisplayOrder,
+                    Caption = i.Caption,
+                    AltText = i.AltText,
+                    Width = i.Width,
+                    Height = i.Height,
+                    FileSizeBytes = i.FileSizeBytes,
+                    UploadedAt = i.UploadedAt
+                })
+                .ToListAsync();
+
+            return Result.Success<IEnumerable<ImageDetailResponse>>(images);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting subunit images for user {UserId}", userId);
+            return Result.Failure<IEnumerable<ImageDetailResponse>>(
+                new Error("GetImagesFailed", "Failed to get subunit images", 500));
+        }
+    }
+
+    public async Task<Result> DeleteSubUnitImageAsync(string userId, int imageId)
+    {
+        try
+        {
+            var adminUnits = await GetUserAdminUnitsAsync(userId);
+            if (!adminUnits.Any())
+                return Result.Failure(
+                    new Error("NoAccess", "User is not a hotel administrator", 403));
+
+            var image = await _context.Set<Domain.Entities.SubUnitImage>()
+                .Include(i => i.SubUnit)
+                    .ThenInclude(s => s.Unit)
+                .FirstOrDefaultAsync(i => i.Id == imageId && !i.IsDeleted);
+
+            if (image == null)
+                return Result.Failure(new Error("NotFound", "Image not found", 404));
+
+            var unit = adminUnits.FirstOrDefault(u => u.Id == image.SubUnit.UnitId);
+            if (unit == null)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this image", 403));
+
+            image.IsDeleted = true;
+            image.DeletedAt = DateTime.UtcNow.AddHours(3);
+            image.DeletedByUserId = userId;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "SubUnit image {ImageId} deleted by user {UserId}",
+                imageId, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting subunit image for user {UserId}", userId);
+            return Result.Failure(
+                new Error("DeleteImageFailed", "Failed to delete image", 500));
+        }
+    }
+
+    #endregion
+
+    #region NOTIFICATIONS & ALERTS
+
+    //public async Task<Result<IEnumerable<AdminNotificationResponse>>> GetAdminNotificationsAsync(
+    //    string userId,
+    //    NotificationFilter filter)
+    //{
+    //    try
+    //    {
+    //        var adminUnits = await GetUserAdminUnitsAsync(userId);
+    //        if (!adminUnits.Any())
+    //            return Result.Failure<IEnumerable<AdminNotificationResponse>>(
+    //                new Error("NoAccess", "User is not a hotel administrator", 403));
+
+    //        var unitIds = adminUnits.Select(u => u.Id).ToList();
+
+    //        var query = _context.Set<UserNotification>()
+    //            .Include(un => un.Notification)
+    //                .ThenInclude(n => n.TargetUnit)
+    //            .Where(un => un.UserId == userId)
+    //            .AsQueryable();
+
+    //        // Filter by read status
+    //        if (filter.IsRead.HasValue)
+    //            query = query.Where(un => un.IsRead == filter.IsRead.Value);
+
+    //        // Filter by notification type
+    //        if (filter.Type.HasValue)
+    //            query = query.Where(un => un.Notification.Type == filter.Type.Value);
+
+    //        // Filter by priority
+    //        if (filter.Priority.HasValue)
+    //            query = query.Where(un => un.Notification.Priority == filter.Priority.Value);
+
+    //        // Filter by date range
+    //        if (filter.StartDate.HasValue)
+    //            query = query.Where(un => un.ReceivedAt >= filter.StartDate.Value);
+
+    //        if (filter.EndDate.HasValue)
+    //            query = query.Where(un => un.ReceivedAt <= filter.EndDate.Value);
+
+    //        var notifications = await query
+    //            .OrderByDescending(un => un.ReceivedAt)
+    //            .Skip((filter.Page - 1) * filter.PageSize)
+    //            .Take(filter.PageSize)
+    //            .Select(un => new AdminNotificationResponse
+    //            {
+    //                Id = un.Id,
+    //                NotificationId = un.NotificationId,
+    //                Title = un.Notification.Title,
+    //                Message = un.Notification.Message,
+    //                Type = un.Notification.Type.ToString(),
+    //                Priority = un.Notification.Priority.ToString(),
+    //                IsRead = un.IsRead,
+    //                ReadAt = un.ReadAt,
+    //                ReceivedAt = un.ReceivedAt,
+    //                TargetUnitId = un.Notification.TargetUnitId,
+    //                TargetUnitName = un.Notification.TargetUnit != null ? un.Notification.TargetUnit.Name : null
+    //            })
+    //            .ToListAsync();
+
+    //        return Result.Success<IEnumerable<AdminNotificationResponse>>(notifications);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error getting notifications for user {UserId}", userId);
+    //        return Result.Failure<IEnumerable<AdminNotificationResponse>>(
+    //            new Error("GetNotificationsFailed", "Failed to get notifications", 500));
+    //    }
+    //}
+
+    //public async Task<Result> MarkNotificationAsReadAsync(string userId, int notificationId)
+    //{
+    //    try
+    //    {
+    //        var adminUnits = await GetUserAdminUnitsAsync(userId);
+    //        if (!adminUnits.Any())
+    //            return Result.Failure(
+    //                new Error("NoAccess", "User is not a hotel administrator", 403));
+
+    //        var userNotification = await _context.Set<UserNotification>()
+    //            .FirstOrDefaultAsync(un => un.Id == notificationId && un.UserId == userId);
+
+    //        if (userNotification == null)
+    //            return Result.Failure(new Error("NotFound", "Notification not found", 404));
+
+    //        if (!userNotification.IsRead)
+    //        {
+    //            userNotification.IsRead = true;
+    //            userNotification.ReadAt = DateTime.UtcNow.AddHours(3);
+
+    //            await _context.SaveChangesAsync();
+
+    //            _logger.LogInformation(
+    //                "Notification {NotificationId} marked as read by user {UserId}",
+    //                notificationId, userId);
+    //        }
+
+    //        return Result.Success();
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error marking notification as read for user {UserId}", userId);
+    //        return Result.Failure(
+    //            new Error("MarkReadFailed", "Failed to mark notification as read", 500));
+    //    }
+    //}
+
+    //public async Task<Result<AlertSettingsResponse>> GetAlertSettingsAsync(string userId)
+    //{
+    //    try
+    //    {
+    //        var adminUnits = await GetUserAdminUnitsAsync(userId);
+    //        if (!adminUnits.Any())
+    //            return Result.Failure<AlertSettingsResponse>(
+    //                new Error("NoAccess", "User is not a hotel administrator", 403));
+
+    //        // For now, return default settings
+    //        // In a real implementation, these would be stored in a database table
+    //        var settings = new AlertSettingsResponse
+    //        {
+    //            UserId = userId,
+    //            EmailNotifications = true,
+    //            SmsNotifications = false,
+    //            PushNotifications = true,
+    //            BookingAlerts = true,
+    //            PaymentAlerts = true,
+    //            ReviewAlerts = true,
+    //            CancellationAlerts = true,
+    //            MaintenanceAlerts = true,
+    //            LowOccupancyAlerts = false,
+    //            HighDemandAlerts = false,
+    //            DailyDigest = true,
+    //            WeeklyReport = true,
+    //            MonthlyReport = true
+    //        };
+
+    //        return Result.Success(settings);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error getting alert settings for user {UserId}", userId);
+    //        return Result.Failure<AlertSettingsResponse>(
+    //            new Error("GetSettingsFailed", "Failed to get alert settings", 500));
+    //    }
+    //}
+
+    //public async Task<Result> UpdateAlertSettingsAsync(
+    //    string userId,
+    //    UpdateAlertSettingsRequest request)
+    //{
+    //    try
+    //    {
+    //        var adminUnits = await GetUserAdminUnitsAsync(userId);
+    //        if (!adminUnits.Any())
+    //            return Result.Failure(
+    //                new Error("NoAccess", "User is not a hotel administrator", 403));
+
+    //        // In a real implementation, save these settings to a database table
+    //        // For now, just log the update
+    //        _logger.LogInformation(
+    //            "Alert settings updated for user {UserId}",
+    //            userId);
+
+    //        return Result.Success();
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error updating alert settings for user {UserId}", userId);
+    //        return Result.Failure(
+    //            new Error("UpdateSettingsFailed", "Failed to update alert settings", 500));
+    //    }
+    //}
+
+    #endregion
+
+    #region BULK OPERATIONS
+
+    public async Task<Result> BulkUpdateSubUnitAvailabilityAsync(
+        string userId,
+        BulkAvailabilityUpdateRequest request)
+    {
+        try
+        {
+            var adminUnits = await GetUserAdminUnitsAsync(userId);
+            if (!adminUnits.Any())
+                return Result.Failure(
+                    new Error("NoAccess", "User is not a hotel administrator", 403));
+
+            var unitIds = adminUnits.Select(u => u.Id).ToList();
+
+            // Verify all subunits belong to admin's units
+            var subUnits = await _context.SubUnits
+                .Where(s => request.SubUnitIds.Contains(s.Id) &&
+                           unitIds.Contains(s.UnitId) &&
+                           !s.IsDeleted)
+                .ToListAsync();
+
+            if (subUnits.Count != request.SubUnitIds.Count)
+                return Result.Failure(
+                    new Error("InvalidSubUnits", "Some subunits not found or not accessible", 400));
+
+            // Create availability records for each subunit
+            var availabilities = new List<SubUnitAvailability>();
+            foreach (var subUnitId in request.SubUnitIds)
+            {
+                availabilities.Add(new SubUnitAvailability
+                {
+                    SubUnitId = subUnitId,
+                    StartDate = request.StartDate,
+                    EndDate = request.EndDate,
+                    IsAvailable = request.IsAvailable,
+                    Reason = request.Reason,
+                    SpecialPrice = request.SpecialPrice,
+                    WeekendPrice = request.WeekendPrice,
+                    UpdatedByUserId = userId,
+                    CreatedAt = DateTime.UtcNow.AddHours(3)
+                });
+            }
+
+            await _context.Set<SubUnitAvailability>().AddRangeAsync(availabilities);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Bulk availability updated for {Count} subunits by user {UserId}",
+                request.SubUnitIds.Count, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error bulk updating availability for user {UserId}", userId);
+            return Result.Failure(
+                new Error("BulkUpdateFailed", "Failed to bulk update availability", 500));
+        }
+    }
+
+    //public async Task<Result> BulkUpdatePricingAsync(
+    //    string userId,
+    //    BulkPricingUpdateRequest request)
+    //{
+    //    try
+    //    {
+    //        var adminUnits = await GetUserAdminUnitsAsync(userId);
+    //        if (!adminUnits.Any())
+    //            return Result.Failure(
+    //                new Error("NoAccess", "User is not a hotel administrator", 403));
+
+    //        var unitIds = adminUnits.Select(u => u.Id).ToList();
+
+    //        // Verify all subunits belong to admin's units
+    //        var subUnits = await _context.SubUnits
+    //            .Where(s => request.SubUnitIds.Contains(s.Id) &&
+    //                       unitIds.Contains(s.UnitId) &&
+    //                       !s.IsDeleted)
+    //            .ToListAsync();
+
+    //        if (subUnits.Count != request.SubUnitIds.Count)
+    //            return Result.Failure(
+    //                new Error("InvalidSubUnits", "Some subunits not found or not accessible", 400));
+
+    //        // Update pricing based on request type
+    //        foreach (var subUnit in subUnits)
+    //        {
+    //            if (request.UpdateType == PricingUpdateType.Fixed)
+    //            {
+    //                subUnit.PricePerNight = request.NewPrice;
+    //            }
+    //            else if (request.UpdateType == PricingUpdateType.Percentage)
+    //            {
+    //                var adjustment = subUnit.PricePerNight * (request.PercentageChange / 100);
+    //                subUnit.PricePerNight += adjustment;
+    //            }
+    //            else if (request.UpdateType == PricingUpdateType.Amount)
+    //            {
+    //                subUnit.PricePerNight += request.AmountChange;
+    //            }
+
+    //            // Ensure price doesn't go below minimum
+    //            if (subUnit.PricePerNight < 0)
+    //                subUnit.PricePerNight = 0;
+    //        }
+
+    //        await _context.SaveChangesAsync();
+
+    //        _logger.LogInformation(
+    //            "Bulk pricing updated for {Count} subunits by user {UserId}",
+    //            request.SubUnitIds.Count, userId);
+
+    //        return Result.Success();
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error bulk updating pricing for user {UserId}", userId);
+    //        return Result.Failure(
+    //            new Error("BulkUpdateFailed", "Failed to bulk update pricing", 500));
+    //    }
+    //}
+
+    //public async Task<Result> CopyAvailabilitySettingsAsync(
+    //    string userId,
+    //    CopyAvailabilityRequest request)
+    //{
+    //    try
+    //    {
+    //        var adminUnits = await GetUserAdminUnitsAsync(userId);
+    //        if (!adminUnits.Any())
+    //            return Result.Failure(
+    //                new Error("NoAccess", "User is not a hotel administrator", 403));
+
+    //        var unitIds = adminUnits.Select(u => u.Id).ToList();
+
+    //        // Verify source subunit
+    //        var sourceSubUnit = await _context.SubUnits
+    //            .FirstOrDefaultAsync(s => s.Id == request.SourceSubUnitId &&
+    //                                     unitIds.Contains(s.UnitId) &&
+    //                                     !s.IsDeleted);
+
+    //        if (sourceSubUnit == null)
+    //            return Result.Failure(
+    //                new Error("SourceNotFound", "Source subunit not found or not accessible", 404));
+
+    //        // Verify target subunits
+    //        var targetSubUnits = await _context.SubUnits
+    //            .Where(s => request.TargetSubUnitIds.Contains(s.Id) &&
+    //                       unitIds.Contains(s.UnitId) &&
+    //                       !s.IsDeleted)
+    //            .ToListAsync();
+
+    //        if (targetSubUnits.Count != request.TargetSubUnitIds.Count)
+    //            return Result.Failure(
+    //                new Error("InvalidTargets", "Some target subunits not found or not accessible", 400));
+
+    //        // Get source availability settings
+    //        var sourceAvailabilities = await _context.Set<SubUnitAvailability>()
+    //            .Where(a => a.SubUnitId == request.SourceSubUnitId &&
+    //                       a.StartDate >= request.StartDate &&
+    //                       a.EndDate <= request.EndDate)
+    //            .ToListAsync();
+
+    //        if (!sourceAvailabilities.Any())
+    //            return Result.Failure(
+    //                new Error("NoSourceData", "No availability settings found for source subunit in the specified date range", 404));
+
+    //        // Copy to target subunits
+    //        var newAvailabilities = new List<SubUnitAvailability>();
+    //        foreach (var targetSubUnitId in request.TargetSubUnitIds)
+    //        {
+    //            foreach (var sourceAvail in sourceAvailabilities)
+    //            {
+    //                newAvailabilities.Add(new SubUnitAvailability
+    //                {
+    //                    SubUnitId = targetSubUnitId,
+    //                    StartDate = sourceAvail.StartDate,
+    //                    EndDate = sourceAvail.EndDate,
+    //                    IsAvailable = sourceAvail.IsAvailable,
+    //                    Reason = sourceAvail.Reason,
+    //                    SpecialPrice = request.CopyPricing ? sourceAvail.SpecialPrice : null,
+    //                    WeekendPrice = request.CopyPricing ? sourceAvail.WeekendPrice : null,
+    //                    UpdatedByUserId = userId,
+    //                    CreatedAt = DateTime.UtcNow.AddHours(3)
+    //                });
+    //            }
+    //        }
+
+    //        await _context.Set<SubUnitAvailability>().AddRangeAsync(newAvailabilities);
+    //        await _context.SaveChangesAsync();
+
+    //        _logger.LogInformation(
+    //            "Availability settings copied from subunit {SourceId} to {Count} target subunits by user {UserId}",
+    //            request.SourceSubUnitId, request.TargetSubUnitIds.Count, userId);
+
+    //        return Result.Success();
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error copying availability settings for user {UserId}", userId);
+    //        return Result.Failure(
+    //            new Error("CopyFailed", "Failed to copy availability settings", 500));
+    //    }
+    //}
+
+    #endregion
 }

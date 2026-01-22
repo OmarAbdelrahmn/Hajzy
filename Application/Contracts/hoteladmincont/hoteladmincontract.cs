@@ -138,6 +138,8 @@ public record SetSpecialPricingRequest(
 );
 
 public record BulkAvailabilityUpdateRequest(
+    decimal SpecialPrice,
+    decimal WeekendPrice,
     List<int> SubUnitIds,
     DateTime StartDate,
     DateTime EndDate,
@@ -750,12 +752,13 @@ public record UpdateAmenitiesRequest(
 // ============================================================================
 
 public record UpdateImageOrderRequest(
-    List<ImageOrderItem> Images
+    List<ImageOrderItem> ImageOrders,
+    int? PrimaryImageId
 );
 
 public record ImageOrderItem(
     int ImageId,
-    int DisplayOrder,
+    int Order,
     bool IsPrimary = false
 );
 
@@ -1390,3 +1393,17 @@ public class PaymentFilter
 }
 
 #endregion
+
+// ============================================================================
+// PART 3: Add these contracts to Application/Contracts/hoteladmincont/
+// Create these files in the appropriate directory
+// ============================================================================
+
+
+
+public enum PricingUpdateType
+{
+    Fixed = 1,
+    Percentage = 2,
+    Amount = 3
+}

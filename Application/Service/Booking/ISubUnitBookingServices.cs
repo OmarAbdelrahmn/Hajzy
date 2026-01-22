@@ -51,6 +51,6 @@ public interface ISubUnitBookingServices
     // ============= AVAILABILITY CHECK =============
 
     Task<Result<bool>> AreSubUnitsAvailableAsync(List<int> subUnitIds, DateTime checkIn, DateTime checkOut);
-    Task<Result<List<AvailableSubUnitInfo>>> GetAvailableSubUnitsAsync(int unitId, DateTime checkIn, DateTime checkOut, int requestedCount);
+    Task<Result<List<Contracts.hoteladmincont.AvailableSubUnitInfo>>> GetAvailableSubUnitsAsync(int unitId, DateTime checkIn, DateTime checkOut, int requestedCount);
 
 }

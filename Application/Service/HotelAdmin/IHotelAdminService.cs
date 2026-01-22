@@ -581,49 +581,49 @@ public interface IHotelAdminService
     /// <summary>
     /// Get admin notifications
     /// </summary>
-    Task<Result<IEnumerable<AdminNotificationResponse>>> GetAdminNotificationsAsync(
-        string userId,
-        NotificationFilter filter);
+    //Task<Result<IEnumerable<AdminNotificationResponse>>> GetAdminNotificationsAsync(
+    //    string userId,
+    //    NotificationFilter filter);
 
-    /// <summary>
-    /// Mark notification as read
-    /// </summary>
-    Task<Result> MarkNotificationAsReadAsync(
-        string userId,
-        int notificationId);
+    ///// <summary>
+    ///// Mark notification as read
+    ///// </summary>
+    //Task<Result> MarkNotificationAsReadAsync(
+    //    string userId,
+    //    int notificationId);
 
-    /// <summary>
-    /// Get alert settings
-    /// </summary>
-    Task<Result<AlertSettingsResponse>> GetAlertSettingsAsync(string userId);
+    ///// <summary>
+    ///// Get alert settings
+    ///// </summary>
+    //Task<Result<AlertSettingsResponse>> GetAlertSettingsAsync(string userId);
 
-    /// <summary>
-    /// Update alert settings
-    /// </summary>
-    Task<Result> UpdateAlertSettingsAsync(
-        string userId,
-        UpdateAlertSettingsRequest request);
+    ///// <summary>
+    ///// Update alert settings
+    ///// </summary>
+    //Task<Result> UpdateAlertSettingsAsync(
+    //    string userId,
+    //    UpdateAlertSettingsRequest request);
 
     // ============= BULK OPERATIONS =============
 
     /// <summary>
     /// Bulk update subunit availability
     /// </summary>
-    Task<Result> BulkUpdateSubUnitAvailabilityAsync(
-        string userId,
-        BulkAvailabilityUpdateRequest request);
+    //Task<Result> BulkUpdateSubUnitAvailabilityAsync(
+    //    string userId,
+    //    BulkAvailabilityUpdateRequest request);
 
-    /// <summary>
-    /// Bulk update pricing
-    /// </summary>
-    Task<Result> BulkUpdatePricingAsync(
-        string userId,
-        BulkPricingUpdateRequest request);
+    ///// <summary>
+    ///// Bulk update pricing
+    ///// </summary>
+    //Task<Result> BulkUpdatePricingAsync(
+    //    string userId,
+    //    BulkPricingUpdateRequest request);
 
     /// <summary>
     /// Copy availability from one subunit to others
     /// </summary>
-    Task<Result> CopyAvailabilitySettingsAsync(
-        string userId,
-        CopyAvailabilityRequest request);
+    //Task<Result> CopyAvailabilitySettingsAsync(
+    //    string userId,
+    //    CopyAvailabilityRequest request);
 }

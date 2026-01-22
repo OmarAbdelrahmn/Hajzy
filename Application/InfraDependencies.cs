@@ -12,6 +12,7 @@ using Application.Service.Avilabilaties;
 using Application.Service.Booking;
 using Application.Service.Department;
 using Application.Service.fav;
+using Application.Service.HotelAdmin;
 using Application.Service.OfferService;
 using Application.Service.Policy;
 using Application.Service.PromoCode;
@@ -90,6 +91,7 @@ public static class InfraDependencies
         Services.AddScoped<ICouponService, CouponService>();
         Services.AddScoped<IReviewService, ReviewService>();
         Services.AddScoped<ISubUnitTypeService,SubUnitTypeService>();
+        Services.AddScoped<IHotelAdminService,HotelAdminService>();
         Services.AddScoped<AdExpirationJob>();
         Services.AddScoped<OfferExpirationJob>();
 
@@ -120,9 +122,14 @@ public static class InfraDependencies
     }
     public static IServiceCollection AddFluentswagger(this IServiceCollection Services)
     {
+        Services.AddSwaggerGen(c =>
+        {
+            c.CustomSchemaIds(type => type.FullName);
+        });
+
+
         Services
-            .AddEndpointsApiExplorer()
-            .AddSwaggerGen();
+            .AddEndpointsApiExplorer();
 
         return Services;
     }
