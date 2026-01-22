@@ -1,6 +1,6 @@
 ﻿using Application.Contracts.Availability;
 using Application.Extensions;
-using Application.Service.Availability;
+using Application.Service.Avilabilaties;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

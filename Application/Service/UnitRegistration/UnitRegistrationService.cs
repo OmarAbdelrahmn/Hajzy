@@ -4,7 +4,7 @@ using Application.Abstraction;
 using Application.Abstraction.Consts;
 using Application.Contracts.UnitRegisteration;
 using Application.Helpers;
-using Application.Service.Availability;
+using Application.Service.Avilabilaties;
 using Application.Service.ImageProcessingJob;
 using Application.Service.S3Image;
 using Domain;

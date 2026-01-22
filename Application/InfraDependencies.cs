@@ -8,6 +8,7 @@ using Application.Service.AdService;
 using Application.Service.Amenity;
 using Application.Service.Auth;
 using Application.Service.Availability;
+using Application.Service.Avilabilaties;
 using Application.Service.Booking;
 using Application.Service.Department;
 using Application.Service.fav;

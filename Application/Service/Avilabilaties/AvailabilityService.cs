@@ -1,6 +1,7 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Availability;
 using Application.Contracts.SubUnit;
+using Application.Service.Avilabilaties;
 using Domain;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -103,7 +104,7 @@ public class AvailabilityService(
     /// <summary>
     /// UPDATED: Check unit availability - handles BOTH standalone units and units with subunits
     /// </summary>
-    public async Task<Result<UnitAvailabilityStatus>> CheckUnitAvailabilityAsync(
+    public async Task<Result<Contracts.hoteladmincont.UnitAvailabilityStatus>> CheckUnitAvailabilityAsync(
         int unitId,
         DateTime checkIn,
         DateTime checkOut)
@@ -116,11 +117,11 @@ public class AvailabilityService(
                 .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
 
             if (unit == null)
-                return Result.Failure<UnitAvailabilityStatus>(
+                return Result.Failure<Contracts.hoteladmincont.UnitAvailabilityStatus>(
                     new Error("NotFound", "Unit not found", 404));
 
             if (!unit.IsActive)
-                return Result.Success(new UnitAvailabilityStatus
+                return Result.Success(new Contracts.hoteladmincont.UnitAvailabilityStatus
                 {
                     IsAvailable = false,
                     Reason = "Unit is not active",
@@ -151,7 +152,7 @@ public class AvailabilityService(
                                   a.StartDate < checkOut &&
                                   a.EndDate > checkIn);
 
-                return Result.Success(new UnitAvailabilityStatus
+                return Result.Success(new Contracts.hoteladmincont.UnitAvailabilityStatus
                 {
                     IsAvailable = false,
                     Reason = block?.Reason?.ToString() ?? "Unit blocked",
@@ -171,7 +172,7 @@ public class AvailabilityService(
                               b.Status != BookingStatus.Completed);
 
             if (hasActiveBooking)
-                return Result.Success(new UnitAvailabilityStatus
+                return Result.Success(new Contracts.hoteladmincont.UnitAvailabilityStatus
                 {
                     IsAvailable = false,
                     Reason = isStandaloneUnit ? "Unit is booked" : "Entire unit is booked",
@@ -184,7 +185,7 @@ public class AvailabilityService(
             // FOR STANDALONE UNITS: If no blocks and no bookings, it's available
             if (isStandaloneUnit)
             {
-                return Result.Success(new UnitAvailabilityStatus
+                return Result.Success(new Contracts.hoteladmincont.UnitAvailabilityStatus
                 {
                     IsAvailable = true,
                     Reason = null,
@@ -211,7 +212,7 @@ public class AvailabilityService(
             var availableSubUnitsCount = subUnits.Count - bookedSubUnitIds.Count;
 
             // For unit booking, ALL subunits must be free
-            return Result.Success(new UnitAvailabilityStatus
+            return Result.Success(new Contracts.hoteladmincont.UnitAvailabilityStatus
             {
                 IsAvailable = availableSubUnitsCount == subUnits.Count,
                 Reason = availableSubUnitsCount == subUnits.Count ? null : "Some rooms are booked",
@@ -225,7 +226,7 @@ public class AvailabilityService(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking unit availability");
-            return Result.Failure<UnitAvailabilityStatus>(
+            return Result.Failure<Contracts.hoteladmincont.UnitAvailabilityStatus>(
                 new Error("CheckFailed", "Failed to check availability", 500));
         }
     }
@@ -471,7 +472,7 @@ public class AvailabilityService(
         }
     }
 
-    public async Task<Result<SubUnitAvailabilityStatus>> CheckSubUnitAvailabilityAsync(
+    public async Task<Result<Contracts.hoteladmincont.SubUnitAvailabilityStatus>> CheckSubUnitAvailabilityAsync(
         int subUnitId,
         DateTime checkIn,
         DateTime checkOut)
@@ -482,7 +483,7 @@ public class AvailabilityService(
                 .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
 
             if (subUnit == null || !subUnit.IsAvailable)
-                return Result.Success(new SubUnitAvailabilityStatus
+                return Result.Success(new Contracts.hoteladmincont.SubUnitAvailabilityStatus
                 {
                     IsAvailable = false,
                     Reason = "SubUnit not found or disabled"
@@ -503,7 +504,7 @@ public class AvailabilityService(
                                   a.StartDate < checkOut &&
                                   a.EndDate > checkIn);
 
-                return Result.Success(new SubUnitAvailabilityStatus
+                return Result.Success(new Contracts.hoteladmincont.SubUnitAvailabilityStatus
                 {
                     IsAvailable = false,
                     Reason = block?.Reason?.ToString() ?? "SubUnit blocked",
@@ -522,7 +523,7 @@ public class AvailabilityService(
                               b.Status != BookingStatus.Completed);
 
             if (hasUnitBooking)
-                return Result.Success(new SubUnitAvailabilityStatus
+                return Result.Success(new Contracts.hoteladmincont.SubUnitAvailabilityStatus
                 {
                     IsAvailable = false,
                     Reason = "Entire unit is booked",
@@ -540,7 +541,7 @@ public class AvailabilityService(
                                br.Booking.Status != BookingStatus.Completed);
 
             if (hasBooking)
-                return Result.Success(new SubUnitAvailabilityStatus
+                return Result.Success(new Contracts.hoteladmincont.SubUnitAvailabilityStatus
                 {
                     IsAvailable = false,
                     Reason = "SubUnit is booked",
@@ -555,7 +556,7 @@ public class AvailabilityService(
                                          checkIn >= a.StartDate &&
                                          checkOut <= a.EndDate);
 
-            return Result.Success(new SubUnitAvailabilityStatus
+            return Result.Success(new Contracts.hoteladmincont.SubUnitAvailabilityStatus
             {
                 IsAvailable = true,
                 CurrentPrice = specialPricing?.SpecialPrice ?? subUnit.PricePerNight,
@@ -565,7 +566,7 @@ public class AvailabilityService(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking subunit availability");
-            return Result.Failure<SubUnitAvailabilityStatus>(
+            return Result.Failure<Contracts.hoteladmincont.SubUnitAvailabilityStatus>(
                 new Error("CheckFailed", "Failed to check availability", 500));
         }
     }

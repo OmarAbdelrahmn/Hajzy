@@ -5,7 +5,7 @@ using Domain;
 using Domain.Entities;
 using System.ComponentModel.DataAnnotations;
 
-namespace Application.Service.Availability;
+namespace Application.Service.Avilabilaties;
 
 /// <summary>
 /// Service for managing both Unit and SubUnit availability with smart defaults
@@ -28,7 +28,7 @@ public interface IAvailabilityService
     /// <summary>
     /// Check if entire unit is available (no bookings and no blocks)
     /// </summary>
-    Task<Result<UnitAvailabilityStatus>> CheckUnitAvailabilityAsync(
+    Task<Result<Contracts.hoteladmincont.UnitAvailabilityStatus>> CheckUnitAvailabilityAsync(
         int unitId,
         DateTime checkIn,
         DateTime checkOut);
@@ -59,7 +59,7 @@ public interface IAvailabilityService
     /// <summary>
     /// Check if specific subunit is available
     /// </summary>
-    Task<Result<SubUnitAvailabilityStatus>> CheckSubUnitAvailabilityAsync(
+    Task<Result<Contracts.hoteladmincont.SubUnitAvailabilityStatus>> CheckSubUnitAvailabilityAsync(
         int subUnitId,
         DateTime checkIn,
         DateTime checkOut);
@@ -303,16 +303,16 @@ public record BookedSubUnitInfo
     public decimal SubTotal { get; init; }
 }
 
-public record AvailableSubUnitInfo
-{
-    public int Id { get; init; }
-    public string RoomNumber { get; init; } = string.Empty;
-    public int TypeId { get; init; }
-    public decimal PricePerNight { get; init; }
-    public int MaxOccupancy { get; init; }
-    public bool IsAvailable { get; init; }
-    public decimal? SpecialPrice { get; init; }
-}
+//public record AvailableSubUnitInfo
+//{
+//    public int Id { get; init; }
+//    public string RoomNumber { get; init; } = string.Empty;
+//    public int TypeId { get; init; }
+//    public decimal PricePerNight { get; init; }
+//    public int MaxOccupancy { get; init; }
+//    public bool IsAvailable { get; init; }
+//    public decimal? SpecialPrice { get; init; }
+//}
 
 public record SubUnitBookingStatisticsResponse
 {

@@ -85,42 +85,42 @@ public record MarkDatesAsBookedRequest(
 /// <summary>
 /// UPDATED: Unit availability status - now includes standalone unit flag
 /// </summary>
-public record UnitAvailabilityStatus
-{
-    public bool IsAvailable { get; init; }
-    public string? Reason { get; init; }
-    public bool HasManualBlock { get; init; }
-    public bool HasActiveBooking { get; init; }
+//public record UnitAvailabilityStatus
+//{
+//    public bool IsAvailable { get; init; }
+//    public string? Reason { get; init; }
+//    public bool HasManualBlock { get; init; }
+//    public bool HasActiveBooking { get; init; }
 
-    /// <summary>
-    /// NEW: Indicates if this is a standalone unit (no subunits)
-    /// TRUE = Standalone unit (garden, pool, event hall) - rented as whole
-    /// FALSE = Unit with subunits (hotel, apartment building) - can rent individual rooms
-    /// </summary>
-    public bool IsStandaloneUnit { get; init; }
+//    /// <summary>
+//    /// NEW: Indicates if this is a standalone unit (no subunits)
+//    /// TRUE = Standalone unit (garden, pool, event hall) - rented as whole
+//    /// FALSE = Unit with subunits (hotel, apartment building) - can rent individual rooms
+//    /// </summary>
+//    public bool IsStandaloneUnit { get; init; }
 
-    /// <summary>
-    /// For units with subunits: number of available subunits
-    /// For standalone units: always 0
-    /// </summary>
-    public int AvailableSubUnitsCount { get; init; }
+//    /// <summary>
+//    /// For units with subunits: number of available subunits
+//    /// For standalone units: always 0
+//    /// </summary>
+//    public int AvailableSubUnitsCount { get; init; }
 
-    /// <summary>
-    /// For units with subunits: total number of subunits
-    /// For standalone units: always 0
-    /// </summary>
-    public int TotalSubUnitsCount { get; init; }
-}
+//    /// <summary>
+//    /// For units with subunits: total number of subunits
+//    /// For standalone units: always 0
+//    /// </summary>
+//    public int TotalSubUnitsCount { get; init; }
+//}
 
-public record SubUnitAvailabilityStatus
-{
-    public bool IsAvailable { get; init; }
-    public string? Reason { get; init; }
-    public bool HasManualBlock { get; init; }
-    public bool HasActiveBooking { get; init; }
-    public decimal? CurrentPrice { get; init; }
-    public decimal? SpecialPrice { get; init; }
-}
+//public record SubUnitAvailabilityStatus
+//{
+//    public bool IsAvailable { get; init; }
+//    public string? Reason { get; init; }
+//    public bool HasManualBlock { get; init; }
+//    public bool HasActiveBooking { get; init; }
+//    public decimal? CurrentPrice { get; init; }
+//    public decimal? SpecialPrice { get; init; }
+//}
 
 /// <summary>
 /// UPDATED: Day availability for units - now includes standalone flag

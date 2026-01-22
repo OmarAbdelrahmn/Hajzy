@@ -1,5 +1,5 @@
 ﻿using Application.Extensions;
-using Application.Service.Availability;
+using Application.Service.Avilabilaties;
 using Application.Service.Booking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

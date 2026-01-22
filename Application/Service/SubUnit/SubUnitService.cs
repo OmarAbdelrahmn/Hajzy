@@ -1,7 +1,7 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.SubUnit;
 using Application.Contracts.Unit;
-using Application.Service.Availability;
+using Application.Service.Avilabilaties;
 using Application.Service.S3Image;
 using Application.Service.SubUnitImage;
 using Domain;

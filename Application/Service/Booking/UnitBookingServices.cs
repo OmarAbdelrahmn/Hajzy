@@ -2,7 +2,7 @@
 using Application.Contracts;
 using Application.Contracts.Availability;
 using Application.Contracts.Bookin;
-using Application.Service.Availability;
+using Application.Service.Avilabilaties;
 using Application.Service.PromoCode;
 using Domain;
 using Domain.Entities;
