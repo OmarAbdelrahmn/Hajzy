@@ -1,5 +1,9 @@
 ﻿using Application.Abstraction;
 using Application.Abstraction.Consts;
+using Application.Abstraction.Errors;
+using Application.Contracts.Auth;
+using Application.Contracts.Bookin;
+using Application.Contracts.Unit;
 using Application.Contracts.UnitRegisteration;
 using Application.Helpers;
 using Application.Service.Availability;
@@ -14,6 +18,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Net.Http;
 using System.Text.Json;
 
 namespace Application.Service.UnitRegistration;
@@ -813,6 +818,517 @@ public class UnitRegistrationService(
         }
     }
 
+
+
+    // =============Department ADMIN METHODS =============
+
+    public async Task<Result<IEnumerable<DAUnitRegistrationResponse>>> DepartmentAdmin_GetAllRequestsAsync
+        (DAUnitRegistrationListFilter filter, string UserId, CancellationToken ct)
+    {
+        var user = await _userManager.FindByIdAsync(UserId);
+
+        if (user == null)
+        {
+            return Result.Failure<IEnumerable<DAUnitRegistrationResponse>>(UserErrors.UserNotFound);
+        }
+        var city =await _context.Set<DepartmentAdmin>()
+                .Where(x => x.UserId == UserId && x.IsActive)
+                .FirstOrDefaultAsync(ct);
+        if (city is null )
+        {
+            return Result.Failure<IEnumerable<DAUnitRegistrationResponse>>(UserErrors.Unauthorized);
+        }
+
+        var query = _context.Set<UnitRegistrationRequest>()
+            .Where(x=>x.DepartmentId == city.CityId)
+            .Include(r => r.Department)
+            .Include(r => r.UnitType)
+            .Include(r => r.ReviewedByAdmin)
+            .AsQueryable();
+
+        if (filter.Status.HasValue)
+            query = query.Where(r => r.Status == filter.Status.Value);
+
+        if (filter.UnitTypeId.HasValue)
+            query = query.Where(r => r.UnitTypeId == filter.UnitTypeId.Value);
+
+        if (filter.SubmittedFrom.HasValue)
+            query = query.Where(r => r.SubmittedAt >= filter.SubmittedFrom.Value);
+
+        if (filter.SubmittedTo.HasValue)
+            query = query.Where(r => r.SubmittedAt <= filter.SubmittedTo.Value);
+
+        if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+        {
+            var keyword = filter.SearchKeyword.ToLower();
+            query = query.Where(r =>
+                r.UnitName.ToLower().Contains(keyword) ||
+                r.OwnerFullName.ToLower().Contains(keyword) ||
+                r.OwnerEmail.ToLower().Contains(keyword));
+        }
+
+        var requests = await query
+            .OrderByDescending(r => r.SubmittedAt)
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .ToListAsync(ct);
+
+        var responses = requests.Select(CAMapToResponse).ToList();
+
+        return Result.Success<IEnumerable<DAUnitRegistrationResponse>>(responses);
+    }
+   
+
+    public async Task<Result<IEnumerable<DAUnitRegistrationResponse>>> DepartmentAdmin_GetAllRequestsAsync(string userId, CancellationToken ct)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+
+        if (user == null)
+        {
+            return Result.Failure<IEnumerable<DAUnitRegistrationResponse>>(UserErrors.UserNotFound);
+        }
+        var roles = await _userManager.GetRolesAsync(user);
+        if (!roles.Contains(DefaultRoles.CityAdmin))
+        {
+            return Result.Failure<IEnumerable<DAUnitRegistrationResponse>>(UserErrors.Unauthorized);
+        }
+        var city = await _context.Set<DepartmentAdmin>()
+               .Where(x => x.UserId == userId && x.IsActive)
+               .FirstOrDefaultAsync(ct);
+        if (city is null)
+        {
+            return Result.Failure<IEnumerable<DAUnitRegistrationResponse>>(UserErrors.Unauthorized);
+        }
+
+        var query = _context.Set<UnitRegistrationRequest>()
+            .Where(r =>r.DepartmentId == city.CityId)
+            .Include(r => r.Department)
+            .Include(r => r.UnitType)
+            .Include(r => r.ReviewedByAdmin)
+            .AsQueryable();
+
+
+        var requests = await query
+            .ToListAsync();
+
+        var responses = requests.Select(CAMapToResponse).ToList();
+
+        return Result.Success<IEnumerable<DAUnitRegistrationResponse>>(responses);
+
+    }
+
+    public async Task<Result<DAUnitRegistrationResponse>> DepartmentAdmin_GetRequestByIdAsync(int requestId, string userId, CancellationToken ct)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+
+        if (user == null)
+        {
+            return Result.Failure<DAUnitRegistrationResponse>(UserErrors.UserNotFound);
+        }
+        var roles = await _userManager.GetRolesAsync(user);
+        if (!roles.Contains(DefaultRoles.CityAdmin))
+        {
+            return Result.Failure<DAUnitRegistrationResponse>(UserErrors.Unauthorized);
+        }
+        var city = await _context.Set<DepartmentAdmin>()
+               .Where(x => x.UserId == userId && x.IsActive)
+               .FirstOrDefaultAsync(ct);
+   
+        if (city is null)
+        {
+            return Result.Failure<DAUnitRegistrationResponse>(UserErrors.Unauthorized);
+        }
+
+        var request = await _context.Set<UnitRegistrationRequest>()
+           .Include(r => r.Department)
+           .Include(r => r.UnitType)
+           .Include(r => r.ReviewedByAdmin)
+           .Include(r => r.CreatedUser)
+           .Include(r => r.CreatedUnit)
+           .FirstOrDefaultAsync(r => r.Id == requestId && r.DepartmentId ==city.CityId ,ct);
+
+        if (request == null)
+            return Result.Failure<DAUnitRegistrationResponse>(
+                new Error("NotFound", "Registration request not found", 404));
+
+        var response = CAMapToResponse(request);
+        return Result.Success(response);
+    }
+
+    public async Task<Result<DAapprovalResult>> DepartmentAdmin_ApproveRequestAsync(int requestId, string UserId , CancellationToken ct)
+    {
+        var user = await _userManager.FindByIdAsync(UserId);
+
+        if (user == null)
+        {
+            return Result.Failure<DAapprovalResult>(UserErrors.UserNotFound);
+        }
+        var roles = await _userManager.GetRolesAsync(user);
+        if (!roles.Contains(DefaultRoles.CityAdmin))
+        {
+            return Result.Failure<DAapprovalResult>(UserErrors.Unauthorized);
+        }
+        var city =await _context.Set<DepartmentAdmin>()
+                .Where(x => x.UserId == UserId && x.IsActive)
+                .FirstOrDefaultAsync(ct);
+        if (city is null )
+        {
+            return Result.Failure<DAapprovalResult>(UserErrors.Unauthorized);
+        }
+
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            var request = await _context.Set<UnitRegistrationRequest>()
+                .Where(r => r.Id == requestId && r.DepartmentId == city.CityId )
+                .Include(r => r.Department)
+                .Include(r => r.UnitType)
+                .FirstOrDefaultAsync(ct);
+
+            if (request == null)
+                return Result.Failure<DAapprovalResult>(
+                    new Error("NotFound", "Registration request not found", 404));
+
+            if (request.Status != RegistrationRequestStatus.Pending)
+                return Result.Failure<DAapprovalResult>(
+                    new Error("InvalidStatus",
+                        $"Request is already {request.Status}", 400));
+
+            var emailExists = await _userManager.FindByEmailAsync(request.OwnerEmail);
+            if (emailExists != null)
+                return Result.Failure<DAapprovalResult>(
+                    new Error("EmailTaken",
+                        "Email is now in use. Request cannot be approved.", 400));
+
+            // Create the user account
+            var newUser = new ApplicationUser
+            {
+                UserName = request.OwnerEmail,
+                Email = request.OwnerEmail,
+                NormalizedEmail = request.OwnerEmail.ToUpperInvariant(),
+                NormalizedUserName = request.OwnerEmail.ToUpperInvariant(),
+                FullName = request.OwnerFullName,
+                PhoneNumber = request.OwnerPhoneNumber,
+                EmailConfirmed = true,
+                CreatedAt = DateTime.UtcNow.AddHours(3),
+                PasswordHash = request.OwnerPassword
+            };
+
+            var createResult = await _userManager.CreateAsync(newUser);
+            if (!createResult.Succeeded)
+            {
+                var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                return Result.Failure<DAapprovalResult>(
+                    new Error("UserCreationFailed",
+                        $"Failed to create user: {errors}", 500));
+            }
+
+            var roleResult = await _userManager.AddToRoleAsync(newUser, DefaultRoles.HotelAdmin);
+            if (!roleResult.Succeeded)
+            {
+                await transaction.RollbackAsync();
+                return Result.Failure<DAapprovalResult>(
+                    new Error("RoleAssignmentFailed",
+                        "Failed to assign HotelAdmin role", 500));
+            }
+
+            // Create the Unit
+            var unit = new Domain.Entities.Unit
+            {
+                Name = request.UnitName,
+                Description = request.Description,
+                Address = request.Address,
+                CityId = city.CityId,
+                UnitTypeId = request.UnitTypeId,
+                Latitude = request.Latitude,
+                Longitude = request.Longitude,
+                BasePrice = request.BasePrice,
+                MaxGuests = request.MaxGuests,
+                Bedrooms = request.Bedrooms,
+                Bathrooms = request.Bathrooms,
+                IsActive = false,
+                IsVerified = false,
+                CreatedAt = DateTime.UtcNow.AddHours(3)
+            };
+
+            var availabilityInit = await service.InitializeUnitDefaultAvailabilityAsync(unit.Id, 365);
+
+
+            await _context.Units.AddAsync(unit);
+            await _context.SaveChangesAsync();
+
+
+            if (!availabilityInit.IsSuccess)
+            {
+                _logger.LogWarning(
+                    "Failed to initialize availability for unit {UnitId}: {Error}",
+                    unit.Id, availabilityInit.Error.Description);
+            }
+
+
+            // Assign user as Unit Admin
+            var unitAdmin = new UniteAdmin
+            {
+                UserId = newUser.Id,
+                UnitId = unit.Id,
+                IsActive = true,
+                AssignedAt = DateTime.UtcNow.AddHours(3)
+            };
+
+            await _context.Set<UniteAdmin>().AddAsync(unitAdmin);
+
+            // Move images from temp to unit folder
+            var imageKeys = JsonSerializer.Deserialize<List<string>>(request.ImageS3Keys)
+                           ?? new List<string>();
+
+            var moveResult = await _s3Service.MoveImagesToUnitAsync(imageKeys, unit.Id);
+            if (!moveResult.IsSuccess)
+            {
+                _logger.LogWarning(
+                    "Failed to move images for unit {UnitId}: {Error}",
+                    unit.Id, moveResult.Error.Description);
+            }
+
+            // Update registration request
+            request.Status = RegistrationRequestStatus.Approved;
+            request.ReviewedAt = DateTime.UtcNow.AddHours(3);
+            request.ReviewedByAdminId = UserId;
+            request.CreatedUserId = newUser.Id;
+            request.CreatedUnitId = unit.Id;
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            // Send welcome email with credentials
+            var emailSent = await SendWelcomeEmailAsync(
+                newUser.Email!,
+                newUser.FullName!,
+                unit.Id,
+                unit.Name);
+
+            _logger.LogInformation(
+                "Registration request {RequestId} approved. User: {UserId}, Unit: {UnitId}",
+                requestId, newUser.Id, unit.Id);
+
+            return Result.Success(new DAapprovalResult
+            {
+                CreatedUserId = newUser.Id,
+                CreatedUserEmail = newUser.Email!,
+                CreatedUnitId = unit.Id,
+                CreatedUnitName = unit.Name,
+                EmailSent = emailSent
+            });
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error approving registration request {RequestId}", requestId);
+
+            return Result.Failure<DAapprovalResult>(
+                new Error("ApprovalFailed",
+                    "Failed to approve registration request", 500));
+        }
+    }
+
+    public async Task<Result> DepartmentAdmin_RejectRequestAsync(int requestId, string UserId, string rejectionReason, CancellationToken ct)
+    {
+        var user = await _userManager.FindByIdAsync(UserId);
+
+        if (user == null)
+        {
+            Result.Failure(
+                    (UserErrors.Unauthorized));
+        }
+        var roles = await _userManager.GetRolesAsync(user);
+        if (!roles.Contains(DefaultRoles.CityAdmin))
+        {
+            return Result.Failure(
+                    (UserErrors.Unauthorized));
+        }
+        var city =await _context.Set<DepartmentAdmin>()
+                .Where(x => x.UserId == UserId && x.IsActive)
+                .FirstOrDefaultAsync(ct);
+        if (city is null)
+        {
+            return Result.Failure(UserErrors.Unauthorized);
+        }
+
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            var request = await _context.Set<UnitRegistrationRequest>()
+                .FirstOrDefaultAsync(r => r.Id == requestId && r.DepartmentId == city.CityId,ct);
+
+            if (request == null)
+                return Result.Failure(
+                    new Error("NotFound", "Registration request not found", 404));
+
+            if (request.Status != RegistrationRequestStatus.Pending)
+                return Result.Failure(
+                    new Error("InvalidStatus",
+                        $"Request is already {request.Status}", 400));
+
+            request.Status = RegistrationRequestStatus.Rejected;
+            request.ReviewedAt = DateTime.UtcNow.AddHours(3);
+            request.ReviewedByAdminId = UserId;
+            request.RejectionReason = rejectionReason;
+
+            await _context.SaveChangesAsync();
+
+            var imageKeys = JsonSerializer.Deserialize<List<string>>(request.ImageS3Keys)
+                           ?? new List<string>();
+
+            if (imageKeys.Any())
+            {
+                await _s3Service.DeleteImagesAsync(imageKeys);
+            }
+
+            await transaction.CommitAsync();
+
+            await SendRejectionEmailAsync(
+                request.OwnerEmail,
+                request.OwnerFullName,
+                request.UnitName,
+                rejectionReason);
+
+            _logger.LogInformation(
+                "Registration request {RequestId} rejected by admin {AdminId}",
+                requestId, UserId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error rejecting registration request {RequestId}", requestId);
+
+            return Result.Failure(
+                new Error("RejectionFailed", "Failed to reject request", 500));
+        }
+    }
+
+    public async Task<Result> DepartmentAdmin_DeleteRequestAsync(int requestId, string userId,CancellationToken ct)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+
+        if (user == null)
+        {
+            return Result.Failure(UserErrors.UserNotFound);
+        }
+        var roles = await _userManager.GetRolesAsync(user);
+        if (!roles.Contains(DefaultRoles.CityAdmin))
+        {
+            return Result.Failure(UserErrors.Unauthorized);
+        }
+        var city =await _context.Set<DepartmentAdmin>()
+                .Where(x => x.UserId == userId && x.IsActive)
+                .FirstOrDefaultAsync(ct);
+        if (city is null )
+        {
+            return Result.Failure(UserErrors.Unauthorized);
+        }
+
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            var request = await _context.Set<UnitRegistrationRequest>()
+                .FirstOrDefaultAsync(r => r.Id == requestId && r.DepartmentId == city.CityId,ct);
+
+            if (request == null)
+                return Result.Failure(
+                    new Error("NotFound", "Registration request not found", 404));
+
+            if (request.Status == RegistrationRequestStatus.Approved)
+                return Result.Failure(
+                    new Error("CannotDelete",
+                        "Cannot delete approved requests", 400));
+
+            var imageKeys = JsonSerializer.Deserialize<List<string>>(request.ImageS3Keys)
+                           ?? new List<string>();
+
+            if (imageKeys.Any())
+            {
+                await _s3Service.DeleteImagesAsync(imageKeys);
+            }
+
+            _context.Set<UnitRegistrationRequest>().Remove(request);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            _logger.LogInformation("Registration request {RequestId} deleted", requestId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error deleting registration request {RequestId}", requestId);
+
+            return Result.Failure(
+                new Error("DeleteFailed", "Failed to delete request", 500));
+        }
+    }
+
+    public async Task<Result<DAUnitRegistrationStatistics>> DepartmentAdmin_GetStatisticsAsync(string userId, CancellationToken ct)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+
+        if (user == null)
+        {
+            return Result.Failure<DAUnitRegistrationStatistics>(UserErrors.UserNotFound);
+        }
+        var roles = await _userManager.GetRolesAsync(user);
+        if (!roles.Contains(DefaultRoles.CityAdmin))
+        {
+            return Result.Failure<DAUnitRegistrationStatistics>(UserErrors.Unauthorized);
+        }
+        var city =await _context.Set<DepartmentAdmin>()
+                .Where(x => x.UserId == userId && x.IsActive)
+                .FirstOrDefaultAsync(ct);
+        if (city is null )
+        {
+            return Result.Failure<DAUnitRegistrationStatistics>(UserErrors.UserNotFound);
+        }
+
+        var requests = await _context.Set<UnitRegistrationRequest>()
+           .Where(r => r.DepartmentId == city.CityId)
+           .Include(r => r.Department)
+           .Include(r => r.UnitType)
+           .ToListAsync();
+
+        var now = DateTime.UtcNow;
+        var weekAgo = now.AddDays(-7);
+        var monthAgo = now.AddMonths(-1);
+
+        var stats = new DAUnitRegistrationStatistics
+        {
+            TotalRequests = requests.Count,
+            PendingRequests = requests.Count(r => r.Status == RegistrationRequestStatus.Pending),
+            UnderReviewRequests = requests.Count(r => r.Status == RegistrationRequestStatus.UnderReview),
+            ApprovedRequests = requests.Count(r => r.Status == RegistrationRequestStatus.Approved),
+            RejectedRequests = requests.Count(r => r.Status == RegistrationRequestStatus.Rejected),
+            CancelledRequests = requests.Count(r => r.Status == RegistrationRequestStatus.Cancelled),
+
+            RequestsThisWeek = requests.Count(r => r.SubmittedAt >= weekAgo),
+            RequestsThisMonth = requests.Count(r => r.SubmittedAt >= monthAgo),
+
+            RequestsByDepartment = requests
+                .GroupBy(r => r.Department.Name)
+                .ToDictionary(g => g.Key, g => g.Count()),
+
+            RequestsByUnitType = requests
+                .GroupBy(r => r.UnitType.Name)
+                .ToDictionary(g => g.Key, g => g.Count())
+        };
+
+        return Result.Success(stats);
+    }
+
+   
+
     // ============= HELPER METHODS =============
 
     private UnitRegistrationResponse MapToResponse(UnitRegistrationRequest request)
@@ -857,4 +1373,44 @@ public class UnitRegistrationService(
         };
     }
 
+    private DAUnitRegistrationResponse CAMapToResponse(UnitRegistrationRequest request)
+    {
+        var imageKeys = JsonSerializer.Deserialize<List<string>>(request.ImageS3Keys)
+                       ?? new List<string>();
+
+        return new DAUnitRegistrationResponse
+        {
+            Id = request.Id,
+            Status = request.Status,
+            StatusDisplay = request.Status.ToString(),
+            OwnerFullName = request.OwnerFullName,
+            OwnerEmail = request.OwnerEmail,
+            OwnerPhoneNumber = request.OwnerPhoneNumber,
+            UnitName = request.UnitName,
+            Description = request.Description,
+            Address = request.Address,
+            DepartmentName = request.Department?.Name ?? "",
+            UnitTypeId = request.UnitTypeId,
+            UnitTypeName = request.UnitType?.Name ?? "",
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
+            BasePrice = request.BasePrice,
+            MaxGuests = request.MaxGuests,
+            Bedrooms = request.Bedrooms,
+            Bathrooms = request.Bathrooms,
+
+            ImageUrls = imageKeys.Select(key => _s3Service.GetCloudFrontUrl(key)).ToList(),
+            ImageCount = request.ImageCount,
+
+            SubmittedAt = request.SubmittedAt,
+            ReviewedAt = request.ReviewedAt,
+            ReviewedByAdminName = request.ReviewedByAdmin?.FullName,
+            RejectionReason = request.RejectionReason,
+
+            CreatedUserId = request.CreatedUserId,
+            CreatedUnitId = request.CreatedUnitId
+        };
+    }
+
+   
 }

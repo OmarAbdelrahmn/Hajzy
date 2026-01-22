@@ -92,7 +92,7 @@ public class AuthService(
             return Result.Success(response);
         }
 
-        var error = result.IsNotAllowed ?
+        var error = result.IsNotAllowed?
              UserErrors.EmailNotConfirmed :
              result.IsLockedOut ?
              UserErrors.userLockedout :
@@ -142,7 +142,7 @@ public class AuthService(
 
         var RefreshExpiresIn = DateTime.UtcNow.AddDays(RefreshTokenExpiryDays);
 
-
+            
         user.RefreshTokens.Add(new RefreshToken
         {
             Token = newRefreshToken,

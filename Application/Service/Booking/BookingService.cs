@@ -1,14 +1,19 @@
 ﻿using Application.Abstraction;
+using Application.Abstraction.Consts;
+using Application.Abstraction.Errors;
 using Application.Contracts.Bookin;
+using Application.Contracts.UnitRegisteration;
 using Application.Helpers;
 using Domain;
 using Domain.Entities;
 using Hangfire;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace Application.Service.Booking;
@@ -17,12 +22,14 @@ namespace Application.Service.Booking;
 public class BookingService(
     ApplicationDbcontext context,
     IEmailSender emailSender,
-    ILogger<BookingService> logger
+    ILogger<BookingService> logger,
+    UserManager<ApplicationUser> userManager
     ) : IBookingService
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly IEmailSender _emailSender = emailSender;
     private readonly ILogger<BookingService> _logger = logger;
+    private readonly UserManager<ApplicationUser> _userManager = userManager;
 
     #region CREATE BOOKING
 
@@ -640,6 +647,25 @@ public class BookingService(
         return query;
     }
 
+    private IQueryable<Domain.Entities.Booking> DA_ApplyFilters(
+        IQueryable<Domain.Entities.Booking> query,
+        DABookingFilter filter)
+    {
+        if (filter.Status.HasValue)
+            query = query.Where(b => b.Status == filter.Status.Value);
+
+        if (filter.PaymentStatus.HasValue)
+            query = query.Where(b => b.PaymentStatus == filter.PaymentStatus.Value);
+
+        if (filter.StartDate.HasValue)
+            query = query.Where(b => b.CheckInDate >= filter.StartDate.Value);
+
+        if (filter.EndDate.HasValue)
+            query = query.Where(b => b.CheckOutDate <= filter.EndDate.Value);
+
+        return query;
+    }
+
     private async Task<BookingResponse> MapToResponseAsync(Domain.Entities.Booking booking)
     {
         return new BookingResponse
@@ -706,6 +732,72 @@ public class BookingService(
         };
     }
 
+    private async Task<DABookingResponse> DAMapToResponseAsync(Domain.Entities.Booking booking)
+    {
+        return new DABookingResponse
+        {
+            Id = booking.Id,
+            BookingNumber = booking.BookingNumber,
+            UnitId = booking.UnitId,
+            UnitName = booking.Unit?.Name ?? "",
+            UserId = booking.UserId,
+            UserName = booking.User?.FullName ?? "",
+            CheckInDate = booking.CheckInDate,
+            CheckOutDate = booking.CheckOutDate,
+            NumberOfGuests = booking.NumberOfGuests,
+            NumberOfNights = booking.NumberOfNights,
+            TotalPrice = booking.TotalPrice,
+            PaidAmount = booking.PaidAmount,
+            Status = booking.Status,
+            PaymentStatus = booking.PaymentStatus,
+            CreatedAt = booking.CreatedAt
+        };
+    }
+
+    private DABookingDetailsResponse DAMapToDetailsResponse(Domain.Entities.Booking booking)
+    {
+        return new DABookingDetailsResponse
+        {
+            Id = booking.Id,
+            BookingNumber = booking.BookingNumber,
+            UnitId = booking.UnitId,
+            UnitName = booking.Unit?.Name ?? "",
+            UnitAddress = booking.Unit?.Address ?? "",
+            UserId = booking.UserId,
+            UserName = booking.User?.FullName ?? "",
+            UserEmail = booking.User?.Email ?? "",
+            UserPhone = booking.User?.PhoneNumber,
+            CheckInDate = booking.CheckInDate,
+            CheckOutDate = booking.CheckOutDate,
+            NumberOfGuests = booking.NumberOfGuests,
+            NumberOfNights = booking.NumberOfNights,
+            TotalPrice = booking.TotalPrice,
+            PaidAmount = booking.PaidAmount,
+            Status = booking.Status,
+            PaymentStatus = booking.PaymentStatus,
+            SpecialRequests = booking.SpecialRequests,
+            CancellationReason = booking.CancellationReason,
+            CancelledAt = booking.CancelledAt,
+            Rooms = booking.BookingRooms?.Select(br => new BookingRoomInfo
+            {
+                RoomId = br.RoomId,
+                RoomNumber = br.Room?.RoomNumber ?? "",
+                PricePerNight = br.PricePerNight,
+                NumberOfNights = br.NumberOfNights
+            }).ToList() ?? new List<BookingRoomInfo>(),
+            Payments = booking.Payments?.Select(p => new PaymentInfo
+            {
+                Id = p.Id,
+                Amount = p.Amount,
+                PaymentMethod = p.PaymentMethod.ToString(),
+                Status = p.Status.ToString(),
+                PaymentDate = p.PaymentDate
+            }).ToList() ?? new List<PaymentInfo>(),
+            CreatedAt = booking.CreatedAt,
+            UpdatedAt = booking.UpdatedAt
+        };
+    }
+
     #endregion
 
     #region EMAIL NOTIFICATIONS
@@ -725,7 +817,7 @@ public class BookingService(
     //            <h2>Booking Confirmation - {booking.BookingNumber}</h2>
     //            <p>Dear {booking.User?.FullName},</p>
     //            <p>Your booking has been received successfully!</p>
-                
+
     //            <h3>Booking Details:</h3>
     //            <ul>
     //                <li>Booking Number: <strong>{booking.BookingNumber}</strong></li>
@@ -736,11 +828,11 @@ public class BookingService(
     //                <li>Guests: {booking.NumberOfGuests}</li>
     //                <li>Total Amount: ${booking.TotalPrice:F2}</li>
     //            </ul>
-                
+
     //            <p>Status: <strong>{booking.Status}</strong></p>
-                
+
     //            <p>We'll notify you once your booking is confirmed.</p>
-                
+
     //            <p>Best regards,<br>The Hajzzy Team</p>
     //        ";
 
@@ -1018,6 +1110,261 @@ public class BookingService(
             request.CheckOutDate);
 
         return Result.Success(totalPrice);
+    }
+
+    #endregion
+
+    #region Department Admin Service 
+    public async Task<Result<DABookingDetailsResponse>> DepartmentAdminGetBookingByIdAsync(int bookingId, string userID, CancellationToken ct)
+    {
+        var user = await _userManager.FindByIdAsync(userID);
+      
+        if (user == null)
+        {
+            return Result.Failure<DABookingDetailsResponse>(UserErrors.UserNotFound);
+        }
+        var roles = await _userManager.GetRolesAsync(user);
+        if(!roles.Contains(DefaultRoles.CityAdmin))
+        {
+            return Result.Failure<DABookingDetailsResponse>(UserErrors.Unauthorized);
+        }
+
+        var city =await _context.Set<DepartmentAdmin>()
+                .Where(x => x.UserId == userID && x.IsActive)
+                .FirstOrDefaultAsync(ct);
+
+        if (city is null)
+        {
+            return Result.Failure<DABookingDetailsResponse>(UserErrors.Unauthorized);
+        }
+
+        var booking = await _context.Bookings
+                .Include(b => b.Unit)
+                .Include(b => b.User)
+                .Include(b => b.BookingRooms)
+                    .ThenInclude(br => br.Room)
+                .Include(b => b.Payments)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == bookingId && b.Unit.CityId == city.CityId,ct);
+
+        if (booking == null)
+            return Result.Failure<DABookingDetailsResponse>(
+                new Error("NotFound", "Booking not found", 404));
+
+        var response = DAMapToDetailsResponse(booking);
+        return Result.Success(response);
+    }
+
+    public async Task<Result<DABookingDetailsResponse>> DepartmentAdminGetBookingByNumberAsync(string bookingNumber, string userID , CancellationToken ct)
+    {
+        var user = await _userManager.FindByIdAsync(userID);
+
+        if (user == null)
+        {
+            return Result.Failure<DABookingDetailsResponse>(UserErrors.UserNotFound);
+        }
+        var roles = await _userManager.GetRolesAsync(user);
+        if (!roles.Contains(DefaultRoles.CityAdmin))
+        {
+            return Result.Failure<DABookingDetailsResponse>(UserErrors.Unauthorized);
+        }
+        var city =await _context.Set<DepartmentAdmin>()
+                .Where(x => x.UserId == userID && x.IsActive)
+                .FirstOrDefaultAsync(ct);
+        if (city is null)
+        {
+            return Result.Failure<DABookingDetailsResponse>(UserErrors.Unauthorized);
+        }
+        var booking = await _context.Bookings
+               .Include(b => b.Unit)
+               .Include(b => b.User)
+               .Include(b => b.BookingRooms)
+                   .ThenInclude(br => br.Room)
+               .Include(b => b.Payments)
+               .AsNoTracking()
+               .FirstOrDefaultAsync(b => b.BookingNumber == bookingNumber && b.Unit.CityId == city.CityId,ct);
+
+        if (booking == null)
+            return Result.Failure<DABookingDetailsResponse>(
+                new Error("NotFound", "Booking not found", 404));
+
+        var response = DAMapToDetailsResponse(booking);
+        return Result.Success(response);
+    }
+
+    public async Task<Result<IEnumerable<DABookingResponse>>> DepartmentAdminGetUserBookingsAsync(string userId, DABookingFilter filter, string userID, CancellationToken ct)
+    {
+        var user = await _userManager.FindByIdAsync(userID);
+
+        if (user == null)
+        {
+            return Result.Failure<IEnumerable<DABookingResponse>>(UserErrors.UserNotFound);
+        }
+        var roles = await _userManager.GetRolesAsync(user);
+        if (!roles.Contains(DefaultRoles.CityAdmin))
+        {
+            return Result.Failure<IEnumerable<DABookingResponse>>(UserErrors.Unauthorized);
+        }
+        var city =await _context.Set<DepartmentAdmin>()
+                .Where(x => x.UserId == userID && x.IsActive)
+                .FirstOrDefaultAsync(ct);
+        if (city is null )
+        {
+            return Result.Failure< IEnumerable<DABookingResponse>>(UserErrors.Unauthorized);
+        }
+        var query = _context.Bookings
+               .Include(b => b.Unit)
+               .Where(b => b.UserId == userId && b.Unit.CityId == city.CityId)
+               .AsQueryable();
+
+        query = DA_ApplyFilters(query, filter);
+
+        var bookings = await query
+            .OrderByDescending(b => b.CreatedAt)
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .ToListAsync(ct);
+
+        var responses = new List<DABookingResponse>();
+        foreach (var booking in bookings)
+        {
+            responses.Add(await DAMapToResponseAsync(booking));
+        }
+
+        return Result.Success<IEnumerable<DABookingResponse>>(responses);
+    }
+
+    public async Task<Result<IEnumerable<DABookingResponse>>> DepartmentAdminGetUnitBookingsAsync(int unitId, DABookingFilter filter, string userID, CancellationToken ct)
+    {
+        var user = await _userManager.FindByIdAsync(userID);
+
+        if (user == null)
+        {
+            return Result.Failure<IEnumerable<DABookingResponse>>(UserErrors.UserNotFound);
+        }
+        var roles = await _userManager.GetRolesAsync(user);
+        if (!roles.Contains(DefaultRoles.CityAdmin))
+        {
+            return Result.Failure<IEnumerable<DABookingResponse>>(UserErrors.Unauthorized);
+        }
+        var city = await _context.Set<DepartmentAdmin>()
+                .Where(x => x.UserId == userID && x.IsActive)
+                .FirstOrDefaultAsync(ct);
+        if (city is null )
+        {
+            return Result.Failure<IEnumerable<DABookingResponse>>(UserErrors.UserNotFound);
+        }
+        var query = _context.Bookings
+                .Include(b => b.Unit)
+                .Include(b => b.User)
+                .Where(b => b.UnitId == unitId && b.Unit.CityId == city.CityId)
+                .AsQueryable();
+
+        query = DA_ApplyFilters(query, filter);
+
+        var bookings = await query
+            .OrderByDescending(b => b.CreatedAt)
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .ToListAsync(ct);
+
+        var responses = new List<DABookingResponse>();
+        foreach (var booking in bookings)
+        {
+            responses.Add(await DAMapToResponseAsync(booking));
+        }
+
+        return Result.Success<IEnumerable<DABookingResponse>>(responses);
+    }
+
+    public async Task<Result<DABookingStatisticsResponse>> DepartmentAdminGetBookingStatisticsAsync(DABookingStatisticsFilter filter, string userID, CancellationToken ct)
+    {
+        var user = await _userManager.FindByIdAsync(userID);
+
+        if (user == null)
+        {
+            return Result.Failure<DABookingStatisticsResponse>(UserErrors.UserNotFound);
+        }
+        var roles = await _userManager.GetRolesAsync(user);
+        if (!roles.Contains(DefaultRoles.CityAdmin))
+        {
+            return Result.Failure<DABookingStatisticsResponse>(UserErrors.Unauthorized);
+        }
+        var city =await _context.Set<DepartmentAdmin>()
+                .Where(x => x.UserId == userID && x.IsActive)
+                .FirstOrDefaultAsync(ct);
+        if (city is null )
+        {
+            return Result.Failure<DABookingStatisticsResponse>(UserErrors.UserNotFound);
+        }
+
+        var query = _context.Bookings
+            .Include(b => b.Unit)
+            .Include(b => b.User)
+            .Where(b => b.Unit.CityId == city.CityId)
+            .AsQueryable();
+
+        // Apply filters
+        if (filter.StartDate.HasValue)
+            query = query.Where(b => b.CreatedAt >= filter.StartDate.Value);
+
+        if (filter.EndDate.HasValue)
+            query = query.Where(b => b.CreatedAt <= filter.EndDate.Value);
+
+        if (filter.UnitId.HasValue)
+            query = query.Where(b => b.UnitId == filter.UnitId.Value);
+
+        if (filter.Status.HasValue)
+            query = query.Where(b => b.Status == filter.Status.Value);
+
+        var bookings = await query.ToListAsync(ct);
+
+        var statistics = new DABookingStatisticsResponse
+        {
+            TotalBookings = bookings.Count,
+            PendingBookings = bookings.Count(b => b.Status == BookingStatus.Pending),
+            ConfirmedBookings = bookings.Count(b => b.Status == BookingStatus.Confirmed),
+            CheckedInBookings = bookings.Count(b => b.Status == BookingStatus.CheckedIn),
+            CompletedBookings = bookings.Count(b => b.Status == BookingStatus.Completed),
+            CancelledBookings = bookings.Count(b => b.Status == BookingStatus.Cancelled),
+
+            TotalRevenue = bookings
+                .Where(b => b.Status == BookingStatus.Completed)
+                .Sum(b => b.TotalPrice),
+
+            PendingRevenue = bookings
+                .Where(b => b.Status == BookingStatus.Pending ||
+                           b.Status == BookingStatus.Confirmed)
+                .Sum(b => b.TotalPrice),
+
+            AverageBookingValue = bookings.Any()
+                ? bookings.Average(b => b.TotalPrice)
+                : 0,
+
+            AverageNightsPerBooking = bookings.Any()
+                ? bookings.Average(b => b.NumberOfNights)
+                : 0,
+
+            BookingsByStatus = bookings
+                .GroupBy(b => b.Status)
+                .ToDictionary(g => g.Key.ToString(), g => g.Count()),
+
+            BookingsByMonth = bookings
+                .GroupBy(b => new { b.CreatedAt.Year, b.CreatedAt.Month })
+                .OrderByDescending(g => g.Key.Year)
+                .ThenByDescending(g => g.Key.Month)
+                .Take(12)
+                .ToDictionary(
+                    g => $"{g.Key.Year}-{g.Key.Month:D2}",
+                    g => new MonthlyBookingStats
+                    {
+                        Count = g.Count(),
+                        Revenue = g.Where(b => b.Status == BookingStatus.Completed)
+                                   .Sum(b => b.TotalPrice)
+                    })
+        };
+
+        return Result.Success(statistics);
     }
 
     #endregion

@@ -169,3 +169,84 @@ public record ApprovalResult
     public string CreatedUnitName { get; init; } = string.Empty;
     public bool EmailSent { get; init; }
 }
+
+
+//==================City Admin Contract =======================
+
+public record DAUnitRegistrationResponse
+{
+    public int Id { get; init; }
+    public RegistrationRequestStatus Status { get; init; }
+    public string StatusDisplay { get; init; } = string.Empty;
+
+    // Owner Info
+    public string OwnerFullName { get; init; } = string.Empty;
+    public string OwnerEmail { get; init; } = string.Empty;
+    public string OwnerPhoneNumber { get; init; } = string.Empty;
+
+    // Unit Info
+    public string UnitName { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string Address { get; init; } = string.Empty;
+    public string DepartmentName { get; init; } = string.Empty;
+    public int UnitTypeId { get; init; }
+    public string UnitTypeName { get; init; } = string.Empty;
+    public decimal Latitude { get; init; }
+    public decimal Longitude { get; init; }
+    public decimal BasePrice { get; init; }
+    public int? MaxGuests { get; init; }
+    public int? Bedrooms { get; init; }
+    public int? Bathrooms { get; init; }
+
+    // Images
+    public List<string> ImageUrls { get; init; } = new();
+    public int ImageCount { get; init; }
+
+    // Tracking
+    public DateTime SubmittedAt { get; init; }
+    public DateTime? ReviewedAt { get; init; }
+    public string? ReviewedByAdminName { get; init; }
+    public string? RejectionReason { get; init; }
+
+    // After Approval
+    public string? CreatedUserId { get; init; }
+    public int? CreatedUnitId { get; init; }
+}
+
+public record DAUnitRegistrationListFilter
+{
+    public RegistrationRequestStatus? Status { get; init; }
+    public int? UnitTypeId { get; init; }
+    public DateTime? SubmittedFrom { get; init; }
+    public DateTime? SubmittedTo { get; init; }
+    public string? SearchKeyword { get; init; }
+
+    // Pagination
+    public int Page { get; init; } = 1;
+    public int PageSize { get; init; } = 20;
+}
+
+public record DAapprovalResult
+{
+    public string CreatedUserId { get; init; } = string.Empty;
+    public string CreatedUserEmail { get; init; } = string.Empty;
+    public int CreatedUnitId { get; init; }
+    public string CreatedUnitName { get; init; } = string.Empty;
+    public bool EmailSent { get; init; }
+}
+
+public record DAUnitRegistrationStatistics
+{
+    public int TotalRequests { get; init; }
+    public int PendingRequests { get; init; }
+    public int UnderReviewRequests { get; init; }
+    public int ApprovedRequests { get; init; }
+    public int RejectedRequests { get; init; }
+    public int CancelledRequests { get; init; }
+
+    public int RequestsThisWeek { get; init; }
+    public int RequestsThisMonth { get; init; }
+
+    public Dictionary<string, int> RequestsByDepartment { get; init; } = new();
+    public Dictionary<string, int> RequestsByUnitType { get; init; } = new();
+}

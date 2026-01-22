@@ -123,3 +123,69 @@ public class MonthlyBookingStats
     public int Count { get; set; }
     public decimal Revenue { get; set; }
 }
+
+
+//==================== Department Admin Dto
+public record DABookingFilter
+{
+    public BookingStatus? Status { get; init; }
+    public PaymentStatus? PaymentStatus { get; init; }
+    public DateTime? StartDate { get; init; }
+    public DateTime? EndDate { get; init; }
+    public int Page { get; init; } = 1;
+    public int PageSize { get; init; } = 10;
+}
+
+public record DABookingStatisticsFilter
+{
+    public DateTime? StartDate { get; init; }
+    public DateTime? EndDate { get; init; }
+    public int? UnitId { get; init; }
+    public BookingStatus? Status { get; init; }
+}
+public class DABookingResponse
+{
+    public int Id { get; set; }
+    public string BookingNumber { get; set; } = string.Empty;
+    public int UnitId { get; set; }
+    public string UnitName { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public DateTime CheckInDate { get; set; }
+    public DateTime CheckOutDate { get; set; }
+    public int NumberOfGuests { get; set; }
+    public int NumberOfNights { get; set; }
+    public decimal TotalPrice { get; set; }
+    public decimal PaidAmount { get; set; }
+    public BookingStatus Status { get; set; }
+    public PaymentStatus PaymentStatus { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+public class DABookingDetailsResponse : DABookingResponse
+{
+    public string UnitAddress { get; set; } = string.Empty;
+    public string UserEmail { get; set; } = string.Empty;
+    public string? UserPhone { get; set; }
+    public string? SpecialRequests { get; set; }
+    public string? CancellationReason { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public List<BookingRoomInfo> Rooms { get; set; } = new();
+    public List<PaymentInfo> Payments { get; set; } = new();
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public class DABookingStatisticsResponse
+{
+    public int TotalBookings { get; set; }
+    public int PendingBookings { get; set; }
+    public int ConfirmedBookings { get; set; }
+    public int CheckedInBookings { get; set; }
+    public int CompletedBookings { get; set; }
+    public int CancelledBookings { get; set; }
+    public decimal TotalRevenue { get; set; }
+    public decimal PendingRevenue { get; set; }
+    public decimal AverageBookingValue { get; set; }
+    public double AverageNightsPerBooking { get; set; }
+    public Dictionary<string, int> BookingsByStatus { get; set; } = new();
+    public Dictionary<string, MonthlyBookingStats> BookingsByMonth { get; set; } = new();
+}

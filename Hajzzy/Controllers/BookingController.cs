@@ -1,7 +1,9 @@
 ﻿using Application.Contracts.Bookin;
+using Application.Extensions;
 using Application.Service.Booking;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Hajzzy.Controllers;
 
@@ -129,4 +131,52 @@ public class BookingController(IBookingService service) : ControllerBase
 
         return result.ToProblem();
     }
+
+    // ================= Deaprtment Admin ============================
+    [HttpGet("department-admin/{bookingId}")]
+    public async Task<IActionResult> DepartmentAdminGetBookingById(int bookingId ,CancellationToken ct= default)
+    {
+        var userId = User.GetUserId()!;
+
+        var result = await service.DepartmentAdminGetBookingByIdAsync(bookingId, userId, ct);
+        if (result.IsSuccess)
+            return Ok(result.Value);
+
+        return result.ToProblem();
+    }
+
+    [HttpGet("department-admin/number/{bookignNumer}")]
+    public async Task<IActionResult> DepartmentAdminGetBookingByNumberAsync(string bookignNumer ,CancellationToken ct = default)
+    {
+        var userId = User.GetUserId()!;
+
+        var result = await service.DepartmentAdminGetBookingByNumberAsync(bookignNumer,userId,ct);
+        if (result.IsSuccess)
+            return Ok(result.Value);
+
+        return result.ToProblem();
+    }
+    [HttpGet("department-admin/unit/{UnitId}")]
+    public async Task<IActionResult> DepartmentAdminGetUnitBookingsAsync(int UnitId, DABookingFilter filter,CancellationToken ct = default)
+    {
+        var userId = User.GetUserId()!;
+
+        var result = await service.DepartmentAdminGetUnitBookingsAsync(UnitId, filter, userId,ct);
+        if (result.IsSuccess)
+            return Ok(result.Value);
+
+        return result.ToProblem();
+    }
+    [HttpGet("department-admin/user/{UserId}")]
+    public async Task<IActionResult> DepartmentAdminGetUserBookingsAsync(string UserId, DABookingFilter filter,CancellationToken ct = default)
+    {
+        var userId = User.GetUserId()!;
+
+        var result = await service.DepartmentAdminGetUserBookingsAsync(UserId, filter , userId ,ct);
+        if (result.IsSuccess)
+            return Ok(result.Value);
+
+        return result.ToProblem();
+    }
+
 }

@@ -51,6 +51,7 @@ public class UnitController(IUnitService service) : ControllerBase
         var result = await _service.GetAllByUserDepartmentAsync(UserId ,filter);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
+    
     [HttpPost("hotel/filter")]
     public async Task<IActionResult> GetAllh([FromBody] UnitFilter filter , string UserId)
     {

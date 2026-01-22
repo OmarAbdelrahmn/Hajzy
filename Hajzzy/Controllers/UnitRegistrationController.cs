@@ -4,6 +4,7 @@ using Application.Service.UnitRegistration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Hajzzy.Controllers;
 
@@ -71,16 +72,16 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
             : result.ToProblem();
     }
 
-    [HttpGet("department-admin/list")]
-    public async Task<IActionResult> GetAllRequests(
-        string userId)
-    {
-        var result = await _service.GetAllRequestsAsync(userId);
+    //[HttpGet("department-admin/list")]
+    //public async Task<IActionResult> GetAllRequests(
+    //    string userId)
+    //{
+    //    var result = await _service.GetAllRequestsAsync(userId);
 
-        return result.IsSuccess
-            ? Ok(result.Value)
-            : result.ToProblem();
-    }
+    //    return result.IsSuccess
+    //        ? Ok(result.Value)
+    //        : result.ToProblem();
+    //}
 
     /// <summary>
     /// Get a specific registration request (Admin only)
@@ -187,7 +188,140 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
             ? Ok(new { Message = "Credentials email sent successfully" })
             : result.ToProblem();
     }
+
+
+    // ============= City ADMIN ENDPOINTS =============
+    /// <summary>
+    /// Get all registration requests with filtering (Admin only)
+    /// </summary>
+    [HttpPost("department-admin/list")]
+
+    public async Task<IActionResult> DepartmentAdminGetAllRequests(
+        [FromBody] DAUnitRegistrationListFilter filter , CancellationToken ct = default)
+    {
+        var userId = User.GetUserId()!;
+        var result = await _service.DepartmentAdmin_GetAllRequestsAsync(filter, userId,ct);
+
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
+
+    [HttpGet("department-admin/list")]
+    public async Task<IActionResult> DepartmentAdminGetAllRequests(CancellationToken ct = default)
+    {
+        var userId = User.GetUserId()!;
+        var result = await _service.DepartmentAdmin_GetAllRequestsAsync(userId,ct);
+
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Get a specific registration request (Admin only)
+    /// </summary>
+    [HttpGet("department-admin/{requestId}")]
+
+    public async Task<IActionResult> DepartmentAdminGetRequestById(int requestId, CancellationToken ct = default)
+    {
+        var userId = User.GetUserId()!;
+        var result = await _service.DepartmentAdmin_GetRequestByIdAsync(requestId, userId,ct);
+
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Approve a registration request (Admin only)
+    /// Creates user account and unit
+    /// </summary>
+    [HttpPost("department-admin/{requestId}/approve")]
+
+    public async Task<IActionResult> DepartmentAdminApproveRequest(int requestId, CancellationToken ct = default)
+    {
+        var userId = User.GetUserId()!;
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
+        var result = await _service.DepartmentAdmin_ApproveRequestAsync(requestId, userId,ct);
+
+        if (!result.IsSuccess)
+            return result.ToProblem();
+
+        return Ok(new
+        {
+            Message = "Registration request approved successfully",
+            Data = result.Value
+        });
+    }
+
+    /// <summary>
+    /// Reject a registration request (Admin only)
+    /// </summary>
+    [HttpPost("department-admin/{requestId}/reject")]
+
+    public async Task<IActionResult> DepartmentAdminRejectRequest(
+        int requestId,
+        [FromBody] RejectRequestDto dto , CancellationToken ct = default)
+    {
+        var userId = User.GetUserId()!;
+
+
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(dto.RejectionReason))
+            return BadRequest(new { Message = "Rejection reason is required" });
+
+        var result = await _service.DepartmentAdmin_RejectRequestAsync(
+            requestId,
+            userId,
+            dto.RejectionReason,ct);
+
+        return result.IsSuccess
+            ? Ok(new { Message = "Registration request rejected successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Delete a registration request (Admin only)
+    /// </summary>
+    [HttpDelete("department-admin/{requestId}")]
+
+    public async Task<IActionResult> DepartmentAdminDeleteRequest(int requestId, CancellationToken ct = default)
+    {
+        var userId = User.GetUserId()!;
+
+        var result = await _service.DepartmentAdmin_DeleteRequestAsync(requestId , userId, ct);
+
+        return result.IsSuccess
+            ? Ok(new { Message = "Registration request deleted successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Get registration statistics (Admin only)
+    /// </summary>
+    [HttpGet("department-admin/statistics")]
+
+    public async Task<IActionResult> DepartmentAdminGetStatistics(CancellationToken ct = default)
+    {
+        var userId = User.GetUserId()!;
+
+        var result = await _service.DepartmentAdmin_GetStatisticsAsync(userId,ct);
+
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
+
+
+
 }
+
+
 
 // DTO for rejection
 public record RejectRequestDto

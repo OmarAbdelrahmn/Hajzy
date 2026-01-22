@@ -32,4 +32,12 @@ public interface IBookingService
     // Statistics & Reports
     Task<Result<BookingStatisticsResponse>> GetBookingStatisticsAsync(BookingStatisticsFilter filter);
     Task<Result<decimal>> CalculateBookingPriceAsync(CalculateBookingPriceRequest request);
+
+
+    // =================== Department Admin ==============================
+    Task<Result<DABookingDetailsResponse>> DepartmentAdminGetBookingByIdAsync(int bookingId ,string userID ,CancellationToken ct);
+    Task<Result<DABookingDetailsResponse>> DepartmentAdminGetBookingByNumberAsync(string bookingNumber, string userID, CancellationToken ct);
+    Task<Result<IEnumerable<DABookingResponse>>> DepartmentAdminGetUserBookingsAsync(string userId, DABookingFilter filter, string userID, CancellationToken ct);
+    Task<Result<IEnumerable<DABookingResponse>>> DepartmentAdminGetUnitBookingsAsync(int unitId, DABookingFilter filter, string userID, CancellationToken ct);
+    Task<Result<DABookingStatisticsResponse>> DepartmentAdminGetBookingStatisticsAsync(DABookingStatisticsFilter filter, string userID, CancellationToken ct);
 }
