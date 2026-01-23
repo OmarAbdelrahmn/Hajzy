@@ -831,6 +831,11 @@ public class UnitRegistrationService(
         {
             return Result.Failure<IEnumerable<DAUnitRegistrationResponse>>(UserErrors.UserNotFound);
         }
+        var roles = await _userManager.GetRolesAsync(user);
+        if (!roles.Contains(DefaultRoles.CityAdmin))
+        {
+            return Result.Failure<IEnumerable<DAUnitRegistrationResponse>>(UserErrors.Unauthorized);
+        }
         var city =await _context.Set<DepartmentAdmin>()
                 .Where(x => x.UserId == UserId && x.IsActive)
                 .FirstOrDefaultAsync(ct);
@@ -878,44 +883,6 @@ public class UnitRegistrationService(
         return Result.Success<IEnumerable<DAUnitRegistrationResponse>>(responses);
     }
    
-
-    public async Task<Result<IEnumerable<DAUnitRegistrationResponse>>> DepartmentAdmin_GetAllRequestsAsync(string userId, CancellationToken ct)
-    {
-        var user = await _userManager.FindByIdAsync(userId);
-
-        if (user == null)
-        {
-            return Result.Failure<IEnumerable<DAUnitRegistrationResponse>>(UserErrors.UserNotFound);
-        }
-        var roles = await _userManager.GetRolesAsync(user);
-        if (!roles.Contains(DefaultRoles.CityAdmin))
-        {
-            return Result.Failure<IEnumerable<DAUnitRegistrationResponse>>(UserErrors.Unauthorized);
-        }
-        var city = await _context.Set<DepartmentAdmin>()
-               .Where(x => x.UserId == userId && x.IsActive)
-               .FirstOrDefaultAsync(ct);
-        if (city is null)
-        {
-            return Result.Failure<IEnumerable<DAUnitRegistrationResponse>>(UserErrors.Unauthorized);
-        }
-
-        var query = _context.Set<UnitRegistrationRequest>()
-            .Where(r =>r.DepartmentId == city.CityId)
-            .Include(r => r.Department)
-            .Include(r => r.UnitType)
-            .Include(r => r.ReviewedByAdmin)
-            .AsQueryable();
-
-
-        var requests = await query
-            .ToListAsync();
-
-        var responses = requests.Select(CAMapToResponse).ToList();
-
-        return Result.Success<IEnumerable<DAUnitRegistrationResponse>>(responses);
-
-    }
 
     public async Task<Result<DAUnitRegistrationResponse>> DepartmentAdmin_GetRequestByIdAsync(int requestId, string userId, CancellationToken ct)
     {
@@ -1138,7 +1105,7 @@ public class UnitRegistrationService(
         if (user == null)
         {
             Result.Failure(
-                    (UserErrors.Unauthorized));
+                    (UserErrors.UserNotFound));
         }
         var roles = await _userManager.GetRolesAsync(user);
         if (!roles.Contains(DefaultRoles.CityAdmin))
@@ -1153,6 +1120,7 @@ public class UnitRegistrationService(
         {
             return Result.Failure(UserErrors.Unauthorized);
         }
+
 
         using var transaction = await _context.Database.BeginTransactionAsync();
 

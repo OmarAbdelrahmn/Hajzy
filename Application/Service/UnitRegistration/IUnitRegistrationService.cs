@@ -73,10 +73,7 @@ public interface IUnitRegistrationService
     /// </summary>
     Task<Result<IEnumerable<DAUnitRegistrationResponse>>> DepartmentAdmin_GetAllRequestsAsync(
         DAUnitRegistrationListFilter filter ,string UserId , CancellationToken ct);
-    Task<Result<IEnumerable<DAUnitRegistrationResponse>>> DepartmentAdmin_GetAllRequestsAsync(
-        string userId,
-        CancellationToken ct
-         );
+
 
     /// <summary>
     /// Get a specific request by ID

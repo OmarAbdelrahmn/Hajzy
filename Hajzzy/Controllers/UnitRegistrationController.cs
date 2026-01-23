@@ -207,17 +207,6 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
             : result.ToProblem();
     }
 
-    [HttpGet("department-admin/list")]
-    public async Task<IActionResult> DepartmentAdminGetAllRequests(CancellationToken ct = default)
-    {
-        var userId = User.GetUserId()!;
-        var result = await _service.DepartmentAdmin_GetAllRequestsAsync(userId,ct);
-
-        return result.IsSuccess
-            ? Ok(result.Value)
-            : result.ToProblem();
-    }
-
     /// <summary>
     /// Get a specific registration request (Admin only)
     /// </summary>
@@ -242,9 +231,6 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
     public async Task<IActionResult> DepartmentAdminApproveRequest(int requestId, CancellationToken ct = default)
     {
         var userId = User.GetUserId()!;
-        if (string.IsNullOrEmpty(userId))
-            return Unauthorized();
-
         var result = await _service.DepartmentAdmin_ApproveRequestAsync(requestId, userId,ct);
 
         if (!result.IsSuccess)
@@ -267,13 +253,6 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
         [FromBody] RejectRequestDto dto , CancellationToken ct = default)
     {
         var userId = User.GetUserId()!;
-
-
-        if (string.IsNullOrEmpty(userId))
-            return Unauthorized();
-
-        if (string.IsNullOrWhiteSpace(dto.RejectionReason))
-            return BadRequest(new { Message = "Rejection reason is required" });
 
         var result = await _service.DepartmentAdmin_RejectRequestAsync(
             requestId,
