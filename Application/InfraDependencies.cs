@@ -63,7 +63,7 @@ public static class InfraDependencies
         Services.AddScoped<IUserService, UserServices>();
         Services.AddScoped<IAuthService, AuthService>();
         Services.AddScoped<IEmailSender, EmailService>();
-        Services.AddScoped<INotinficationService, NotinficationService>();
+        Services.AddScoped<INotinficationService, EmailNotificationService>();
         Services.AddScoped<IRoleService, RoleService>();
         Services.AddScoped<IAdminService, AdminService>();
         Services.AddScoped<IDepartmanetService, DepartmanetService>();

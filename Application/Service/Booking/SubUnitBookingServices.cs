@@ -3,6 +3,7 @@ using Application.Contracts;
 using Application.Contracts.Availability;
 using Application.Contracts.Bookin;
 using Application.Helpers;
+using Application.Notifications;
 using Application.Service.Avilabilaties;
 using Application.Service.PromoCode;
 using Domain;
@@ -19,13 +20,16 @@ public class SubUnitBookingService(
     IAvailabilityService availabilityService,
     ICouponService couponService,
     IEmailSender emailSender,
-    ILogger<SubUnitBookingService> logger) : ISubUnitBookingServices
+    ILogger<SubUnitBookingService> logger,
+    INotinficationService emailNotificationService) : ISubUnitBookingServices
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly IAvailabilityService _availabilityService = availabilityService;
     private readonly ICouponService _couponService = couponService;
     private readonly IEmailSender _emailSender = emailSender;
     private readonly ILogger<SubUnitBookingService> _logger = logger;
+    private readonly INotinficationService _emailNotificationService = emailNotificationService;
+
 
     #region CREATE BOOKING
 
@@ -197,7 +201,7 @@ public class SubUnitBookingService(
             await transaction.CommitAsync();
 
             // 12. Send confirmation email
-            BackgroundJob.Enqueue(() => SendSubUnitBookingConfirmationEmailAsync(booking.Id));
+            BackgroundJob.Enqueue(() => _emailNotificationService.SendBookingConfirmationEmailAsync(booking.Id));
 
             _logger.LogInformation(
                 "SubUnit booking {BookingNumber} created for user {UserId} with {RoomCount} rooms. Original price: {OriginalPrice}, Final price: {FinalPrice}",
@@ -255,7 +259,7 @@ public class SubUnitBookingService(
 
         await _context.SaveChangesAsync();
 
-        BackgroundJob.Enqueue(() => SendSubUnitBookingStatusEmailAsync(bookingId, "Confirmed"));
+        BackgroundJob.Enqueue(() => _emailNotificationService.SendBookingStatusUpdateEmailAsync(bookingId, "Confirmed"));
 
         _logger.LogInformation(
             "SubUnit booking {BookingId} confirmed by admin {AdminId}",
@@ -285,7 +289,7 @@ public class SubUnitBookingService(
 
         await _context.SaveChangesAsync();
 
-        BackgroundJob.Enqueue(() => SendSubUnitBookingStatusEmailAsync(bookingId, "CheckedIn"));
+        BackgroundJob.Enqueue(() => _emailNotificationService.SendBookingStatusUpdateEmailAsync(bookingId, "CheckedIn"));
 
         return Result.Success();
     }
@@ -307,7 +311,7 @@ public class SubUnitBookingService(
 
         await _context.SaveChangesAsync();
 
-        BackgroundJob.Enqueue(() => SendSubUnitCheckoutEmailAsync(bookingId));
+        BackgroundJob.Enqueue(() => _emailNotificationService.SendBookingCheckoutEmailAsync(bookingId));
 
         return Result.Success();
     }
@@ -365,7 +369,7 @@ public class SubUnitBookingService(
                 RefundSubUnitBookingAsync(bookingId, refundAmount, "Booking cancelled"));
         }
 
-        BackgroundJob.Enqueue(() => SendSubUnitCancellationEmailAsync(bookingId, refundAmount));
+        BackgroundJob.Enqueue(() => _emailNotificationService.SendBookingCancellationEmailAsync(bookingId, refundAmount));
 
         _logger.LogInformation(
             "SubUnit booking {BookingId} cancelled by user {UserId}. Refund: {Refund}",
@@ -420,8 +424,8 @@ public class SubUnitBookingService(
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            BackgroundJob.Enqueue(() =>
-                SendSubUnitPaymentConfirmationEmailAsync(bookingId, request.Amount));
+            BackgroundJob.Enqueue(() => _emailNotificationService.SendPaymentConfirmationEmailAsync(bookingId, request.Amount));
+
 
             return Result.Success();
         }

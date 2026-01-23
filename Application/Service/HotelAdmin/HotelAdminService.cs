@@ -630,80 +630,6 @@ public class HotelAdminService(
 
     #endregion
 
-
-
-    private async Task<List<Domain.Entities.Unit>> GetUserAdminUnitsAsync(string userId)
-    {
-        return await _context.Units
-            .Include(u => u.City)
-            .Include(u => u.UnitType)
-            .Include(u => u.CancellationPolicy)
-            .Include(u => u.Admins.Where(a => a.IsActive))
-                .ThenInclude(a => a.User)
-            .Include(u => u.Images.Where(i => !i.IsDeleted))
-            .Include(u => u.UnitAmenities)
-                .ThenInclude(ua => ua.Amenity)
-            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
-                .ThenInclude(r => r.SubUnitImages.Where(i => !i.IsDeleted))
-            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
-                .ThenInclude(r => r.SubUnitAmenities)
-                .ThenInclude(sa => sa.Amenity)
-            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
-                .ThenInclude(r => r.SubUnitAvailabilities)
-            .Include(u => u.Bookings)
-            .Where(u => !u.IsDeleted && u.Admins.Any(a => a.UserId == userId && a.IsActive))
-            .AsNoTracking()
-            .ToListAsync();
-    }
-
-    public async Task<Result<bool>> IsAdminOfUnitAsync(string userId, int unitId)
-    {
-        var isAdmin = await _context.Set<UniteAdmin>()
-            .AnyAsync(a => a.UnitId == unitId && a.UserId == userId && a.IsActive);
-
-        return Result.Success(isAdmin);
-    }
-
-    public async Task<Result<bool>> IsBookingForMyUnitAsync(string userId, int bookingId)
-    {
-        var booking = await _context.Bookings
-            .Include(b => b.Unit)
-                .ThenInclude(u => u.Admins)
-            .FirstOrDefaultAsync(b => b.Id == bookingId);
-
-        if (booking == null)
-            return Result.Success(false);
-
-        var isAdmin = booking.Unit.Admins.Any(a => a.UserId == userId && a.IsActive);
-        return Result.Success(isAdmin);
-    }
-
-    private async Task<decimal> CalculateOccupancyRateAsync(
-        List<int> unitIds,
-        DateTime startDate,
-        DateTime endDate)
-    {
-        var totalRoomNights = await _context.SubUnits
-            .Where(s => unitIds.Contains(s.UnitId) && !s.IsDeleted)
-            .CountAsync() * (endDate - startDate).Days;
-
-        if (totalRoomNights == 0)
-            return 0;
-
-        var occupiedNights = await _context.BookingRooms
-            .Include(br => br.Booking)
-            .Where(br => unitIds.Contains(br.Room.UnitId) &&
-                        br.Booking.CheckInDate < endDate &&
-                        br.Booking.CheckOutDate > startDate &&
-                        br.Booking.Status != BookingStatus.Cancelled)
-            .SumAsync(br => br.NumberOfNights);
-
-        return (decimal)occupiedNights / totalRoomNights * 100;
-    }
-
-
-    // Add these implementations to HotelAdminService.cs
-
     #region SUBUNIT MANAGEMENT
 
     public async Task<Result<IEnumerable<SubUnitComprehensiveDetail>>> GetMySubUnitsAsync(
@@ -1903,10 +1829,6 @@ public class HotelAdminService(
 
     #endregion
 
-    // ============================================================================
-    // CANCELLATION POLICY MANAGEMENT IMPLEMENTATION
-    // ============================================================================
-
     #region Cancellation Policy Management
 
     public async Task<Result<IEnumerable<CancellationPolicyResponse>>> GetAvailableCancellationPoliciesAsync()
@@ -2039,7 +1961,6 @@ public class HotelAdminService(
 
     #endregion
 
-
     #region Helper Methods
 
     private PolicyDetailResponse MapToPolicyDetailResponse(GeneralPolicy policy)
@@ -2061,7 +1982,74 @@ public class HotelAdminService(
             SubUnitId = policy.SubUnitId
         };
     }
+    private async Task<List<Domain.Entities.Unit>> GetUserAdminUnitsAsync(string userId)
+    {
+        return await _context.Units
+            .Include(u => u.City)
+            .Include(u => u.UnitType)
+            .Include(u => u.CancellationPolicy)
+            .Include(u => u.Admins.Where(a => a.IsActive))
+                .ThenInclude(a => a.User)
+            .Include(u => u.Images.Where(i => !i.IsDeleted))
+            .Include(u => u.UnitAmenities)
+                .ThenInclude(ua => ua.Amenity)
+            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                .ThenInclude(r => r.SubUnitImages.Where(i => !i.IsDeleted))
+            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                .ThenInclude(r => r.SubUnitAmenities)
+                .ThenInclude(sa => sa.Amenity)
+            .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                .ThenInclude(r => r.SubUnitAvailabilities)
+            .Include(u => u.Bookings)
+            .Where(u => !u.IsDeleted && u.Admins.Any(a => a.UserId == userId && a.IsActive))
+            .AsNoTracking()
+            .ToListAsync();
+    }
 
+    public async Task<Result<bool>> IsAdminOfUnitAsync(string userId, int unitId)
+    {
+        var isAdmin = await _context.Set<UniteAdmin>()
+            .AnyAsync(a => a.UnitId == unitId && a.UserId == userId && a.IsActive);
+
+        return Result.Success(isAdmin);
+    }
+
+    public async Task<Result<bool>> IsBookingForMyUnitAsync(string userId, int bookingId)
+    {
+        var booking = await _context.Bookings
+            .Include(b => b.Unit)
+                .ThenInclude(u => u.Admins)
+            .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+        if (booking == null)
+            return Result.Success(false);
+
+        var isAdmin = booking.Unit.Admins.Any(a => a.UserId == userId && a.IsActive);
+        return Result.Success(isAdmin);
+    }
+
+    private async Task<decimal> CalculateOccupancyRateAsync(
+        List<int> unitIds,
+        DateTime startDate,
+        DateTime endDate)
+    {
+        var totalRoomNights = await _context.SubUnits
+            .Where(s => unitIds.Contains(s.UnitId) && !s.IsDeleted)
+            .CountAsync() * (endDate - startDate).Days;
+
+        if (totalRoomNights == 0)
+            return 0;
+
+        var occupiedNights = await _context.BookingRooms
+            .Include(br => br.Booking)
+            .Where(br => unitIds.Contains(br.Room.UnitId) &&
+                        br.Booking.CheckInDate < endDate &&
+                        br.Booking.CheckOutDate > startDate &&
+                        br.Booking.Status != BookingStatus.Cancelled)
+            .SumAsync(br => br.NumberOfNights);
+
+        return (decimal)occupiedNights / totalRoomNights * 100;
+    }
     private CancellationPolicyResponse MapToCancellationPolicyResponse(CancellationPolicy policy)
     {
         return new CancellationPolicyResponse
@@ -2079,11 +2067,6 @@ public class HotelAdminService(
     }
 
     #endregion
-
-
-    // ============================================================================
-    // COMPREHENSIVE AVAILABILITY MANAGEMENT IMPLEMENTATION
-    // ============================================================================
 
     #region Availability Management
 
@@ -2493,10 +2476,6 @@ public class HotelAdminService(
 
     #endregion
 
-    // ============================================================================
-    // COMPREHENSIVE REPORTS IMPLEMENTATION (Continued from Part 3)
-    // ============================================================================
-
     #region Comprehensive Reports
 
     public async Task<Result<FinancialReportResponse>> GetFinancialReportAsync(
@@ -2602,10 +2581,6 @@ public class HotelAdminService(
 
     #endregion
 
-    // ============================================================================
-    // HELPER/MAPPING METHODS (CONTINUED)
-    // ============================================================================
-
     #region Helper Methods (Continued)
 
     private AvailabilityBlockResponse MapToAvailabilityBlockResponse(UnitAvailability availability)
@@ -2643,9 +2618,6 @@ public class HotelAdminService(
     }
 
     #endregion
-
-
-
 
     #region Additional Reports
 
@@ -2960,10 +2932,6 @@ public class HotelAdminService(
 
     #endregion
 
-    // ============================================================================
-    // SUBUNIT MANAGEMENT (EXTENDED)
-    // ============================================================================
-
     #region SubUnit Management Extended
 
     public async Task<Result<SubUnitResponse>> UpdateSubUnitAsync(
@@ -3143,10 +3111,6 @@ public class HotelAdminService(
     }
 
     #endregion
-
-    // ============================================================================
-    // AMENITIES MANAGEMENT
-    // ============================================================================
 
     #region Amenities Management
 
@@ -3345,10 +3309,6 @@ public class HotelAdminService(
     }
 
     #endregion
-
-    // ============================================================================
-    // PART 1: Add these implementations to HotelAdminService.cs
-    // ============================================================================
 
     #region IMAGE MANAGEMENT
 

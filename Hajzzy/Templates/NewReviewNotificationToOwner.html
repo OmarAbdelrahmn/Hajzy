@@ -1,0 +1,169 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>New Review Received</title>
+    <style type="text/css" rel="stylesheet" media="all">
+        @import url("https://fonts.googleapis.com/css?family=Nunito+Sans:400,700&display=swap");
+
+        body {
+            width: 100% !important;
+            height: 100%;
+            margin: 0;
+            background-color: #f2f4f6;
+            color: #51545e;
+            font-family: "Nunito Sans", Helvetica, Arial, sans-serif;
+        }
+
+        a {
+            color: #3869d4;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #333333;
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        p {
+            margin: 0.4em 0 1.1875em;
+            font-size: 16px;
+            line-height: 1.625;
+        }
+
+        .button {
+            background-color: #3869d4;
+            border: 10px solid #3869d4;
+            display: inline-block;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 3px;
+            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.16);
+            margin: 5px;
+        }
+
+        .button-secondary {
+            background-color: #22bc66;
+            border: 10px solid #22bc66;
+        }
+
+        .info-box {
+            background-color: #f4f4f7;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        .review-box {
+            background-color: #e7f3ff;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #3869d4;
+        }
+
+        .email-wrapper {
+            width: 100%;
+            background-color: #f2f4f6;
+        }
+
+        .email-masthead {
+            padding: 25px 0;
+            text-align: center;
+        }
+
+        .email-masthead_name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #a8aaaf;
+            text-decoration: none;
+        }
+
+        .email-body_inner {
+            width: 570px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+
+        .content-cell {
+            padding: 45px;
+        }
+
+        .body-action {
+            width: 100%;
+            margin: 30px auto;
+            text-align: center;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .email-body_inner {
+                width: 100% !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <table class="email-wrapper" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+            <td align="center">
+                <table class="email-content" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="email-masthead">
+                            <a href="https://hujjzy.com" class="email-masthead_name">Hujjzy</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="email-body" width="570">
+                            <table class="email-body_inner" align="center" width="570" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td class="content-cell">
+                                        <h1>⭐ New Review for Your Property!</h1>
+                                        <p>Dear {{owner_name}},</p>
+
+                                        <p>Great news! You've received a new review for <strong>{{unit_name}}</strong>.</p>
+
+                                        <div class="info-box">
+                                            <h3 style="margin-top: 0;">📋 Review Details</h3>
+                                            <p><strong>Reviewer:</strong> {{reviewer_name}}</p>
+                                            <p><strong>Rating:</strong> ⭐ {{rating}} / 5</p>
+                                            <p style="margin-bottom: 0;"><strong>Date:</strong> {{review_date}}</p>
+                                        </div>
+
+                                        <div class="review-box">
+                                            <h3 style="margin-top: 0;">💬 Guest Comment</h3>
+                                            <p style="font-style: italic; margin-bottom: 0;">"{{comment}}"</p>
+                                        </div>
+
+                                        <p><strong>💡 Responding to Reviews:</strong></p>
+                                        <p>Responding to reviews shows that you value guest feedback and helps build trust with potential guests. Consider:</p>
+                                        <ul>
+                                            <li>Thanking the guest for their feedback</li>
+                                            <li>Addressing any concerns mentioned</li>
+                                            <li>Highlighting what you're doing to improve</li>
+                                            <li>Keeping your response professional and courteous</li>
+                                        </ul>
+
+                                        <table class="body-action" align="center" width="100%" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td align="center">
+                                                    <a href="{{review_url}}" class="button" target="_blank">View Review</a>
+                                                    <a href="{{respond_url}}" class="button button-secondary" target="_blank">Respond Now</a>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <p>Thank you for being a valued partner on Hujjzy!</p>
+                                        <p>Best regards,<br />The Hujjzy Team</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

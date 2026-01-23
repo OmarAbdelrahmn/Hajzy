@@ -1,0 +1,164 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Share Your Experience</title>
+    <style type="text/css" rel="stylesheet" media="all">
+        @import url("https://fonts.googleapis.com/css?family=Nunito+Sans:400,700&display=swap");
+
+        body {
+            width: 100% !important;
+            height: 100%;
+            margin: 0;
+            background-color: #f2f4f6;
+            color: #51545e;
+            font-family: "Nunito Sans", Helvetica, Arial, sans-serif;
+        }
+
+        a {
+            color: #3869d4;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #333333;
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        p {
+            margin: 0.4em 0 1.1875em;
+            font-size: 16px;
+            line-height: 1.625;
+        }
+
+        .button {
+            background-color: #ff6136;
+            border: 10px solid #ff6136;
+            display: inline-block;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 3px;
+            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.16);
+        }
+
+        .highlight-box {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border: 1px solid #ffeeba;
+            text-align: center;
+        }
+
+        .info-box {
+            background-color: #f4f4f7;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        .email-wrapper {
+            width: 100%;
+            background-color: #f2f4f6;
+        }
+
+        .email-masthead {
+            padding: 25px 0;
+            text-align: center;
+        }
+
+        .email-masthead_name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #a8aaaf;
+            text-decoration: none;
+        }
+
+        .email-body_inner {
+            width: 570px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+
+        .content-cell {
+            padding: 45px;
+        }
+
+        .body-action {
+            width: 100%;
+            margin: 30px auto;
+            text-align: center;
+        }
+
+        @media only screen and (max-width: 600px) {
+            .email-body_inner {
+                width: 100% !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <table class="email-wrapper" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+            <td align="center">
+                <table class="email-content" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td class="email-masthead">
+                            <a href="https://hujjzy.com" class="email-masthead_name">Hujjzy</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="email-body" width="570">
+                            <table class="email-body_inner" align="center" width="570" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td class="content-cell">
+                                        <h1>⭐ How Was Your Stay?</h1>
+                                        <p>Dear {{name}},</p>
+
+                                        <div class="highlight-box">
+                                            <h2 style="margin: 0; color: #856404;">We'd Love Your Feedback!</h2>
+                                            <p style="margin: 10px 0 0;">Help others discover great places to stay</p>
+                                        </div>
+
+                                        <p>We hope you had a wonderful time at <strong>{{unit_name}}</strong>!</p>
+
+                                        <div class="info-box">
+                                            <h3>📅 Your Stay</h3>
+                                            <p><strong>Check-in:</strong> {{check_in_date}}</p>
+                                            <p style="margin-bottom: 0;"><strong>Check-out:</strong> {{check_out_date}}</p>
+                                        </div>
+
+                                        <p>Your review helps other travelers make informed decisions and helps properties improve their service. It only takes a minute!</p>
+
+                                        <table class="body-action" align="center" width="100%" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td align="center">
+                                                    <a href="{{review_url}}" class="button" target="_blank">Write Your Review</a>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <p><strong>💡 Quick Tips:</strong></p>
+                                        <ul>
+                                            <li>Share what you loved most</li>
+                                            <li>Mention any standout features</li>
+                                            <li>Be honest and constructive</li>
+                                            <li>Add photos if you have them!</li>
+                                        </ul>
+
+                                        <p>Thank you for being part of the Hujjzy community!</p>
+                                        <p>Best regards,<br />The Hujjzy Team</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

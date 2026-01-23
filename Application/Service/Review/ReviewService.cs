@@ -1,7 +1,9 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Review;
+using Application.Notifications;
 using Domain;
 using Domain.Entities;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -9,10 +11,12 @@ namespace Application.Service.Review;
 
 public class ReviewService(
     ApplicationDbcontext context,
-    ILogger<ReviewService> logger) : IReviewService
+    ILogger<ReviewService> logger,
+    INotinficationService emailNotificationService) : IReviewService
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly ILogger<ReviewService> _logger = logger;
+    private readonly INotinficationService _emailNotificationService = emailNotificationService;
 
     #region CREATE REVIEW
 
@@ -68,6 +72,12 @@ public class ReviewService(
             _logger.LogInformation(
                 "Review created for Unit {UnitId} by User {UserId}. Rating: {Rating}",
                 request.UnitId, request.UserId, request.Rating);
+
+            BackgroundJob.Enqueue(() => _emailNotificationService.SendReviewThankYouEmailAsync(review.Id));
+
+            // ✅ NEW: Notify property owner about new review
+            BackgroundJob.Enqueue(() => _emailNotificationService.SendNewReviewNotificationToOwnerAsync(review.Id));
+
 
             var response = await MapToResponseAsync(review);
             return Result.Success(response);
@@ -718,6 +728,8 @@ public class ReviewService(
             _logger.LogInformation(
                 "Owner response added to review {ReviewId} by {OwnerId}",
                 reviewId, ownerId);
+
+            BackgroundJob.Enqueue(() => _emailNotificationService.SendOwnerResponseNotificationAsync(reviewId));
 
             return Result.Success();
         }
