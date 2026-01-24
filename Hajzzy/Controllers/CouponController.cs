@@ -267,7 +267,7 @@ public class CouponController(ICouponService couponService) : ControllerBase
     /// Automatically sets the coupon to target your administered unit(s)
     /// </summary>
     [HttpPost("my-units")]
-    [Authorize(Roles = "UnitAdmin")]
+    [Authorize(Roles = "HotelAdmin")]
     public async Task<IActionResult> CreateCouponForMyUnits([FromBody] CreateCouponForUnitAdminRequest request)
     {
         var userId = User.GetUserId();
@@ -282,7 +282,7 @@ public class CouponController(ICouponService couponService) : ControllerBase
     /// Get all coupons you created for your units (Unit Admin only)
     /// </summary>
     [HttpGet("my-units")]
-    [Authorize(Roles = "UnitAdmin")]
+    [Authorize(Roles = "HotelAdmin")]
     public async Task<IActionResult> GetMyCouponsAsAdmin([FromQuery] CouponFilter filter)
     {
         var userId = User.GetUserId();

@@ -104,6 +104,7 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     /// Get review statistics for a unit
     /// </summary>
     [HttpGet("unit/{unitId:int}/statistics")]
+    [Authorize(Roles = "CityAdmin,SuperAdmin")]
     public async Task<IActionResult> GetUnitReviewStatistics(int unitId)
     {
         var result = await _reviewService.GetUnitReviewStatisticsAsync(unitId);
@@ -151,7 +152,7 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     /// Add owner/admin response to a review
     /// </summary>
     [HttpPost("{reviewId:int}/owner-response")]
-    [Authorize(Roles = "UnitAdmin,SuperAdmin")]
+    [Authorize(Roles = "HotelAdmin,SuperAdmin,CityAdmin")]
     public async Task<IActionResult> AddOwnerResponse(
         int reviewId,
         [FromBody] AddOwnerResponseRequest request)
@@ -204,7 +205,7 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     /// Get pending reviews for moderation (Admin only)
     /// </summary>
     [HttpGet("admin/pending")]
-    [Authorize(Roles = "SuperAdmin,Moderator")]
+    [Authorize(Roles = "CityAdmin,SuperAdmin")]
     public async Task<IActionResult> GetPendingReviews(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
@@ -220,7 +221,7 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     /// Approve a review (Admin only)
     /// </summary>
     [HttpPost("admin/{reviewId:int}/approve")]
-    [Authorize(Roles = "SuperAdmin,Moderator")]
+    [Authorize(Roles = "CityAdmin,SuperAdmin")]
     public async Task<IActionResult> ApproveReview(int reviewId)
     {
         var result = await _reviewService.ApproveReviewAsync(reviewId);
@@ -234,7 +235,7 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     /// Reject a review (Admin only)
     /// </summary>
     [HttpPost("admin/{reviewId:int}/reject")]
-    [Authorize(Roles = "SuperAdmin,Moderator")]
+    [Authorize(Roles = "CityAdmin,SuperAdmin")]
     public async Task<IActionResult> RejectReview(int reviewId, [FromBody] string reason)
     {
         var result = await _reviewService.RejectReviewAsync(reviewId, reason);
