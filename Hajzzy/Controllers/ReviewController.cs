@@ -114,7 +114,7 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     /// Get review statistics for a unit
     /// </summary>
     [HttpGet("unit/{unitId:int}/statistics")]
-    [Authorize(Roles = "CityAdmin,SuperAdmin,HotelAdmin")]
+    [Authorize(Roles = "CityAdmin,SuperAdmin,HotelAdmin,User")]
     public async Task<IActionResult> GetUnitReviewStatistics(int unitId)
     {
         var result = await _reviewService.GetUnitReviewStatisticsAsync(unitId);

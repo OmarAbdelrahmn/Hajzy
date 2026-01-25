@@ -181,8 +181,18 @@ public class CouponService(
                 coupon.ValidUntil = request.ValidUntil.Value;
             }
 
-            if (request.TargetUnitId.HasValue)
-                coupon.TargetUnitId = request.TargetUnitId.Value;
+            if (request.TargetCityId.HasValue)
+            {
+                var cityExists = await _context.Departments
+                    .AnyAsync(d => d.Id == request.TargetCityId.Value);
+
+                if (!cityExists)
+                    return Result.Failure<CouponResponse>(
+                        new Error("InvalidCity", "Target city does not exist", 400));
+
+                coupon.TargetCityId = request.TargetCityId.Value;
+            }
+
 
             if (request.TargetCityId.HasValue)
                 coupon.TargetCityId = request.TargetCityId.Value;
@@ -206,7 +216,7 @@ public class CouponService(
         {
             _logger.LogError(ex, "Error updating coupon {CouponId}", couponId);
             return Result.Failure<CouponResponse>(
-                new Error("UpdateFailed", "Failed to update coupon", 500));
+                new Error(ex.InnerException.Message, "Failed to update coupon", 500));
         }
     }
 
