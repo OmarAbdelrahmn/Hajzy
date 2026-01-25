@@ -90,9 +90,9 @@ public class CouponController(ICouponService couponService) : ControllerBase
     /// <summary>
     /// Get all coupons with filtering and pagination (Admin only)
     /// </summary>
-    [HttpGet]
+    [HttpPost]
     [Authorize(Roles = "SuperAdmin,CityAdmin,HotelAdmin")]
-    public async Task<IActionResult> GetCoupons([FromQuery] CouponFilter filter)
+    public async Task<IActionResult> GetCoupons([FromBody] CouponFilter filter)
     {
         var result = await _couponService.GetCouponsAsync(filter);
 
