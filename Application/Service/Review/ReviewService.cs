@@ -1013,6 +1013,187 @@ public class ReviewService(
     }
 
     #endregion
+
+
+
+    public async Task<Result<PagedReviewResponse>> GetAllReviewsAsync(AllReviewsFilter filter)
+    {
+        try
+        {
+            var query = _context.Set<Domain.Entities.Review>()
+                .Include(r => r.User)
+                .Include(r => r.Unit)
+                    .ThenInclude(u => u.City)
+                .Include(r => r.Unit)
+                    .ThenInclude(u => u.UnitType)
+                .Include(r => r.Images)
+                .AsQueryable();
+
+            // Apply filters
+            if (filter.UnitId.HasValue)
+                query = query.Where(r => r.UnitId == filter.UnitId.Value);
+
+            if (!string.IsNullOrEmpty(filter.UserId))
+                query = query.Where(r => r.UserId == filter.UserId);
+
+            if (filter.DepartmentId.HasValue)
+                query = query.Where(r => r.Unit.CityId == filter.DepartmentId.Value);
+
+            if (filter.UnitTypeId.HasValue)
+                query = query.Where(r => r.Unit.UnitTypeId == filter.UnitTypeId.Value);
+
+            if (filter.MinRating.HasValue)
+                query = query.Where(r => r.Rating >= filter.MinRating.Value);
+
+            if (filter.MaxRating.HasValue)
+                query = query.Where(r => r.Rating <= filter.MaxRating.Value);
+
+            if (filter.IsVerified.HasValue)
+                query = query.Where(r => r.IsVerified == filter.IsVerified.Value);
+
+            if (filter.HasOwnerResponse.HasValue)
+            {
+                if (filter.HasOwnerResponse.Value)
+                    query = query.Where(r => r.OwnerResponse != null && r.OwnerResponse != "");
+                else
+                    query = query.Where(r => r.OwnerResponse == null || r.OwnerResponse == "");
+            }
+
+            if (filter.FromDate.HasValue)
+                query = query.Where(r => r.CreatedAt >= filter.FromDate.Value);
+
+            if (filter.ToDate.HasValue)
+                query = query.Where(r => r.CreatedAt <= filter.ToDate.Value);
+
+            if (filter.HasImages.HasValue)
+            {
+                if (filter.HasImages.Value)
+                    query = query.Where(r => r.Images != null && r.Images.Any());
+                else
+                    query = query.Where(r => r.Images == null || !r.Images.Any());
+            }
+
+            if (filter.MinCleanlinessRating.HasValue)
+                query = query.Where(r => r.CleanlinessRating >= filter.MinCleanlinessRating.Value);
+
+            if (filter.MinLocationRating.HasValue)
+                query = query.Where(r => r.LocationRating >= filter.MinLocationRating.Value);
+
+            if (filter.MinServiceRating.HasValue)
+                query = query.Where(r => r.ServiceRating >= filter.MinServiceRating.Value);
+
+            if (filter.MinValueRating.HasValue)
+                query = query.Where(r => r.ValueRating >= filter.MinValueRating.Value);
+
+            // Search in comment or unit name
+            if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+            {
+                var searchLower = filter.SearchTerm.ToLower();
+                query = query.Where(r =>
+                    (r.Comment != null && r.Comment.ToLower().Contains(searchLower)) ||
+                    (r.Unit != null && r.Unit.Name.ToLower().Contains(searchLower)));
+            }
+
+            // Apply sorting
+            query = filter.SortBy?.ToLower() switch
+            {
+                "rating" => filter.SortDescending
+                    ? query.OrderByDescending(r => r.Rating).ThenByDescending(r => r.CreatedAt)
+                    : query.OrderBy(r => r.Rating).ThenByDescending(r => r.CreatedAt),
+                "unit" => filter.SortDescending
+                    ? query.OrderByDescending(r => r.Unit.Name).ThenByDescending(r => r.CreatedAt)
+                    : query.OrderBy(r => r.Unit.Name).ThenByDescending(r => r.CreatedAt),
+                "cleanliness" => filter.SortDescending
+                    ? query.OrderByDescending(r => r.CleanlinessRating).ThenByDescending(r => r.CreatedAt)
+                    : query.OrderBy(r => r.CleanlinessRating).ThenByDescending(r => r.CreatedAt),
+                "location" => filter.SortDescending
+                    ? query.OrderByDescending(r => r.LocationRating).ThenByDescending(r => r.CreatedAt)
+                    : query.OrderBy(r => r.LocationRating).ThenByDescending(r => r.CreatedAt),
+                _ => filter.SortDescending
+                    ? query.OrderByDescending(r => r.CreatedAt)
+                    : query.OrderBy(r => r.CreatedAt)
+            };
+
+            var totalCount = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)filter.PageSize);
+
+            var reviews = await query
+                .Skip((filter.Page - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var reviewResponses = new List<ReviewResponse>();
+
+            // Get all user IDs to batch fetch review counts
+            var userIds = reviews.Select(r => r.UserId).Distinct().ToList();
+            var userReviewCounts = await _context.Set<Domain.Entities.Review>()
+                .Where(r => userIds.Contains(r.UserId))
+                .GroupBy(r => r.UserId)
+                .Select(g => new { UserId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.UserId, x => x.Count);
+
+            foreach (var review in reviews)
+            {
+                var userReviewCount = userReviewCounts.ContainsKey(review.UserId)
+                    ? userReviewCounts[review.UserId]
+                    : 0;
+
+                reviewResponses.Add(new ReviewResponse
+                {
+                    Id = review.Id,
+                    UnitId = review.UnitId,
+                    UnitName = review.Unit?.Name ?? "Unknown",
+                    BookingId = review.BookingId,
+                    Reviewer = new ReviewerInfo
+                    {
+                        UserId = review.UserId,
+                        FullName = review.User?.FullName ?? "Anonymous",
+                        AvatarUrl = review.User?.AvatarUrl,
+                        TotalReviews = userReviewCount,
+                        Nationality = review.User?.Nationality
+                    },
+                    Rating = review.Rating,
+                    CleanlinessRating = review.CleanlinessRating,
+                    LocationRating = review.LocationRating,
+                    ServiceRating = review.ServiceRating,
+                    ValueRating = review.ValueRating,
+                    Comment = review.Comment,
+                    IsVerified = review.IsVerified,
+                    CheckInDate = review.CheckInDate,
+                    CheckOutDate = review.CheckOutDate,
+                    OwnerResponse = review.OwnerResponse,
+                    OwnerResponseDate = review.OwnerResponseDate,
+                    CreatedAt = review.CreatedAt,
+                    UpdatedAt = review.UpdatedAt,
+                    Images = review.Images?.Select(img => new ReviewImageResponse
+                    {
+                        Id = img.Id,
+                        ImageUrl = img.ImageUrl,
+                        ThumbnailUrl = img.ThumbnailUrl,
+                        Caption = img.Caption
+                    }).ToList() ?? new List<ReviewImageResponse>()
+                });
+            }
+
+            var response = new PagedReviewResponse
+            {
+                Reviews = reviewResponses,
+                TotalCount = totalCount,
+                Page = filter.Page,
+                PageSize = filter.PageSize,
+                TotalPages = totalPages
+            };
+
+            return Result.Success(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting all reviews with filter");
+            return Result.Failure<PagedReviewResponse>(
+                new Error("GetAllFailed", $"Failed to retrieve reviews: {ex.Message}", 500));
+        }
+    }
 }
 
 public class ReviewEligibility

@@ -7,6 +7,7 @@ namespace Application.Service.Review;
 public interface IReviewService
 {
     // Create & Update
+    Task<Result<PagedReviewResponse>> GetAllReviewsAsync(AllReviewsFilter filter);
     Task<Result<ReviewResponse>> CreateReviewAsync(CreateReviewRequest request);
     Task<Result<ReviewResponse>> UpdateReviewAsync(int reviewId, UpdateReviewRequest request, string userId);
     Task<Result> DeleteReviewAsync(int reviewId, string userId);

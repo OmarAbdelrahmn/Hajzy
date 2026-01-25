@@ -32,6 +32,16 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
             : result.ToProblem();
     }
 
+
+    [HttpPost("all")]
+    public async Task<IActionResult> GetAllReviews([FromBody] AllReviewsFilter filter)
+    {
+        var result = await _reviewService.GetAllReviewsAsync(filter);
+
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
     // ========== UPDATE REVIEW ==========
 
     /// <summary>

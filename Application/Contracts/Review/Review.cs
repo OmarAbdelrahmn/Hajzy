@@ -4,6 +4,54 @@ namespace Application.Contracts.Review;
 
 // ========== REQUEST DTOs ==========
 
+
+
+public record AllReviewsFilter
+{
+    public int Page { get; init; } = 1;
+    public int PageSize { get; init; } = 20;
+
+    // Filter by Unit
+    public int? UnitId { get; init; }
+
+    // Filter by User
+    public string? UserId { get; init; }
+
+    // Filter by Department/City
+    public int? DepartmentId { get; init; }
+
+    // Filter by Unit Type
+    public int? UnitTypeId { get; init; }
+
+    // Rating Filters
+    public int? MinRating { get; init; }
+    public int? MaxRating { get; init; }
+
+    // Date Filters
+    public DateTime? FromDate { get; init; }
+    public DateTime? ToDate { get; init; }
+
+    // Verification Status
+    public bool? IsVerified { get; init; }
+
+    // Owner Response
+    public bool? HasOwnerResponse { get; init; }
+
+    // Search
+    public string? SearchTerm { get; init; } // Search in comment or unit name
+
+    // Sorting
+    public string? SortBy { get; init; } = "date"; // date, rating, unit
+    public bool SortDescending { get; init; } = true;
+
+    // Additional Filters
+    public bool? HasImages { get; init; }
+    public int? MinCleanlinessRating { get; init; }
+    public int? MinLocationRating { get; init; }
+    public int? MinServiceRating { get; init; }
+    public int? MinValueRating { get; init; }
+}
+
 public record CreateReviewRequest
 {
     [Required]
