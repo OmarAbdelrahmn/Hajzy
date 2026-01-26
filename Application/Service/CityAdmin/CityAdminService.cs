@@ -1,16 +1,29 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.CityAdminContracts;
-using Application.Contracts.hoteladmincont;
+using Application.Service.S3Image;
 using Domain;
 using Domain.Entities;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace Application.Service.CityAdmin;
 
-public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
+public class CityAdminService(
+    ApplicationDbcontext context,
+    UserManager<ApplicationUser> userManager,
+    IEmailSender emailSender,
+    ILogger<CityAdminService> logger,
+    IS3ImageService s3Service) : ICityAdminService
 {
+    private readonly ApplicationDbcontext _context = context;
+    private readonly UserManager<ApplicationUser> _userManager = userManager;
+    private readonly IEmailSender _emailSender = emailSender;
+    private readonly ILogger<CityAdminService> _logger = logger;
+    private readonly IS3ImageService _s3Service = s3Service;
+
 
     #region AVAILABILITY OVERVIEW
 
@@ -382,7 +395,7 @@ public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
         {
             var departmentId = await GetAdminDepartmentIdAsync(userId);
             if (!departmentId.IsSuccess)
-                return departmentId.Error;
+                return Result.Failure(departmentId.Error);
 
             var coupon = await _context.Coupons
                 .FirstOrDefaultAsync(c => c.Id == couponId && c.TargetCityId == departmentId.Value);
@@ -521,13 +534,17 @@ public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
 
     public async Task<Result> ApproveRegistrationRequestAsync(string userId, int requestId)
     {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
         try
         {
             var departmentId = await GetAdminDepartmentIdAsync(userId);
             if (!departmentId.IsSuccess)
-                return Result.Failure(new Error(departmentId.Error.ToString(), departmentId.Error.ToString(), 400));
+                return Result.Failure(departmentId.Error);
 
             var request = await _context.Set<UnitRegistrationRequest>()
+                .Include(r => r.Department)
+                .Include(r => r.UnitType)
                 .FirstOrDefaultAsync(r => r.Id == requestId && r.DepartmentId == departmentId.Value);
 
             if (request == null)
@@ -535,28 +552,170 @@ public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
 
             if (request.Status != RegistrationRequestStatus.Pending)
                 return Result.Failure(
-                    new Error("InvalidStatus", $"Cannot approve request with status {request.Status}", 400));
+                    new Error("InvalidStatus", $"Request is already {request.Status}", 400));
 
-            // Update request status
+            // Check if user already exists
+            var existingUser = await _userManager.FindByEmailAsync(request.OwnerEmail);
+            ApplicationUser user;
+            bool userCreated = false;
+
+            if (existingUser != null)
+            {
+                user = existingUser;
+                var userRoles = await _userManager.GetRolesAsync(user);
+
+                if (userRoles.Contains("User"))
+                {
+                    await _userManager.RemoveFromRoleAsync(user, "User");
+                    await _userManager.AddToRoleAsync(user, "HotelAdmin");
+
+                    _logger.LogInformation(
+                        "Upgraded user {UserId} from User to HotelAdmin for registration request {RequestId}",
+                        user.Id, requestId);
+                }
+                else if (!userRoles.Contains("HotelAdmin"))
+                {
+                    return Result.Failure(new Error("InvalidRole",
+                        "User exists but doesn't have the correct role for this operation", 400));
+                }
+            }
+            else
+            {
+                // Create new user account
+                var newUser = new ApplicationUser
+                {
+                    UserName = request.OwnerEmail,
+                    Email = request.OwnerEmail,
+                    NormalizedEmail = request.OwnerEmail.ToUpperInvariant(),
+                    NormalizedUserName = request.OwnerEmail.ToUpperInvariant(),
+                    FullName = request.OwnerFullName,
+                    PhoneNumber = request.OwnerPhoneNumber,
+                    EmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow.AddHours(3),
+                    PasswordHash = request.OwnerPassword
+                };
+
+                var createResult = await _userManager.CreateAsync(newUser);
+                if (!createResult.Succeeded)
+                {
+                    var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                    return Result.Failure(
+                        new Error("UserCreationFailed", $"Failed to create user: {errors}", 500));
+                }
+
+                var roleResult = await _userManager.AddToRoleAsync(newUser, "HotelAdmin");
+                if (!roleResult.Succeeded)
+                {
+                    await transaction.RollbackAsync();
+                    return Result.Failure(
+                        new Error("RoleAssignmentFailed", "Failed to assign HotelAdmin role", 500));
+                }
+
+                user = newUser;
+                userCreated = true;
+
+                _logger.LogInformation(
+                    "Created new user {UserId} for registration request {RequestId}",
+                    user.Id, requestId);
+            }
+
+            // Create the Unit
+            var unit = new Domain.Entities.Unit
+            {
+                Name = request.UnitName,
+                Description = request.Description,
+                Address = request.Address,
+                CityId = request.DepartmentId,
+                UnitTypeId = request.UnitTypeId,
+                Latitude = request.Latitude,
+                Longitude = request.Longitude,
+                BasePrice = request.BasePrice,
+                MaxGuests = request.MaxGuests,
+                Bedrooms = request.Bedrooms,
+                Bathrooms = request.Bathrooms,
+                IsActive = false,
+                IsVerified = false,
+                CreatedAt = DateTime.UtcNow.AddHours(3)
+            };
+
+            await _context.Units.AddAsync(unit);
+            await _context.SaveChangesAsync();
+
+            // Assign user as Unit Admin
+            var unitAdmin = new UniteAdmin
+            {
+                UserId = user.Id,
+                UnitId = unit.Id,
+                IsActive = true,
+                AssignedAt = DateTime.UtcNow.AddHours(3)
+            };
+
+            await _context.Set<UniteAdmin>().AddAsync(unitAdmin);
+
+            // Move images from temp to unit folder
+            var imageKeys = JsonSerializer.Deserialize<List<string>>(request.ImageS3Keys) ?? [];
+
+            if (imageKeys.Any())
+            {
+                var moveResult = await _s3Service.MoveImagesToUnitAsync(imageKeys, unit.Id);
+
+                if (!moveResult.IsSuccess)
+                {
+                    _logger.LogWarning(
+                        "Failed to move images for unit {UnitId}: {Error}",
+                        unit.Id, moveResult.Error.Description);
+                }
+            }
+
+            // Update registration request
             request.Status = RegistrationRequestStatus.Approved;
             request.ReviewedAt = DateTime.UtcNow.AddHours(3);
             request.ReviewedByAdminId = userId;
-
-            // TODO: Create the actual unit and user account
-            // This would typically involve:
-            // 1. Creating user account from OwnerEmail/OwnerPassword
-            // 2. Creating Unit entity
-            // 3. Creating UnitAdmin link
-            // 4. Processing images
-            // For now, just mark as approved
+            request.CreatedUserId = user.Id;
+            request.CreatedUnitId = unit.Id;
 
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            // Send welcome email (only if new user was created)
+            if (userCreated)
+            {
+                try
+                {
+                    await SendWelcomeEmailAsync(user.Email!, user.FullName!, unit.Id, unit.Name);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send welcome email to {Email}", user.Email);
+                }
+            }
+
+            _logger.LogInformation(
+                "Registration request {RequestId} approved by city admin {UserId}. User: {CreatedUserId}, Unit: {UnitId}",
+                requestId, userId, user.Id, unit.Id);
+
             return Result.Success();
         }
         catch (Exception ex)
         {
-            return Result.Failure(new Error("ApproveFailed", "Failed to approve registration request", 500));
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error approving registration request {RequestId}", requestId);
+
+            return Result.Failure(
+                new Error("ApprovalFailed", "Failed to approve registration request", 500));
         }
+    }
+
+    private async Task SendWelcomeEmailAsync(string email, string fullName, int unitId, string unitName)
+    {
+        // Implement email sending logic similar to UnitRegistrationService
+        // You can use the EmailBodyBuilder from the registration service
+        _logger.LogInformation(
+            "Sending welcome email to {Email} for unit {UnitId}",
+            email, unitId);
+
+        // TODO: Implement actual email sending using IEmailSender
+        await Task.CompletedTask;
     }
 
     public async Task<Result> RejectRegistrationRequestAsync(
@@ -689,7 +848,7 @@ public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
                     GuestEmail = b.User.Email ?? string.Empty,
                     GuestPhone = b.User.PhoneNumber ?? string.Empty,
                     CheckOutDate = b.CheckOutDate,
-                    CheckOutTime = b.CheckOutTime,
+                    CheckOutTime = b.CheckOutDate.TimeOfDay,
                     RoomNumbers = b.BookingRooms.Select(br => br.Room.RoomNumber).ToList(),
                     TotalAmount = b.TotalPrice,
                     PaidAmount = b.PaidAmount,
@@ -971,7 +1130,6 @@ public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
                     Description = p.Description,
                     PolicyType = p.PolicyType.ToString(),
                     IsActive = p.IsActive,
-                    CreatedAt = p.CreatedAt
                 })
                 .ToListAsync();
 
@@ -1114,15 +1272,7 @@ public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
                 AverageLeadTime = bookings
                     .Where(b => b.Status != BookingStatus.Cancelled)
                     .Average(b => (b.CheckInDate - b.CreatedAt).TotalDays),
-                AverageStayDuration = bookings.Average(b => b.NumberOfNights),
-                BookingsByStatus = bookings
-                    .GroupBy(b => b.Status)
-                    .Select(g => new StatusCount
-                    {
-                        Status = g.Key.ToString(),
-                        Count = g.Count()
-                    })
-                    .ToList()
+                AverageStayDuration = bookings.Average(b => b.NumberOfNights)
             };
 
             return Result.Success(response);
@@ -1338,8 +1488,8 @@ public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
             var response = new CustomerInsightsResponse
             {
                 TotalUniqueGuests = uniqueGuests,
-                RepeatGuests = repeatGuests,
-                RepeatGuestRate = uniqueGuests > 0 ? (decimal)repeatGuests / uniqueGuests * 100 : 0,
+                ReturningGuests = repeatGuests,
+                ReturnGuestRate = uniqueGuests > 0 ? (decimal)repeatGuests / uniqueGuests * 100 : 0,
                 AverageBookingsPerGuest = uniqueGuests > 0 ? (decimal)bookings.Count / uniqueGuests : 0
             };
 
@@ -1451,8 +1601,8 @@ public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
                 TotalCancellations = cancelledBookings.Count,
                 CancellationRate = totalBookings > 0 ? (decimal)cancelledBookings.Count / totalBookings * 100 : 0,
                 RefundedAmount = cancelledBookings.Sum(b => b.PaidAmount),
-                AverageCancellationLeadTime = cancelledBookings.Any() ?
-                    cancelledBookings.Average(b => (b.CheckInDate - (b.CancelledAt ?? b.CreatedAt)).TotalDays) : 0
+                AverageCancellationLeadTime = (decimal)(cancelledBookings.Any() ?
+                    cancelledBookings.Average(b => (b.CheckInDate - (b.CancelledAt ?? b.CreatedAt)).TotalDays) : 0)
             };
 
             return Result.Success(response);
@@ -1465,54 +1615,8 @@ public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
         }
     }
 
-    public async Task<Result<byte[]>> ExportCityReportToExcelAsync(
-        string userId,
-        ExportReportRequest request)
-    {
-        try
-        {
-            var departmentId = await GetAdminDepartmentIdAsync(userId);
-            if (!departmentId.IsSuccess)
-                return Result.Failure<byte[]>(departmentId.Error);
-
-            // TODO: Implement Excel export using ClosedXML or similar
-            _logger.LogWarning("Excel export not yet implemented");
-            return Result.Failure<byte[]>(
-                new Error("NotImplemented", "Excel export feature is not yet implemented", 501));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error exporting report to Excel for city admin {UserId}", userId);
-            return Result.Failure<byte[]>(
-                new Error("ExportFailed", "Failed to export report to Excel", 500));
-        }
-    }
-
-    public async Task<Result<byte[]>> ExportCityReportToPdfAsync(
-        string userId,
-        ExportReportRequest request)
-    {
-        try
-        {
-            var departmentId = await GetAdminDepartmentIdAsync(userId);
-            if (!departmentId.IsSuccess)
-                return Result.Failure<byte[]>(departmentId.Error);
-
-            // TODO: Implement PDF export using iText7 or similar
-            _logger.LogWarning("PDF export not yet implemented");
-            return Result.Failure<byte[]>(
-                new Error("NotImplemented", "PDF export feature is not yet implemented", 501));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error exporting report to PDF for city admin {UserId}", userId);
-            return Result.Failure<byte[]>(
-                new Error("ExportFailed", "Failed to export report to PDF", 500));
-        }
-    }
-
+  
     #endregion
-}
 
     #region REVIEWS MANAGEMENT
 
@@ -1560,11 +1664,8 @@ public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
                     Rating = r.Rating,
                     Comment = r.Comment,
                     CleanlinessRating = r.CleanlinessRating,
-                    CheckInRating = r.CheckInRating,
-                    AccuracyRating = r.AccuracyRating,
                     LocationRating = r.LocationRating,
                     ValueRating = r.ValueRating,
-                    IsVerified = r.IsVerifiedStay,
                     CreatedAt = r.CreatedAt
                 })
                 .ToListAsync();
@@ -1615,18 +1716,11 @@ public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
                 UnitId = s.UnitId,
                 UnitName = s.Unit.Name,
                 RoomNumber = s.RoomNumber,
-                RoomType = s.RoomType,
                 Description = s.Description,
                 PricePerNight = s.PricePerNight,
                 MaxOccupancy = s.MaxOccupancy,
-                BedType = s.BedType,
-                NumberOfBeds = s.NumberOfBeds,
                 Size = s.Size,
                 IsAvailable = s.IsAvailable,
-                FloorNumber = s.FloorNumber,
-                HasPrivateBathroom = s.HasPrivateBathroom,
-                HasBalcony = s.HasBalcony,
-                HasKitchen = s.HasKitchen,
                 Images = s.SubUnitImages.OrderBy(i => i.DisplayOrder).Select(i => new SubUnitImageResponse
                 {
                     Id = i.Id,
@@ -1643,8 +1737,6 @@ public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
                     Category = sa.Amenity.Category,
                     IsAvailable = sa.IsAvailable
                 }).ToList(),
-                CreatedAt = s.CreatedAt,
-                UpdatedAt = s.UpdatedAt
             }).ToList();
 
             return Result.Success<IEnumerable<SubUnitComprehensiveDetail>>(responses);
@@ -1686,35 +1778,18 @@ public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
                 UnitId = subUnit.UnitId,
                 UnitName = subUnit.Unit.Name,
                 RoomNumber = subUnit.RoomNumber,
-                RoomType = subUnit.RoomType,
                 Description = subUnit.Description,
                 PricePerNight = subUnit.PricePerNight,
                 MaxOccupancy = subUnit.MaxOccupancy,
-                BedType = subUnit.BedType,
-                NumberOfBeds = subUnit.NumberOfBeds,
                 Size = subUnit.Size,
                 IsAvailable = subUnit.IsAvailable,
-                FloorNumber = subUnit.FloorNumber,
-                HasPrivateBathroom = subUnit.HasPrivateBathroom,
-                HasBalcony = subUnit.HasBalcony,
-                HasKitchen = subUnit.HasKitchen,
-                Images = subUnit.SubUnitImages.OrderBy(i => i.DisplayOrder).Select(i => new Contracts.SubUnit.SubUnitImageResponse
-                {
-                    Id = i.Id,
-                    ImageUrl = i.ImageUrl,
-                    ThumbnailUrl = i.ThumbnailUrl,
-                    IsPrimary = i.IsPrimary,
-                    DisplayOrder = i.DisplayOrder,
-                }).ToList(),
                 Amenities = subUnit.SubUnitAmenities.Select(sa => new AmenityResponse
                 {
                     Id = sa.Amenity.Id,
                     Name = sa.Amenity.Name,
                     Category = sa.Amenity.Category,
                     IsAvailable = sa.IsAvailable
-                }).ToList(),
-                CreatedAt = subUnit.CreatedAt,
-                UpdatedAt = subUnit.UpdatedAt
+                }).ToList()
             };
 
             return Result.Success(response);
@@ -2903,4 +2978,459 @@ public class CityAdminService(ApplicationDbcontext _context) : ICityAdminService
 
     #endregion
 
+    #region NOTIFICATIONS MANAGEMENT
+
+    public async Task<Result> SendCityWideNotificationAsync(
+        string userId,
+        SendNotificationRequest request)
+    {
+        try
+        {
+            var departmentId = await GetAdminDepartmentIdAsync(userId);
+            if (!departmentId.IsSuccess)
+                return Result.Failure(departmentId.Error);
+
+            // Get all hotel admins in this city
+            var unitIds = await _context.Units
+                .Where(u => u.CityId == departmentId.Value && !u.IsDeleted)
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            var adminUserIds = await _context.Set<UniteAdmin>()
+                .Where(ua => unitIds.Contains(ua.UnitId) && ua.IsActive)
+                .Select(ua => ua.UserId)
+                .Distinct()
+                .ToListAsync();
+
+            // Create notification
+            var notification = new Notification
+            {
+                Title = request.Title,
+                Message = request.Message,
+                Type = request.Type,
+                Priority = request.Priority,
+                CreatedByUserId = userId,
+                CreatedByRole = "CityAdmin",
+                Target = NotificationTarget.HotelAdmins,
+                TargetDepartmentId = departmentId.Value,
+                IsSent = true,
+                SentAt = DateTime.UtcNow.AddHours(3),
+                CreatedAt = DateTime.UtcNow.AddHours(3),
+                TotalRecipients = adminUserIds.Count
+            };
+
+            await _context.Set<Notification>().AddAsync(notification);
+            await _context.SaveChangesAsync();
+
+            // Create user notifications
+            var userNotifications = adminUserIds.Select(adminId => new UserNotification
+            {
+                NotificationId = notification.Id,
+                UserId = adminId,
+                ReceivedAt = DateTime.UtcNow.AddHours(3)
+            }).ToList();
+
+            await _context.Set<UserNotification>().AddRangeAsync(userNotifications);
+            await _context.SaveChangesAsync();
+
+            notification.DeliveredCount = userNotifications.Count;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "City-wide notification sent by {UserId} to {Count} admins in department {DepartmentId}",
+                userId, adminUserIds.Count, departmentId.Value);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending city-wide notification");
+            return Result.Failure(new Error("SendFailed", "Failed to send notification", 500));
+        }
+    }
+
+    public async Task<Result<IEnumerable<AdminNotificationResponse>>> GetMyNotificationsAsync(
+        string userId,
+        NotificationFilter filter)
+    {
+        try
+        {
+            var query = _context.Set<UserNotification>()
+                .Include(un => un.Notification)
+                    .ThenInclude(n => n.TargetUnit)
+                .Where(un => un.UserId == userId)
+                .AsQueryable();
+
+            if (filter.IsRead.HasValue)
+                query = query.Where(un => un.IsRead == filter.IsRead.Value);
+
+            if (filter.Type.HasValue)
+                query = query.Where(un => un.Notification.Type == filter.Type.Value);
+
+            var notifications = await query
+                .OrderByDescending(un => un.ReceivedAt)
+                .Skip((filter.Page - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .Select(un => new AdminNotificationResponse
+                {
+                    Id = un.Id,
+                    NotificationId = un.NotificationId,
+                    Title = un.Notification.Title,
+                    Message = un.Notification.Message,
+                    Type = un.Notification.Type.ToString(),
+                    Priority = un.Notification.Priority.ToString(),
+                    IsRead = un.IsRead,
+                    ReadAt = un.ReadAt,
+                    ReceivedAt = un.ReceivedAt,
+                    TargetUnitId = un.Notification.TargetUnitId,
+                    TargetUnitName = un.Notification.TargetUnit != null ? un.Notification.TargetUnit.Name : null
+                })
+                .ToListAsync();
+
+            return Result.Success<IEnumerable<AdminNotificationResponse>>(notifications);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting notifications for user {UserId}", userId);
+            return Result.Failure<IEnumerable<AdminNotificationResponse>>(
+                new Error("GetNotificationsFailed", "Failed to get notifications", 500));
+        }
+    }
+
+    public async Task<Result> MarkNotificationAsReadAsync(string userId, int notificationId)
+    {
+        try
+        {
+            var userNotification = await _context.Set<UserNotification>()
+                .FirstOrDefaultAsync(un => un.Id == notificationId && un.UserId == userId);
+
+            if (userNotification == null)
+                return Result.Failure(new Error("NotFound", "Notification not found", 404));
+
+            if (!userNotification.IsRead)
+            {
+                userNotification.IsRead = true;
+                userNotification.ReadAt = DateTime.UtcNow.AddHours(3);
+                await _context.SaveChangesAsync();
+            }
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error marking notification as read");
+            return Result.Failure(new Error("MarkReadFailed", "Failed to mark notification as read", 500));
+        }
+    }
+
+    #endregion
+
+    #region USER/GUEST MANAGEMENT
+
+    public async Task<Result<IEnumerable<CityUserResponse>>> GetCityUsersAsync(
+        string userId,
+        UserFilter filter)
+    {
+        try
+        {
+            var departmentId = await GetAdminDepartmentIdAsync(userId);
+            if (!departmentId.IsSuccess)
+                return Result.Failure<IEnumerable<CityUserResponse>>(departmentId.Error);
+
+            var unitIds = await _context.Units
+                .Where(u => u.CityId == departmentId.Value && !u.IsDeleted)
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            var query = _context.Bookings
+                .Where(b => unitIds.Contains(b.UnitId))
+                .GroupBy(b => b.UserId)
+                .Select(g => new
+                {
+                    UserId = g.Key,
+                    TotalBookings = g.Count(),
+                    TotalSpent = g.Sum(b => b.TotalPrice),
+                    LastBookingDate = g.Max(b => b.CreatedAt)
+                })
+                .AsQueryable();
+
+            if (filter.StartDate.HasValue)
+                query = query.Where(u => u.LastBookingDate >= filter.StartDate.Value);
+
+            if (filter.EndDate.HasValue)
+                query = query.Where(u => u.LastBookingDate <= filter.EndDate.Value);
+
+            if (filter.MinBookings.HasValue)
+                query = query.Where(u => u.TotalBookings >= filter.MinBookings.Value);
+
+            var userStats = await query
+                .OrderByDescending(u => u.TotalSpent)
+                .Skip((filter.Page - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync();
+
+            var userIds = userStats.Select(u => u.UserId).ToList();
+            var users = await _context.Users
+                .Where(u => userIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id);
+
+            var responses = userStats.Select(stat => new CityUserResponse
+            {
+                UserId = stat.UserId,
+                FullName = users.ContainsKey(stat.UserId) ? users[stat.UserId].FullName ?? "N/A" : "N/A",
+                Email = users.ContainsKey(stat.UserId) ? users[stat.UserId].Email ?? "" : "",
+                PhoneNumber = users.ContainsKey(stat.UserId) ? users[stat.UserId].PhoneNumber : null,
+                TotalBookings = stat.TotalBookings,
+                TotalSpent = stat.TotalSpent,
+                LastBookingDate = stat.LastBookingDate,
+                CreatedAt = users.ContainsKey(stat.UserId) ? users[stat.UserId].CreatedAt : DateTime.UtcNow
+            }).ToList();
+
+            return Result.Success<IEnumerable<CityUserResponse>>(responses);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting city users");
+            return Result.Failure<IEnumerable<CityUserResponse>>(
+                new Error("GetUsersFailed", "Failed to retrieve users", 500));
+        }
+    }
+
+    public async Task<Result<IEnumerable<BookingComprehensiveResponse>>> GetUserBookingHistoryAsync(
+        string userId,
+        string targetUserId)
+    {
+        try
+        {
+            var departmentId = await GetAdminDepartmentIdAsync(userId);
+            if (!departmentId.IsSuccess)
+                return Result.Failure<IEnumerable<BookingComprehensiveResponse>>(departmentId.Error);
+
+            var unitIds = await _context.Units
+                .Where(u => u.CityId == departmentId.Value && !u.IsDeleted)
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            var bookings = await _context.Bookings
+                .Include(b => b.Unit)
+                .Include(b => b.User)
+                .Include(b => b.BookingRooms)
+                    .ThenInclude(br => br.Room)
+                .Where(b => b.UserId == targetUserId && unitIds.Contains(b.UnitId))
+                .OrderByDescending(b => b.CreatedAt)
+                .ToListAsync();
+
+            var responses = bookings.Select(b => new BookingComprehensiveResponse
+            {
+                Id = b.Id,
+                BookingNumber = b.BookingNumber,
+                UnitId = b.UnitId,
+                UnitName = b.Unit.Name,
+                UserId = b.UserId,
+                GuestName = b.User.FullName ?? "N/A",
+                GuestEmail = b.User.Email ?? string.Empty,
+                CheckInDate = b.CheckInDate,
+                CheckOutDate = b.CheckOutDate,
+                NumberOfGuests = b.NumberOfGuests,
+                NumberOfNights = b.NumberOfNights,
+                TotalPrice = b.TotalPrice,
+                PaidAmount = b.PaidAmount,
+                Status = b.Status.ToString(),
+                PaymentStatus = b.PaymentStatus.ToString(),
+                Rooms = b.BookingRooms.Select(br => new BookedRoomInfo
+                {
+                    RoomId = br.RoomId,
+                    RoomNumber = br.Room.RoomNumber,
+                    PricePerNight = br.PricePerNight
+                }).ToList(),
+                CreatedAt = b.CreatedAt
+            }).ToList();
+
+            return Result.Success<IEnumerable<BookingComprehensiveResponse>>(responses);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting user booking history");
+            return Result.Failure<IEnumerable<BookingComprehensiveResponse>>(
+                new Error("GetHistoryFailed", "Failed to retrieve booking history", 500));
+        }
+    }
+
+    #endregion
+
+    #region LOYALTY PROGRAM
+
+    public async Task<Result<LoyaltyProgramStatisticsResponse>> GetCityLoyaltyStatisticsAsync(string userId)
+    {
+        try
+        {
+            var departmentId = await GetAdminDepartmentIdAsync(userId);
+            if (!departmentId.IsSuccess)
+                return Result.Failure<LoyaltyProgramStatisticsResponse>(departmentId.Error);
+
+            var unitIds = await _context.Units
+                .Where(u => u.CityId == departmentId.Value && !u.IsDeleted)
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            var userIds = await _context.Bookings
+                .Where(b => unitIds.Contains(b.UnitId))
+                .Select(b => b.UserId)
+                .Distinct()
+                .ToListAsync();
+
+            var loyaltyPrograms = await _context.Set<LoyaltyProgram>()
+                .Where(lp => userIds.Contains(lp.UserId))
+                .ToListAsync();
+
+            var stats = new LoyaltyProgramStatisticsResponse
+            {
+                TotalMembers = loyaltyPrograms.Count,
+                BronzeMembers = loyaltyPrograms.Count(lp => lp.Tier == LoyaltyTier.Bronze),
+                SilverMembers = loyaltyPrograms.Count(lp => lp.Tier == LoyaltyTier.Silver),
+                GoldMembers = loyaltyPrograms.Count(lp => lp.Tier == LoyaltyTier.Gold),
+                PlatinumMembers = loyaltyPrograms.Count(lp => lp.Tier == LoyaltyTier.Platinum),
+                TotalPointsIssued = loyaltyPrograms.Sum(lp => lp.LifetimePoints),
+                TotalPointsRedeemed = loyaltyPrograms.Sum(lp => lp.LifetimePoints - lp.TotalPoints)
+            };
+
+            return Result.Success(stats);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting loyalty statistics");
+            return Result.Failure<LoyaltyProgramStatisticsResponse>(
+                new Error("GetStatsFailed", "Failed to retrieve loyalty statistics", 500));
+        }
+    }
+
+    #endregion
+
+    #region BULK OPERATIONS
+
+    public async Task<Result> BulkVerifyUnitsAsync(
+        string userId,
+        BulkUnitActionRequest request)
+    {
+        try
+        {
+            var hasAccess = await IsCityAdminAsync(userId, request.Value ? 1 : 0); // Need department ID
+            var departmentId = await GetAdminDepartmentIdAsync(userId);
+            if (!departmentId.IsSuccess)
+                return Result.Failure(departmentId.Error);
+
+            var units = await _context.Units
+                .Where(u => request.UnitIds.Contains(u.Id) &&
+                           u.CityId == departmentId.Value &&
+                           !u.IsDeleted)
+                .ToListAsync();
+
+            if (units.Count != request.UnitIds.Count)
+                return Result.Failure(
+                    new Error("InvalidUnits", "Some units not found or not accessible", 400));
+
+            foreach (var unit in units)
+            {
+                unit.IsVerified = request.Value;
+                unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Bulk verified {Count} units by city admin {UserId}",
+                units.Count, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error bulk verifying units");
+            return Result.Failure(new Error("BulkVerifyFailed", "Failed to bulk verify units", 500));
+        }
+    }
+
+    public async Task<Result> BulkFeatureUnitsAsync(
+        string userId,
+        BulkUnitActionRequest request)
+    {
+        try
+        {
+            var departmentId = await GetAdminDepartmentIdAsync(userId);
+            if (!departmentId.IsSuccess)
+                return Result.Failure(departmentId.Error);
+
+            var units = await _context.Units
+                .Where(u => request.UnitIds.Contains(u.Id) &&
+                           u.CityId == departmentId.Value &&
+                           !u.IsDeleted)
+                .ToListAsync();
+
+            if (units.Count != request.UnitIds.Count)
+                return Result.Failure(
+                    new Error("InvalidUnits", "Some units not found or not accessible", 400));
+
+            foreach (var unit in units)
+            {
+                unit.IsFeatured = request.Value;
+                unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Bulk featured {Count} units by city admin {UserId}",
+                units.Count, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error bulk featuring units");
+            return Result.Failure(new Error("BulkFeatureFailed", "Failed to bulk feature units", 500));
+        }
+    }
+
+    public async Task<Result> BulkToggleUnitStatusAsync(
+        string userId,
+        BulkUnitActionRequest request)
+    {
+        try
+        {
+            var departmentId = await GetAdminDepartmentIdAsync(userId);
+            if (!departmentId.IsSuccess)
+                return Result.Failure(departmentId.Error);
+
+            var units = await _context.Units
+                .Where(u => request.UnitIds.Contains(u.Id) &&
+                           u.CityId == departmentId.Value &&
+                           !u.IsDeleted)
+                .ToListAsync();
+
+            if (units.Count != request.UnitIds.Count)
+                return Result.Failure(
+                    new Error("InvalidUnits", "Some units not found or not accessible", 400));
+
+            foreach (var unit in units)
+            {
+                unit.IsActive = request.Value;
+                unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Bulk toggled status for {Count} units by city admin {UserId}",
+                units.Count, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error bulk toggling unit status");
+            return Result.Failure(new Error("BulkToggleFailed", "Failed to bulk toggle unit status", 500));
+        }
+    }
+
+    #endregion
 }

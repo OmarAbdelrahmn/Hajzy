@@ -57,7 +57,8 @@ public enum NotificationTarget
     SpecificUser = 2,
     City = 3,
     Unit = 4,
-    Role = 5
+    Role = 5,
+    HotelAdmins = 6
 }
 
 public enum CouponType

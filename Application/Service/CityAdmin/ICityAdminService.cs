@@ -1,6 +1,5 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.CityAdminContracts;
-using Application.Contracts.hoteladmincont;
 
 namespace Application.Service.CityAdmin;
 
@@ -247,7 +246,8 @@ public interface ICityAdminService
         string userId,
         int days = 1);
 
-    // ============= COMPREHENSIVE REPORTS =============
+    // ============= COMPREHENSIVE REPORTS
+    // =============
 
     /// <summary>
     /// Get detailed financial report for the city
@@ -297,22 +297,6 @@ public interface ICityAdminService
     Task<Result<CancellationAnalyticsResponse>> GetCityCancellationAnalyticsAsync(
         string userId,
         CancellationFilter filter);
-
-    /// <summary>
-    /// Export city report to Excel
-    /// </summary>
-    Task<Result<byte[]>> ExportCityReportToExcelAsync(
-        string userId,
-        ExportReportRequest request);
-
-    /// <summary>
-    /// Export city report to PDF
-    /// </summary>
-    Task<Result<byte[]>> ExportCityReportToPdfAsync(
-        string userId,
-        ExportReportRequest request);
-
-    // ============= AMENITIES MANAGEMENT =============
 
     /// <summary>
     /// Get amenities usage statistics in the city

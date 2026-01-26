@@ -10,6 +10,7 @@ using Application.Service.Auth;
 using Application.Service.Availability;
 using Application.Service.Avilabilaties;
 using Application.Service.Booking;
+using Application.Service.CityAdmin;
 using Application.Service.Department;
 using Application.Service.fav;
 using Application.Service.HotelAdmin;
@@ -92,6 +93,7 @@ public static class InfraDependencies
         Services.AddScoped<IReviewService, ReviewService>();
         Services.AddScoped<ISubUnitTypeService,SubUnitTypeService>();
         Services.AddScoped<IHotelAdminService,HotelAdminService>();
+        Services.AddScoped<ICityAdminService,CityAdminService>();
         Services.AddScoped<AdExpirationJob>();
         Services.AddScoped<OfferExpirationJob>();
 

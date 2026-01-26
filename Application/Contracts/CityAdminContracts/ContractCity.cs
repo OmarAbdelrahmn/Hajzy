@@ -1,8 +1,15 @@
-﻿using Application.Contracts.Availability;
+﻿using Amazon.S3.Model;
+using Application.Contracts.Availability;
 using Application.Contracts.hoteladmincont;
+using Application.Contracts.SubUnit;
+using Application.Service.AdService;
+using Application.Service.CityAdmin;
+using Domain;
 using Domain.Entities;
 using System;
 using System.Collections.Generic;
+using System.Numerics;
+using System.Reflection;
 using System.Text;
 
 namespace Application.Contracts.CityAdminContracts;
@@ -13,6 +20,151 @@ internal class ContractCity
 
 
 
+public record FinancialReportResponse
+{
+    public string Period { get; set; } = string.Empty;
+    public decimal TotalRevenue { get; set; }
+    public decimal PendingRevenue { get; set; }
+    public decimal RefundedAmount { get; set; }
+    public decimal NetRevenue { get; set; }
+    public int TotalTransactions { get; set; }
+    public decimal AverageTransactionValue { get; set; }
+}
+
+public record OccupancyStatisticsResponse
+{
+    public string Period { get; set; } = string.Empty;
+    public decimal OccupancyRate { get; set; }
+}
+
+public record BookingTrendsResponse
+{
+    public List<MonthlyTrend> MonthlyTrends { get; set; } = [];
+    public int TotalBookings { get; set; }
+    public string TrendDirection { get; set; } = string.Empty;
+}
+
+public record MonthlyTrend
+{
+    public string Month { get; set; } = string.Empty;
+    public int BookingCount { get; set; }
+    public decimal Revenue { get; set; }
+}
+
+public record CustomerInsightsResponse
+{
+    public int TotalUniqueGuests { get; set; }
+    public int ReturningGuests { get; set; }
+    public decimal ReturnGuestRate { get; set; }
+    public decimal AverageBookingsPerGuest { get; set; }
+}
+
+public record PerformanceComparisonResponse
+{
+    public decimal CurrentPeriodRevenue { get; set; }
+    public decimal PreviousPeriodRevenue { get; set; }
+    public decimal GrowthPercentage { get; set; }
+}
+
+public record RevenueBreakdownResponse
+{
+    public decimal TotalRevenue { get; set; }
+    public decimal AccommodationRevenue { get; set; }
+    public decimal ServiceRevenue { get; set; }
+    public decimal TaxRevenue { get; set; }
+}
+
+public record CancellationAnalyticsResponse
+{
+    public int TotalCancellations { get; set; }
+    public decimal CancellationRate { get; set; }
+    public decimal RefundedAmount { get; set; }
+    public decimal AverageCancellationLeadTime { get; set; }
+}
+
+public record OccupancyReportResponse
+{
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public decimal OverallOccupancyRate { get; set; }
+    public int TotalRooms { get; set; }
+    public int TotalRoomNights { get; set; }
+    public int BookedRoomNights { get; set; }
+    public int AvailableRoomNights { get; set; }
+}
+
+public record ReviewResponse
+{
+    public int Id { get; set; }
+    public int UnitId { get; set; }
+    public string UnitName { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty;
+    public string GuestName { get; set; } = string.Empty;
+    public int BookingId { get; set; }
+    public int Rating { get; set; }
+    public string? Comment { get; set; }
+    public int CleanlinessRating { get; set; }
+    public int LocationRating { get; set; }
+    public int ValueRating { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public record SubUnitComprehensiveDetail
+{
+    public int Id { get; set; }
+    public int UnitId { get; set; }
+    public string UnitName { get; set; } = string.Empty;
+    public string RoomNumber { get; set; } = string.Empty;
+    public string RoomType { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public decimal PricePerNight { get; set; }
+    public int MaxOccupancy { get; set; }
+    public string BedType { get; set; } = string.Empty;
+    public int NumberOfBeds { get; set; }
+    public decimal? Size { get; set; }
+    public bool IsAvailable { get; set; }
+    public int? FloorNumber { get; set; }
+    public bool HasPrivateBathroom { get; set; }
+    public bool HasBalcony { get; set; }
+    public bool HasKitchen { get; set; }
+    public List<SubUnitImageResponse> Images { get; set; } = [];
+    public List<AmenityResponse> Amenities { get; set; } = [];
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public record SubUnitImageResponse
+{
+    public int Id { get; set; }
+    public string ImageUrl { get; set; } = string.Empty;
+    public string? ThumbnailUrl { get; set; }
+    public bool IsPrimary { get; set; }
+    public int DisplayOrder { get; set; }
+    public string? Caption { get; set; }
+}
+
+public record PolicyDetailResponse
+{
+    public int Id { get; set; }
+    public int UnitId { get; set; }
+    public string UnitName { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string PolicyType { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+}
+
+public record UpdateImageOrderRequest
+{
+    public List<ImageOrderItem> ImageOrders { get; set; } = [];
+    public int? PrimaryImageId { get; set; }
+}
+
+public record ImageOrderItem
+{
+    public int ImageId { get; set; }
+    public int Order { get; set; }
+}
 // ============= DASHBOARD RESPONSES =============
 
 public record CityAdminDashboardResponse
@@ -479,3 +631,288 @@ public record UserFilter
     public int PageSize { get; set; } = 20;
 }
 
+public record UnitComprehensiveResponse { public int Id { get; set; } public string Name { get; set; } = string.Empty; public string Description { get; set; } = string.Empty; public string Address { get; set; } = string.Empty; public decimal Latitude { get; set; } public decimal Longitude { get; set; } public int CityId { get; set; } public string CityName { get; set; } = string.Empty; public int UnitTypeId { get; set; } public string UnitTypeName { get; set; } = string.Empty; public decimal BasePrice { get; set; } public int? MaxGuests { get; set; } public int? Bedrooms { get; set; } public int? Bathrooms { get; set; } public bool IsActive { get; set; } public bool IsVerified { get; set; } public bool IsFeatured { get; set; } public decimal AverageRating { get; set; } public int TotalReviews { get; set; } public int TotalRooms { get; set; } public int AvailableRooms { get; set; } public List<ImageResponse> Images { get; set; } = []; public List<AmenityResponse> Amenities { get; set; } = []; public List<PolicyResponse> Policies { get; set; } = []; public DateTime CreatedAt { get; set; } public DateTime? UpdatedAt { get; set; } }
+
+public record ImageResponse
+{
+    public int Id { get; set; }
+    public string ImageUrl { get; set; } = string.Empty;
+    public bool IsPrimary { get; set; }
+    public string? Caption { get; set; }
+}
+
+public record AmenityResponse
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public bool IsAvailable { get; set; }
+}
+
+public record PolicyResponse
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string PolicyType { get; set; } = string.Empty;
+}
+
+// ============= BOOKING RESPONSES =============
+
+public record BookingComprehensiveResponse { public int Id { get; set; } public string BookingNumber { get; set; } = string.Empty; public int UnitId { get; set; } public string UnitName { get; set; } = string.Empty; public string UserId { get; set; } = string.Empty; public string GuestName { get; set; } = string.Empty; public string GuestEmail { get; set; } = string.Empty; public DateTime CheckInDate { get; set; } public DateTime CheckOutDate { get; set; } public int NumberOfGuests { get; set; } public int NumberOfNights { get; set; } public decimal TotalPrice { get; set; } public decimal PaidAmount { get; set; } public string Status { get; set; } = string.Empty; public string PaymentStatus { get; set; } = string.Empty; public List<BookedRoomInfo> Rooms { get; set; } = []; public DateTime CreatedAt { get; set; } }
+
+public record BookingDetailsResponse { public int Id { get; set; } public string BookingNumber { get; set; } = string.Empty; public int UnitId { get; set; } public string UnitName { get; set; } = string.Empty; public string UserId { get; set; } = string.Empty; public string GuestName { get; set; } = string.Empty; public string GuestEmail { get; set; } = string.Empty; public string GuestPhone { get; set; } = string.Empty; public DateTime CheckInDate { get; set; } public DateTime CheckOutDate { get; set; } public int NumberOfGuests { get; set; } public int NumberOfNights { get; set; } public decimal TotalPrice { get; set; } public decimal PaidAmount { get; set; } public decimal RemainingBalance { get; set; } public string Status { get; set; } = string.Empty; public string PaymentStatus { get; set; } = string.Empty; public string? SpecialRequests { get; set; } public string? CancellationReason { get; set; } public DateTime? CancelledAt { get; set; } public List<BookedRoomInfo> Rooms { get; set; } = []; public List<PaymentInfo> Payments { get; set; } = []; public DateTime CreatedAt { get; set; } public DateTime? UpdatedAt { get; set; } }
+
+public record BookedRoomInfo
+{
+    public int RoomId { get; set; }
+    public string RoomNumber { get; set; } = string.Empty;
+    public decimal PricePerNight { get; set; }
+}
+
+public record PaymentInfo
+{
+    public int Id { get; set; }
+    public string TransactionId { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string PaymentMethod { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime PaymentDate { get; set; }
+}
+
+
+public record UpcomingCheckInResponse { public int BookingId { get; set; } public string BookingNumber { get; set; } = string.Empty; public string UnitName { get; set; } = string.Empty; public string GuestName { get; set; } = string.Empty; public string GuestEmail { get; set; } = string.Empty; public string GuestPhone { get; set; } = string.Empty; public DateTime CheckInDate { get; set; } public DateTime CheckOutDate { get; set; } public int NumberOfGuests { get; set; } public int NumberOfNights { get; set; } public List<string> Rooms { get; set; } = []; public string? SpecialRequests { get; set; } }
+
+public record UpcomingCheckOutResponse { public int BookingId { get; set; } public string BookingNumber { get; set; } = string.Empty; public int UnitId { get; set; } public string UnitName { get; set; } = string.Empty; public string GuestName { get; set; } = string.Empty; public string GuestEmail { get; set; } = string.Empty; public string GuestPhone { get; set; } = string.Empty; public DateTime CheckOutDate { get; set; } public TimeSpan? CheckOutTime { get; set; } public int NumberOfNights { get; set; } public List<string> RoomNumbers { get; set; } = []; public decimal TotalAmount { get; set; } public decimal PaidAmount { get; set; } public decimal BalanceDue { get; set; } }
+
+// ============= PAYMENT RESPONSES =============
+
+public record PaymentHistoryResponse
+{
+    public int PaymentId { get; set; }
+    public int BookingId { get; set; }
+    public string BookingNumber { get; set; } = string.Empty;
+    public string UnitName { get; set; } = string.Empty;
+    public string GuestName { get; set; } = string.Empty;
+    public string TransactionId { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string PaymentMethod { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime PaymentDate { get; set; }
+    public string? Notes { get; set; }
+}
+
+public record PendingPaymentResponse
+{
+    public int BookingId { get; set; }
+    public string BookingNumber { get; set; } = string.Empty;
+    public string UnitName { get; set; } = string.Empty;
+    public string GuestName { get; set; } = string.Empty;
+    public string GuestEmail { get; set; } = string.Empty;
+    public string GuestPhone { get; set; } = string.Empty;
+    public DateTime CheckInDate { get; set; }
+    public DateTime CheckOutDate { get; set; }
+    public decimal TotalAmount { get; set; }
+    public decimal PaidAmount { get; set; }
+    public decimal RemainingBalance { get; set; }
+    public string PaymentStatus { get; set; } = string.Empty;
+    public int DaysUntilCheckIn { get; set; }
+}
+
+// ============= REVENUE & ANALYTICS RESPONSES =============
+
+public record RevenueReportResponse { public DateTime StartDate { get; set; } public DateTime EndDate { get; set; } public decimal TotalRevenue { get; set; } public int TotalBookings { get; set; } public decimal AverageBookingValue { get; set; } public List<UnitRevenueData> RevenueByUnit { get; set; } = []; public List<MonthlyRevenueData> RevenueByMonth { get; set; } = []; }
+
+public record UnitRevenueData
+{
+    public int UnitId { get; set; }
+    public string UnitName { get; set; } = string.Empty;
+    public decimal Revenue { get; set; }
+    public int BookingCount { get; set; }
+    public decimal AverageBookingValue { get; set; }
+}
+
+public record MonthlyRevenueData
+{
+    public string Month { get; set; } = string.Empty;
+    public decimal Revenue { get; set; }
+    public int BookingCount { get; set; }
+}
+
+public record BookingAnalyticsResponse { public DateTime StartDate { get; set; } public DateTime EndDate { get; set; } public int TotalBookings { get; set; } public int ConfirmedBookings { get; set; } public int CompletedBookings { get; set; } public int CancelledBookings { get; set; } public decimal CancellationRate { get; set; } public double AverageLeadTime { get; set; } public double AverageStayDuration { get; set; } public List<StatusCount> StatusDistribution { get; set; } = []; public List<DailyBookingData> BookingsByDay { get; set; } = []; }
+
+public record StatusCount
+{
+    public string Status { get; set; } = string.Empty;
+    public int Count { get; set; }
+    public decimal Percentage { get; set; }
+}
+
+public record DailyBookingData
+{
+    public DateTime Date { get; set; }
+    public int BookingCount { get; set; }
+    public decimal Revenue { get; set; }
+}
+
+
+public record UnitOccupancyData
+{
+    public int UnitId { get; set; }
+    public string UnitName { get; set; } = string.Empty;
+    public decimal OccupancyRate { get; set; }
+    public int TotalRooms { get; set; }
+    public int AvailableRooms { get; set; }
+}
+
+
+public record UnitPerformance
+{
+    public int UnitId { get; set; }
+    public string UnitName { get; set; } = string.Empty;
+    public decimal Revenue { get; set; }
+    public decimal OccupancyRate { get; set; }
+    public decimal AverageDailyRate { get; set; }
+    public decimal RevPAR { get; set; }
+    public decimal Rating { get; set; }
+    public int BookingCount { get; set; }
+}
+
+public record RecentBooking
+{
+    public int Id { get; set; }
+    public string BookingNumber { get; set; } = string.Empty;
+    public string UnitName { get; set; } = string.Empty;
+    public string GuestName { get; set; } = string.Empty;
+    public DateTime CheckInDate { get; set; }
+    public DateTime CheckOutDate { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public decimal TotalPrice { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+// ============= IMAGE RESPONSES =============
+
+public record ImageDetailResponse
+{
+    public int Id { get; set; }
+    public string ImageUrl { get; set; } = string.Empty;
+    public string? ThumbnailUrl { get; set; }
+    public bool IsPrimary { get; set; }
+    public int DisplayOrder { get; set; }
+    public string? Caption { get; set; }
+    public string? AltText { get; set; }
+    public long FileSizeBytes { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public DateTime UploadedAt { get; set; }
+}
+
+// ============= REQUEST MODELS =============
+
+public record UnitFilter
+{
+    public string? Name { get; set; }
+    public bool? IsActive { get; set; }
+    public bool? IsVerified { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+}
+
+public record BookingFilter
+{
+    public BookingStatus? Status { get; set; }
+    public PaymentStatus? PaymentStatus { get; set; }
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+}
+
+public record RevenueReportFilter
+{
+    public int? UnitId { get; set; }
+    public DateTime StartDate { get; set; } = DateTime.UtcNow.AddMonths(-1);
+    public DateTime EndDate { get; set; } = DateTime.UtcNow;
+}
+
+public record AnalyticsFilter
+{
+    public int? UnitId { get; set; }
+    public DateTime StartDate { get; set; } = DateTime.UtcNow.AddMonths(-1);
+    public DateTime EndDate { get; set; } = DateTime.UtcNow;
+}
+
+public record ReviewFilter
+{
+    public int? UnitId { get; set; }
+    public int? MinRating { get; set; }
+    public bool? HasResponse { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+}
+
+public record PaymentFilter
+{
+    public int? UnitId { get; set; }
+    public PaymentStatus? PaymentStatus { get; set; }
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+}
+
+public record FinancialReportFilter
+{
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public int? UnitId { get; set; }
+    public bool IncludeProjections { get; set; } = false;
+}
+
+public record OccupancyFilter
+{
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public int? UnitId { get; set; }
+    public int? SubUnitId { get; set; }
+}
+
+public record TrendsFilter
+{
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public int? UnitId { get; set; }
+    public TrendsPeriod Period { get; set; } = TrendsPeriod.Daily;
+}
+
+public record InsightsFilter
+{
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public int? UnitId { get; set; }
+}
+
+public record ComparisonFilter { public DateTime StartDate { get; set; } public DateTime EndDate { get; set; } public List<int>? UnitIds { get; set; } }
+
+public record RevenueBreakdownFilter
+{
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public int? UnitId { get; set; }
+}
+
+public record CancellationFilter
+{
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public int? UnitId { get; set; }
+}
+
+public record NotificationFilter
+{
+    public bool? IsRead { get; set; }
+    public NotificationType? Type { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 20;
+}

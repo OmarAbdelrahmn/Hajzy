@@ -170,11 +170,11 @@ public record SubUnitDayAvailability
 // ENUMS (if not already defined elsewhere)
 // ============================================================================
 
-public enum CouponType
-{
-    Percentage = 1,
-    FixedAmount = 2
-}
+//public enum CouponType
+//{
+//    Percentage = 1,
+//    FixedAmount = 2
+//}
 
 //public enum BookingStatus
 //{
@@ -209,22 +209,22 @@ public enum LoyaltyTier
     Platinum = 4
 }
 
-public enum NotificationType
-{
-    BookingConfirmation = 1,
-    PaymentReceived = 2,
-    BookingCancelled = 3,
-    SystemAlert = 4,
-    Promotion = 5
-}
+//public enum NotificationType
+//{
+//    BookingConfirmation = 1,
+//    PaymentReceived = 2,
+//    BookingCancelled = 3,
+//    SystemAlert = 4,
+//    Promotion = 5
+//}
 
-public enum NotificationPriority
-{
-    Low = 1,
-    Normal = 2,
-    High = 3,
-    Urgent = 4
-}
+//public enum NotificationPriority
+//{
+//    Low = 1,
+//    Normal = 2,
+//    High = 3,
+//    Urgent = 4
+//}
 
 public enum NotificationTarget
 {
@@ -260,15 +260,15 @@ public enum GeneralPolicyCategory
     Other = 6
 }
 
-public enum GeneralPolicyName
-{
-    CheckInTime = 1,
-    CheckOutTime = 2,
-    SmokingPolicy = 3,
-    PetPolicy = 4,
-    PartyPolicy = 5,
-    ChildrenPolicy = 6,
-    CancellationPolicy = 7,
-    PaymentPolicy = 8,
-    Custom = 99
-}
+//public enum GeneralPolicyName
+//{
+//    CheckInTime = 1,
+//    CheckOutTime = 2,
+//    SmokingPolicy = 3,
+//    PetPolicy = 4,
+//    PartyPolicy = 5,
+//    ChildrenPolicy = 6,
+//    CancellationPolicy = 7,
+//    PaymentPolicy = 8,
+//    Custom = 99
+//}
