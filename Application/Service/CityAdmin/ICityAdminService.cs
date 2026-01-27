@@ -1,5 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.CityAdminContracts;
+using Application.Service.Avilabilaties;
 
 namespace Application.Service.CityAdmin;
 
@@ -110,7 +111,7 @@ public interface ICityAdminService
     /// </summary>
     Task<Result<IEnumerable<BookingComprehensiveResponse>>> GetCityBookingsAsync(
         string userId,
-        BookingFilter filter);
+        Contracts.CityAdminContracts.BookingFilter filter);
 
     /// <summary>
     /// Get specific booking details
@@ -118,6 +119,38 @@ public interface ICityAdminService
     Task<Result<BookingDetailsResponse>> GetBookingDetailsAsync(
         string userId,
         int bookingId);
+
+    // ============= BOOKING MANAGEMENT =============
+
+    /// <summary>
+    /// Confirm a booking (both unit and subunit bookings)
+    /// </summary>
+    Task<Result> ConfirmBookingAsync(string userId, int bookingId);
+
+    /// <summary>
+    /// Check-in a booking
+    /// </summary>
+    Task<Result> CheckInBookingAsync(string userId, int bookingId);
+
+    /// <summary>
+    /// Check-out a booking
+    /// </summary>
+    Task<Result> CheckOutBookingAsync(string userId, int bookingId);
+
+    /// <summary>
+    /// Cancel a booking
+    /// </summary>
+    Task<Result> CancelBookingAsync(string userId, int bookingId, string cancellationReason);
+
+    /// <summary>
+    /// Process payment for a booking
+    /// </summary>
+    Task<Result> ProcessBookingPaymentAsync(string userId, int bookingId, ProcessPaymentRequest request);
+
+    /// <summary>
+    /// Refund a booking
+    /// </summary>
+    Task<Result> RefundBookingAsync(string userId, int bookingId, decimal refundAmount, string reason);
 
     // ============= REVIEWS MANAGEMENT =============
 

@@ -1,8 +1,14 @@
 ﻿using Application.Abstraction;
+using Application.Abstraction.Consts;
 using Application.Contracts.CityAdminContracts;
+using Application.Helpers;
+using Application.Notifications;
+using Application.Service.Avilabilaties;
 using Application.Service.S3Image;
 using Domain;
 using Domain.Entities;
+using Hangfire;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
@@ -16,13 +22,18 @@ public class CityAdminService(
     UserManager<ApplicationUser> userManager,
     IEmailSender emailSender,
     ILogger<CityAdminService> logger,
-    IS3ImageService s3Service) : ICityAdminService
+    IHttpContextAccessor httpContextAccessor,
+    IS3ImageService s3Service,
+    INotinficationService emailNotificationService) : ICityAdminService
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly UserManager<ApplicationUser> _userManager = userManager;
     private readonly IEmailSender _emailSender = emailSender;
     private readonly ILogger<CityAdminService> _logger = logger;
     private readonly IS3ImageService _s3Service = s3Service;
+    private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
+    private readonly INotinficationService _emailNotificationService = emailNotificationService;
+
 
 
     #region AVAILABILITY OVERVIEW
@@ -682,7 +693,11 @@ public class CityAdminService(
             {
                 try
                 {
-                    await SendWelcomeEmailAsync(user.Email!, user.FullName!, unit.Id, unit.Name);
+
+                    await SendRequestConfirmationEmailAsync(request);
+
+                    // Notify admins
+                    await NotifyAdminsOfNewRequestAsync(request);
                 }
                 catch (Exception ex)
                 {
@@ -703,6 +718,95 @@ public class CityAdminService(
 
             return Result.Failure(
                 new Error("ApprovalFailed", "Failed to approve registration request", 500));
+        }
+    }
+
+    private async Task SendRequestConfirmationEmailAsync(UnitRegistrationRequest request)
+    {
+        try
+        {
+            var origin = _httpContextAccessor.HttpContext?.Request.Headers.Origin.ToString();
+
+            var emailBody = EmailBodyBuilder.GenerateEmailBody("UnitRegistrationConfirmation",
+                new Dictionary<string, string>
+                {
+                    { "{{name}}", request.OwnerFullName },
+                    { "{{unit_name}}", request.UnitName },
+                    { "{{request_id}}", request.Id.ToString() },
+                    { "{{submitted_date}}", request.SubmittedAt.ToString("MMMM dd, yyyy") },
+                    { "{{dashboard_url}}", $"{origin}/registration/status/{request.Id}" }
+                });
+
+            BackgroundJob.Enqueue(() =>
+                _emailSender.SendEmailAsync(
+                    request.OwnerEmail,
+                    "Hujjzy: Unit Registration Request Received",
+                    emailBody));
+
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send confirmation email for request {RequestId}", request.Id);
+        }
+    }
+
+    private async Task NotifyAdminsOfNewRequestAsync(UnitRegistrationRequest request)
+    {
+        try
+        {
+            // Get all Super Admins
+            //var superAdmins = await _userManager.GetUsersInRoleAsync(DefaultRoles.CityAdmin);
+
+            //var adminIds = await _context.DepartmentAdmins
+            //    .Where(da => da.CityId == request.DepartmentId && da.IsActive)
+            //    .Select(da => da.UserId)
+            //    .ToListAsync();
+
+            //superAdmins = [.. superAdmins.Where(sa => adminIds.Contains(sa.Id))];
+
+            var superAdmins = await _userManager.GetUsersInRoleAsync(DefaultRoles.CityAdmin);
+
+            var activeAdminIds = await _context.DepartmentAdmins
+                .Where(da =>
+                    da.CityId == request.DepartmentId &&
+                    da.IsActive)
+                .Select(da => da.UserId)
+                .ToListAsync();
+
+            superAdmins = superAdmins
+                .IntersectBy(activeAdminIds, sa => sa.Id)
+                .ToList();
+
+            var origin = _httpContextAccessor.HttpContext?.Request.Headers.Origin.ToString();
+
+            foreach (var admin in superAdmins.Where(u => !u.IsDisable && u.EmailConfirmed))
+            {
+                var emailBody = EmailBodyBuilder.GenerateEmailBody("AdminNewRegistrationNotification",
+                    new Dictionary<string, string>
+                    {
+                        { "{{admin_name}}", admin.FullName ?? "Admin" },
+                        { "{{owner_name}}", request.OwnerFullName },
+                        { "{{owner_email}}", request.OwnerEmail },
+                        { "{{unit_name}}", request.UnitName },
+                        { "{{unit_type}}", request.UnitType?.Name ?? "N/A" },
+                        { "{{department}}", request.Department?.Name ?? "N/A" },
+                        { "{{submitted_date}}", request.SubmittedAt.ToString("MMMM dd, yyyy HH:mm") },
+                        { "{{review_url}}", $"{origin}/admin/registrations/{request.Id}" }
+                    });
+
+                BackgroundJob.Enqueue(() =>
+                    _emailSender.SendEmailAsync(
+                        admin.Email!,
+                        "Hujjzy: New Unit Registration Request",
+                        emailBody));
+            }
+
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to notify admins of new request {RequestId}", request.Id);
         }
     }
 
@@ -2160,7 +2264,7 @@ public class CityAdminService(
 
     public async Task<Result<IEnumerable<BookingComprehensiveResponse>>> GetCityBookingsAsync(
         string userId,
-        BookingFilter filter)
+        Contracts.CityAdminContracts.BookingFilter filter)
     {
         try
         {
@@ -2286,7 +2390,7 @@ public class CityAdminService(
                     RoomNumber = br.Room.RoomNumber,
                     PricePerNight = br.PricePerNight
                 }).ToList(),
-                Payments = booking.Payments.Select(p => new PaymentInfo
+                Payments = booking.Payments.Select(p => new Contracts.CityAdminContracts.PaymentInfo
                 {
                     Id = p.Id,
                     TransactionId = p.TransactionId,
@@ -2308,7 +2412,313 @@ public class CityAdminService(
         }
     }
 
+
+    public async Task<Result> ConfirmBookingAsync(string userId, int bookingId)
+    {
+        try
+        {
+            var booking = await _context.Bookings
+                .Include(b => b.Unit)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null)
+                return Result.Failure(new Error("NotFound", "Booking not found", 404));
+
+            var hasAccess = await IsUnitInMyCityAsync(userId, booking.UnitId);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this booking", 403));
+
+            if (booking.Status != BookingStatus.Pending)
+                return Result.Failure(
+                    new Error("InvalidStatus", $"Cannot confirm booking with status {booking.Status}", 400));
+
+            booking.Status = BookingStatus.Confirmed;
+            booking.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+            await _context.SaveChangesAsync();
+
+            BackgroundJob.Enqueue(() => _emailNotificationService.SendBookingStatusUpdateEmailAsync(bookingId, "Confirmed"));
+
+            _logger.LogInformation(
+                "Booking {BookingId} confirmed by city admin {UserId}",
+                bookingId, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error confirming booking {BookingId}", bookingId);
+            return Result.Failure(new Error("ConfirmFailed", "Failed to confirm booking", 500));
+        }
+    }
+
+    public async Task<Result> CheckInBookingAsync(string userId, int bookingId)
+    {
+        try
+        {
+            var booking = await _context.Bookings
+                .Include(b => b.Unit)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null)
+                return Result.Failure(new Error("NotFound", "Booking not found", 404));
+
+            var hasAccess = await IsUnitInMyCityAsync(userId, booking.UnitId);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this booking", 403));
+
+            if (booking.Status != BookingStatus.Confirmed)
+                return Result.Failure(
+                    new Error("InvalidStatus", "Only confirmed bookings can be checked in", 400));
+
+            if (DateTime.UtcNow.Date < booking.CheckInDate.Date)
+                return Result.Failure(
+                    new Error("TooEarly", "Check-in date has not arrived yet", 400));
+
+            booking.Status = BookingStatus.CheckedIn;
+            booking.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+            await _context.SaveChangesAsync();
+
+            BackgroundJob.Enqueue(() => _emailNotificationService.SendBookingStatusUpdateEmailAsync(bookingId, "CheckedIn"));
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking in booking {BookingId}", bookingId);
+            return Result.Failure(new Error("CheckInFailed", "Failed to check in booking", 500));
+        }
+    }
+
+    public async Task<Result> CheckOutBookingAsync(string userId, int bookingId)
+    {
+        try
+        {
+            var booking = await _context.Bookings
+                .Include(b => b.Unit)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null)
+                return Result.Failure(new Error("NotFound", "Booking not found", 404));
+
+            var hasAccess = await IsUnitInMyCityAsync(userId, booking.UnitId);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this booking", 403));
+
+            if (booking.Status != BookingStatus.CheckedIn)
+                return Result.Failure(
+                    new Error("InvalidStatus", "Only checked-in bookings can be checked out", 400));
+
+            booking.Status = BookingStatus.Completed;
+            booking.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+            await _context.SaveChangesAsync();
+
+            BackgroundJob.Enqueue(() => _emailNotificationService.SendBookingCheckoutEmailAsync(bookingId));
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking out booking {BookingId}", bookingId);
+            return Result.Failure(new Error("CheckOutFailed", "Failed to check out booking", 500));
+        }
+    }
+
+    public async Task<Result> CancelBookingAsync(string userId, int bookingId, string cancellationReason)
+    {
+        try
+        {
+            var booking = await _context.Bookings
+                .Include(b => b.Unit)
+                    .ThenInclude(u => u.CancellationPolicy)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null)
+                return Result.Failure(new Error("NotFound", "Booking not found", 404));
+
+            var hasAccess = await IsUnitInMyCityAsync(userId, booking.UnitId);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this booking", 403));
+
+            if (booking.Status == BookingStatus.Completed || booking.Status == BookingStatus.Cancelled)
+                return Result.Failure(
+                    new Error("InvalidStatus", "Cannot cancel this booking", 400));
+
+            // Calculate refund
+            var refundAmount = CalculateRefundAmount(booking);
+
+            booking.Status = BookingStatus.Cancelled;
+            booking.CancellationReason = cancellationReason;
+            booking.CancelledAt = DateTime.UtcNow.AddHours(3);
+            booking.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+            await _context.SaveChangesAsync();
+
+            // Restore coupon usage if applied
+            var bookingCoupon = await _context.Set<BookingCoupon>()
+                .Include(bc => bc.Coupon)
+                .FirstOrDefaultAsync(bc => bc.BookingId == bookingId);
+
+            if (bookingCoupon != null)
+            {
+                var coupon = bookingCoupon.Coupon;
+                if (coupon.CurrentUsageCount > 0)
+                    coupon.CurrentUsageCount--;
+
+                _context.Set<BookingCoupon>().Remove(bookingCoupon);
+                await _context.SaveChangesAsync();
+            }
+
+            // Process refund if applicable
+            if (refundAmount > 0)
+            {
+                BackgroundJob.Enqueue(() =>
+                    RefundBookingAsync(userId, bookingId, refundAmount, "Booking cancelled"));
+            }
+
+            BackgroundJob.Enqueue(() => _emailNotificationService.SendBookingCancellationEmailAsync(bookingId, refundAmount));
+
+            _logger.LogInformation(
+                "Booking {BookingId} cancelled by city admin {UserId}. Refund: {Refund}",
+                bookingId, userId, refundAmount);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling booking {BookingId}", bookingId);
+            return Result.Failure(new Error("CancelFailed", "Failed to cancel booking", 500));
+        }
+    }
+
+    public async Task<Result> ProcessBookingPaymentAsync(string userId, int bookingId, ProcessPaymentRequest request)
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            var booking = await _context.Bookings
+                .Include(b => b.Unit)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null)
+                return Result.Failure(new Error("NotFound", "Booking not found", 404));
+
+            var hasAccess = await IsUnitInMyCityAsync(userId, booking.UnitId);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this booking", 403));
+
+            var payment = new Payment
+            {
+                BookingId = bookingId,
+                TransactionId = request.TransactionId,
+                Amount = request.Amount,
+                PaymentMethod = (Domain.PaymentMethod)request.PaymentMethod,
+                Status = PaymentStatus.Paid,
+                PaymentDate = DateTime.UtcNow.AddHours(3),
+                Notes = request.Notes
+            };
+
+            await _context.Set<Payment>().AddAsync(payment);
+
+            booking.PaidAmount += request.Amount;
+
+            if (booking.PaidAmount >= booking.TotalPrice)
+            {
+                booking.PaymentStatus = PaymentStatus.Paid;
+                booking.Status = BookingStatus.Confirmed;
+            }
+            else
+            {
+                booking.PaymentStatus = PaymentStatus.PartiallyPaid;
+            }
+
+            booking.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            BackgroundJob.Enqueue(() => _emailNotificationService.SendPaymentConfirmationEmailAsync(bookingId, request.Amount));
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error processing payment for booking {BookingId}", bookingId);
+            return Result.Failure(new Error("PaymentFailed", "Failed to process payment", 500));
+        }
+    }
+
+    public async Task<Result> RefundBookingAsync(string userId, int bookingId, decimal refundAmount, string reason)
+    {
+        try
+        {
+            var booking = await _context.Bookings
+                .Include(b => b.Unit)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null)
+                return Result.Failure(new Error("NotFound", "Booking not found", 404));
+
+            var hasAccess = await IsUnitInMyCityAsync(userId, booking.UnitId);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this booking", 403));
+
+            var refundPayment = new Payment
+            {
+                BookingId = bookingId,
+                TransactionId = $"REFUND-{Guid.NewGuid()}",
+                Amount = -refundAmount,
+                PaymentMethod = PaymentMethod.BankTransfer,
+                Status = PaymentStatus.Paid,
+                PaymentDate = DateTime.UtcNow.AddHours(3),
+                Notes = reason
+            };
+
+            await _context.Set<Payment>().AddAsync(refundPayment);
+
+            booking.PaidAmount -= refundAmount;
+            booking.PaymentStatus = PaymentStatus.Refunded;
+
+            await _context.SaveChangesAsync();
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error refunding booking {BookingId}", bookingId);
+            return Result.Failure(new Error("RefundFailed", "Failed to refund booking", 500));
+        }
+    }
+
+    private decimal CalculateRefundAmount(Domain.Entities.Booking booking)
+    {
+        if (booking.Unit?.CancellationPolicy == null)
+            return 0;
+
+        var policy = booking.Unit.CancellationPolicy;
+        var daysUntilCheckIn = (booking.CheckInDate - DateTime.UtcNow).Days;
+
+        if (daysUntilCheckIn >= policy.FullRefundDays)
+            return booking.PaidAmount;
+
+        if (daysUntilCheckIn >= policy.PartialRefundDays)
+            return booking.PaidAmount * (policy.PartialRefundPercentage / 100);
+
+        return 0;
+    }
+
     #endregion
+
 
     #region UNITS MANAGEMENT
 

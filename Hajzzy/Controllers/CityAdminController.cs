@@ -1,6 +1,7 @@
 ﻿using Application.Abstraction.Consts;
 using Application.Contracts.CityAdminContracts;
 using Application.Extensions;
+using Application.Service.Avilabilaties;
 using Application.Service.CityAdmin;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -200,7 +201,7 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
     /// Get all bookings in the city
     /// </summary>
     [HttpGet("bookings")]
-    public async Task<IActionResult> GetCityBookings([FromQuery] BookingFilter filter)
+    public async Task<IActionResult> GetCityBookings([FromQuery] Application.Contracts.CityAdminContracts.BookingFilter filter)
     {
         var userId = User.GetUserId();
         var result = await _cityAdminService.GetCityBookingsAsync(userId!, filter);
@@ -216,6 +217,91 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
         var userId = User.GetUserId();
         var result = await _cityAdminService.GetBookingDetailsAsync(userId!, bookingId);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Confirm a booking
+    /// </summary>
+    [HttpPut("bookings/{bookingId}/confirm")]
+    public async Task<IActionResult> ConfirmBooking(int bookingId)
+    {
+        var userId = User.GetUserId();
+        var result = await _cityAdminService.ConfirmBookingAsync(userId!, bookingId);
+        return result.IsSuccess
+            ? Ok(new { message = "Booking confirmed successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Check-in a booking
+    /// </summary>
+    [HttpPut("bookings/{bookingId}/check-in")]
+    public async Task<IActionResult> CheckInBooking(int bookingId)
+    {
+        var userId = User.GetUserId();
+        var result = await _cityAdminService.CheckInBookingAsync(userId!, bookingId);
+        return result.IsSuccess
+            ? Ok(new { message = "Check-in successful" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Check-out a booking
+    /// </summary>
+    [HttpPut("bookings/{bookingId}/check-out")]
+    public async Task<IActionResult> CheckOutBooking(int bookingId)
+    {
+        var userId = User.GetUserId();
+        var result = await _cityAdminService.CheckOutBookingAsync(userId!, bookingId);
+        return result.IsSuccess
+            ? Ok(new { message = "Check-out successful" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Cancel a booking
+    /// </summary>
+    [HttpPut("bookings/{bookingId}/cancel")]
+    public async Task<IActionResult> CancelBooking(
+        int bookingId,
+        [FromBody] string cancellationReason)
+    {
+        var userId = User.GetUserId();
+        var result = await _cityAdminService.CancelBookingAsync(userId!, bookingId, cancellationReason);
+        return result.IsSuccess
+            ? Ok(new { message = "Booking cancelled successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Process payment for a booking
+    /// </summary>
+    [HttpPost("bookings/{bookingId}/payments")]
+    public async Task<IActionResult> ProcessBookingPayment(
+        int bookingId,
+        [FromBody] ProcessPaymentRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _cityAdminService.ProcessBookingPaymentAsync(userId!, bookingId, request);
+        return result.IsSuccess
+            ? Ok(new { message = "Payment processed successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Refund a booking
+    /// </summary>
+    [HttpPost("bookings/{bookingId}/refund")]
+    public async Task<IActionResult> RefundBooking(
+        int bookingId,
+        [FromBody] RefundBookingRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _cityAdminService.RefundBookingAsync(
+            userId!, bookingId, request.RefundAmount, request.Reason);
+        return result.IsSuccess
+            ? Ok(new { message = "Refund processed successfully" })
+            : result.ToProblem();
     }
 
     #endregion
@@ -888,3 +974,5 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
 }
 
 #endregion
+
+public record RefundBookingRequest(decimal RefundAmount, string Reason);
