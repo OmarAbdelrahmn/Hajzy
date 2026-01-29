@@ -38,10 +38,9 @@ public interface ICityAdminService
     /// <summary>
     /// Get all unit registration requests for the city
     /// </summary>
-    Task<Result<IEnumerable<UnitRegistrationRequestResponse>>> GetRegistrationRequestsAsync(
+    Task<Result<PaginatedResponse<UnitRegistrationRequestResponse>>> GetRegistrationRequestsAsync(
         string userId,
         RegistrationRequestFilter filter);
-
     /// <summary>
     /// Get specific registration request details
     /// </summary>
@@ -69,7 +68,7 @@ public interface ICityAdminService
     /// <summary>
     /// Get all units in the city
     /// </summary>
-    Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetCityUnitsAsync(
+    Task<Result<PaginatedResponse<UnitComprehensiveResponse>>> GetCityUnitsAsync(
         string userId,
         UnitFilter filter);
 
@@ -109,7 +108,7 @@ public interface ICityAdminService
     /// <summary>
     /// Get all bookings in the city
     /// </summary>
-    Task<Result<IEnumerable<BookingComprehensiveResponse>>> GetCityBookingsAsync(
+    Task<Result<PaginatedResponse<BookingComprehensiveResponse>>> GetCityBookingsAsync(
         string userId,
         Contracts.CityAdminContracts.BookingFilter filter);
 
@@ -157,7 +156,7 @@ public interface ICityAdminService
     /// <summary>
     /// Get all reviews in the city
     /// </summary>
-    Task<Result<IEnumerable<ReviewResponse>>> GetCityReviewsAsync(
+    Task<Result<PaginatedResponse<ReviewResponse>>> GetCityReviewsAsync(
         string userId,
         ReviewFilter filter);
 
@@ -190,9 +189,11 @@ public interface ICityAdminService
     /// <summary>
     /// Get all subunits in the city
     /// </summary>
-    Task<Result<IEnumerable<SubUnitComprehensiveDetail>>> GetCitySubUnitsAsync(
+    Task<Result<PaginatedResponse<SubUnitComprehensiveDetail>>> GetCitySubUnitsAsync(
         string userId,
-        int? unitId = null);
+        int? unitId = null,
+        int page = 1,
+        int pageSize = 10);
 
     /// <summary>
     /// Get specific subunit details
@@ -341,10 +342,9 @@ public interface ICityAdminService
     /// <summary>
     /// Get all unit admins in the city
     /// </summary>
-    Task<Result<IEnumerable<UnitAdminResponse>>> GetCityUnitAdminsAsync(
+    Task<Result<PaginatedResponse<UnitAdminResponse>>> GetCityUnitAdminsAsync(
         string userId,
         UnitAdminFilter filter);
-
     /// <summary>
     /// Assign admin to a unit
     /// </summary>
@@ -397,14 +397,14 @@ public interface ICityAdminService
     /// <summary>
     /// Get all offers in the city
     /// </summary>
-    Task<Result<IEnumerable<OfferResponse>>> GetCityOffersAsync(
-        string userId,
-        OfferFilter filter);
+    Task<Result<PaginatedResponse<OfferResponse>>> GetCityOffersAsync(
+       string userId,
+       OfferFilter filter);
 
     /// <summary>
     /// Get all ads in the city
     /// </summary>
-    Task<Result<IEnumerable<AdResponse>>> GetCityAdsAsync(
+    Task<Result<PaginatedResponse<AdResponse>>> GetCityAdsAsync(
         string userId,
         AdFilter filter);
 
@@ -429,10 +429,9 @@ public interface ICityAdminService
     /// <summary>
     /// Get all coupons for the city
     /// </summary>
-    Task<Result<IEnumerable<CouponResponse>>> GetCityCouponsAsync(
+    Task<Result<PaginatedResponse<CouponResponse>>> GetCityCouponsAsync(
         string userId,
         CouponFilter filter);
-
     /// <summary>
     /// Create city-wide coupon
     /// </summary>

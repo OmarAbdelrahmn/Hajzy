@@ -103,15 +103,15 @@ public class CityAdminService(
 
     #region OFFERS & ADS MANAGEMENT
 
-    public async Task<Result<IEnumerable<OfferResponse>>> GetCityOffersAsync(
-        string userId,
-        OfferFilter filter)
+    public async Task<Result<PaginatedResponse<OfferResponse>>> GetCityOffersAsync(
+       string userId,
+       OfferFilter filter)
     {
         try
         {
             var departmentId = await GetAdminDepartmentIdAsync(userId);
             if (!departmentId.IsSuccess)
-                return Result.Failure<IEnumerable<OfferResponse>>(departmentId.Error);
+                return Result.Failure<PaginatedResponse<OfferResponse>>(departmentId.Error);
 
             var unitIds = await _context.Units
                 .Where(u => u.CityId == departmentId.Value && !u.IsDeleted)
@@ -131,6 +131,9 @@ public class CityAdminService(
 
             if (filter.IsFeatured.HasValue)
                 query = query.Where(o => o.IsFeatured == filter.IsFeatured.Value);
+
+            // ADD THIS: Get total count
+            var totalCount = await query.CountAsync();
 
             var offers = await query
                 .OrderByDescending(o => o.CreatedAt)
@@ -154,24 +157,25 @@ public class CityAdminService(
                 })
                 .ToListAsync();
 
-            return Result.Success<IEnumerable<OfferResponse>>(offers);
+            // CHANGE RETURN:
+            var paginatedResult = CreatePaginatedResponse(offers, totalCount, filter.Page, filter.PageSize);
+            return Result.Success(paginatedResult);
         }
         catch (Exception ex)
         {
-            return Result.Failure<IEnumerable<OfferResponse>>(
+            return Result.Failure<PaginatedResponse<OfferResponse>>(
                 new Error("GetOffersFailed", "Failed to retrieve offers", 500));
         }
     }
-
-    public async Task<Result<IEnumerable<AdResponse>>> GetCityAdsAsync(
-        string userId,
-        AdFilter filter)
+    public async Task<Result<PaginatedResponse<AdResponse>>> GetCityAdsAsync(
+       string userId,
+       AdFilter filter)
     {
         try
         {
             var departmentId = await GetAdminDepartmentIdAsync(userId);
             if (!departmentId.IsSuccess)
-                return Result.Failure<IEnumerable<AdResponse>>(departmentId.Error);
+                return Result.Failure<PaginatedResponse<AdResponse>>(departmentId.Error);
 
             var unitIds = await _context.Units
                 .Where(u => u.CityId == departmentId.Value && !u.IsDeleted)
@@ -188,6 +192,9 @@ public class CityAdminService(
 
             if (filter.IsActive.HasValue)
                 query = query.Where(a => a.IsActive == filter.IsActive.Value);
+
+            // ADD THIS: Get total count
+            var totalCount = await query.CountAsync();
 
             var ads = await query
                 .OrderByDescending(a => a.CreatedAt)
@@ -208,11 +215,13 @@ public class CityAdminService(
                 })
                 .ToListAsync();
 
-            return Result.Success<IEnumerable<AdResponse>>(ads);
+            // CHANGE RETURN:
+            var paginatedResult = CreatePaginatedResponse(ads, totalCount, filter.Page, filter.PageSize);
+            return Result.Success(paginatedResult);
         }
         catch (Exception ex)
         {
-            return Result.Failure<IEnumerable<AdResponse>>(
+            return Result.Failure<PaginatedResponse<AdResponse>>(
                 new Error("GetAdsFailed", "Failed to retrieve ads", 500));
         }
     }
@@ -283,15 +292,15 @@ public class CityAdminService(
 
     #region COUPONS MANAGEMENT
 
-    public async Task<Result<IEnumerable<CouponResponse>>> GetCityCouponsAsync(
-        string userId,
-        CouponFilter filter)
+    public async Task<Result<PaginatedResponse<CouponResponse>>> GetCityCouponsAsync(
+     string userId,
+     CouponFilter filter)
     {
         try
         {
             var departmentId = await GetAdminDepartmentIdAsync(userId);
             if (!departmentId.IsSuccess)
-                return Result.Failure<IEnumerable<CouponResponse>>(departmentId.Error);
+                return Result.Failure<PaginatedResponse<CouponResponse>>(departmentId.Error);
 
             var query = _context.Coupons
                 .Where(c => c.TargetCityId == departmentId.Value)
@@ -302,6 +311,9 @@ public class CityAdminService(
 
             if (filter.Type.HasValue)
                 query = query.Where(c => c.Type == filter.Type.Value);
+
+            // ADD THIS: Get total count
+            var totalCount = await query.CountAsync();
 
             var coupons = await query
                 .OrderByDescending(c => c.CreatedAt)
@@ -324,11 +336,13 @@ public class CityAdminService(
                 })
                 .ToListAsync();
 
-            return Result.Success<IEnumerable<CouponResponse>>(coupons);
+            // CHANGE RETURN:
+            var paginatedResult = CreatePaginatedResponse(coupons, totalCount, filter.Page, filter.PageSize);
+            return Result.Success(paginatedResult);
         }
         catch (Exception ex)
         {
-            return Result.Failure<IEnumerable<CouponResponse>>(
+            return Result.Failure<PaginatedResponse<CouponResponse>>(
                 new Error("GetCouponsFailed", "Failed to retrieve coupons", 500));
         }
     }
@@ -429,7 +443,7 @@ public class CityAdminService(
 
     #region REGISTRATION REQUESTS
 
-    public async Task<Result<IEnumerable<UnitRegistrationRequestResponse>>> GetRegistrationRequestsAsync(
+    public async Task<Result<PaginatedResponse<UnitRegistrationRequestResponse>>> GetRegistrationRequestsAsync(
         string userId,
         RegistrationRequestFilter filter)
     {
@@ -437,7 +451,7 @@ public class CityAdminService(
         {
             var departmentId = await GetAdminDepartmentIdAsync(userId);
             if (!departmentId.IsSuccess)
-                return Result.Failure<IEnumerable<UnitRegistrationRequestResponse>>(departmentId.Error);
+                return Result.Failure<PaginatedResponse<UnitRegistrationRequestResponse>>(departmentId.Error);
 
             var query = _context.Set<UnitRegistrationRequest>()
                 .Include(r => r.UnitType)
@@ -453,6 +467,9 @@ public class CityAdminService(
 
             if (filter.EndDate.HasValue)
                 query = query.Where(r => r.SubmittedAt <= filter.EndDate.Value);
+
+            // ADD THIS: Get total count
+            var totalCount = await query.CountAsync();
 
             var requests = await query
                 .OrderByDescending(r => r.SubmittedAt)
@@ -475,11 +492,13 @@ public class CityAdminService(
                 })
                 .ToListAsync();
 
-            return Result.Success<IEnumerable<UnitRegistrationRequestResponse>>(requests);
+            // CHANGE RETURN:
+            var paginatedResult = CreatePaginatedResponse(requests, totalCount, filter.Page, filter.PageSize);
+            return Result.Success(paginatedResult);
         }
         catch (Exception ex)
         {
-            return Result.Failure<IEnumerable<UnitRegistrationRequestResponse>>(
+            return Result.Failure<PaginatedResponse<UnitRegistrationRequestResponse>>(
                 new Error("GetRequestsFailed", "Failed to retrieve registration requests", 500));
         }
     }
@@ -831,7 +850,7 @@ public class CityAdminService(
         {
             var departmentId = await GetAdminDepartmentIdAsync(userId);
             if (!departmentId.IsSuccess)
-                return Result.Failure(new Error(departmentId.Error.ToString(), departmentId.Error.ToString(),400));
+                return Result.Failure(new Error(departmentId.Error.ToString(), departmentId.Error.ToString(), 400));
 
             var request = await _context.Set<UnitRegistrationRequest>()
                 .FirstOrDefaultAsync(r => r.Id == requestId && r.DepartmentId == departmentId.Value);
@@ -1024,15 +1043,15 @@ public class CityAdminService(
 
     #region UNIT ADMINS MANAGEMENT
 
-    public async Task<Result<IEnumerable<UnitAdminResponse>>> GetCityUnitAdminsAsync(
-        string userId,
-        UnitAdminFilter filter)
+    public async Task<Result<PaginatedResponse<UnitAdminResponse>>> GetCityUnitAdminsAsync(
+      string userId,
+      UnitAdminFilter filter)
     {
         try
         {
             var departmentId = await GetAdminDepartmentIdAsync(userId);
             if (!departmentId.IsSuccess)
-                return Result.Failure<IEnumerable<UnitAdminResponse>>(departmentId.Error);
+                return Result.Failure<PaginatedResponse<UnitAdminResponse>>(departmentId.Error);
 
             var unitIds = await _context.Units
                 .Where(u => u.CityId == departmentId.Value && !u.IsDeleted)
@@ -1051,6 +1070,9 @@ public class CityAdminService(
             if (filter.IsActive.HasValue)
                 query = query.Where(ua => ua.IsActive == filter.IsActive.Value);
 
+            // ADD THIS: Get total count
+            var totalCount = await query.CountAsync();
+
             var admins = await query
                 .OrderByDescending(ua => ua.AssignedAt)
                 .Skip((filter.Page - 1) * filter.PageSize)
@@ -1068,15 +1090,16 @@ public class CityAdminService(
                 })
                 .ToListAsync();
 
-            return Result.Success<IEnumerable<UnitAdminResponse>>(admins);
+            // CHANGE RETURN:
+            var paginatedResult = CreatePaginatedResponse(admins, totalCount, filter.Page, filter.PageSize);
+            return Result.Success(paginatedResult);
         }
         catch (Exception ex)
         {
-            return Result.Failure<IEnumerable<UnitAdminResponse>>(
+            return Result.Failure<PaginatedResponse<UnitAdminResponse>>(
                 new Error("GetAdminsFailed", "Failed to retrieve unit admins", 500));
         }
     }
-
     public async Task<Result> AssignUnitAdminAsync(string userId, AssignUnitAdminRequest request)
     {
         try
@@ -1719,20 +1742,20 @@ public class CityAdminService(
         }
     }
 
-  
+
     #endregion
 
     #region REVIEWS MANAGEMENT
 
-    public async Task<Result<IEnumerable<ReviewResponse>>> GetCityReviewsAsync(
-        string userId,
-        ReviewFilter filter)
+    public async Task<Result<PaginatedResponse<ReviewResponse>>> GetCityReviewsAsync(
+      string userId,
+      ReviewFilter filter)
     {
         try
         {
             var departmentId = await GetAdminDepartmentIdAsync(userId);
             if (!departmentId.IsSuccess)
-                return Result.Failure<IEnumerable<ReviewResponse>>(departmentId.Error);
+                return Result.Failure<PaginatedResponse<ReviewResponse>>(departmentId.Error);
 
             var unitIds = await _context.Units
                 .Where(u => u.CityId == departmentId.Value && !u.IsDeleted)
@@ -1752,6 +1775,9 @@ public class CityAdminService(
 
             if (filter.UnitId.HasValue)
                 query = query.Where(r => r.UnitId == filter.UnitId.Value);
+
+            // ADD THIS: Get total count
+            var totalCount = await query.CountAsync();
 
             var reviews = await query
                 .OrderByDescending(r => r.CreatedAt)
@@ -1774,11 +1800,13 @@ public class CityAdminService(
                 })
                 .ToListAsync();
 
-            return Result.Success<IEnumerable<ReviewResponse>>(reviews);
+            // CHANGE RETURN:
+            var paginatedResult = CreatePaginatedResponse(reviews, totalCount, filter.Page, filter.PageSize);
+            return Result.Success(paginatedResult);
         }
         catch (Exception ex)
         {
-            return Result.Failure<IEnumerable<ReviewResponse>>(
+            return Result.Failure<PaginatedResponse<ReviewResponse>>(
                 new Error("GetReviewsFailed", "Failed to retrieve reviews", 500));
         }
     }
@@ -1787,15 +1815,17 @@ public class CityAdminService(
 
     #region SUBUNITS MANAGEMENT
 
-    public async Task<Result<IEnumerable<SubUnitComprehensiveDetail>>> GetCitySubUnitsAsync(
-        string userId,
-        int? unitId = null)
+    public async Task<Result<PaginatedResponse<SubUnitComprehensiveDetail>>> GetCitySubUnitsAsync(
+     string userId,
+     int? unitId = null,
+     int page = 1,
+     int pageSize = 10)
     {
         try
         {
             var departmentId = await GetAdminDepartmentIdAsync(userId);
             if (!departmentId.IsSuccess)
-                return Result.Failure<IEnumerable<SubUnitComprehensiveDetail>>(departmentId.Error);
+                return Result.Failure<PaginatedResponse<SubUnitComprehensiveDetail>>(departmentId.Error);
 
             var query = _context.SubUnits
                 .Include(s => s.Unit)
@@ -1809,9 +1839,14 @@ public class CityAdminService(
             if (unitId.HasValue)
                 query = query.Where(s => s.UnitId == unitId.Value);
 
+            // ADD THIS: Get total count before pagination
+            var totalCount = await query.CountAsync();
+
             var subUnits = await query
                 .OrderBy(s => s.Unit.Name)
                 .ThenBy(s => s.RoomNumber)
+                .Skip((page - 1) * pageSize)  // ADD pagination
+                .Take(pageSize)                // ADD pagination
                 .ToListAsync();
 
             var responses = subUnits.Select(s => new SubUnitComprehensiveDetail
@@ -1843,11 +1878,13 @@ public class CityAdminService(
                 }).ToList(),
             }).ToList();
 
-            return Result.Success<IEnumerable<SubUnitComprehensiveDetail>>(responses);
+            // CHANGE RETURN:
+            var paginatedResult = CreatePaginatedResponse(responses, totalCount, page, pageSize);
+            return Result.Success(paginatedResult);
         }
         catch (Exception ex)
         {
-            return Result.Failure<IEnumerable<SubUnitComprehensiveDetail>>(
+            return Result.Failure<PaginatedResponse<SubUnitComprehensiveDetail>>(
                 new Error("GetSubUnitsFailed", "Failed to retrieve subunits", 500));
         }
     }
@@ -2262,7 +2299,7 @@ public class CityAdminService(
 
     #region BOOKINGS MANAGEMENT
 
-    public async Task<Result<IEnumerable<BookingComprehensiveResponse>>> GetCityBookingsAsync(
+    public async Task<Result<PaginatedResponse<BookingComprehensiveResponse>>> GetCityBookingsAsync(
         string userId,
         Contracts.CityAdminContracts.BookingFilter filter)
     {
@@ -2270,7 +2307,7 @@ public class CityAdminService(
         {
             var departmentId = await GetAdminDepartmentIdAsync(userId);
             if (!departmentId.IsSuccess)
-                return Result.Failure<IEnumerable<BookingComprehensiveResponse>>(departmentId.Error);
+                return Result.Failure<PaginatedResponse<BookingComprehensiveResponse>>(departmentId.Error);
 
             var unitIds = await _context.Units
                 .Where(u => u.CityId == departmentId.Value && !u.IsDeleted)
@@ -2297,6 +2334,8 @@ public class CityAdminService(
 
             if (filter.EndDate.HasValue)
                 query = query.Where(b => b.CheckOutDate <= filter.EndDate.Value);
+
+            var totalCount = await query.CountAsync();
 
             var bookings = await query
                 .OrderByDescending(b => b.CreatedAt)
@@ -2330,11 +2369,12 @@ public class CityAdminService(
                 CreatedAt = b.CreatedAt
             }).ToList();
 
-            return Result.Success<IEnumerable<BookingComprehensiveResponse>>(responses);
+            var paginatedResult = CreatePaginatedResponse(responses, totalCount, filter.Page, filter.PageSize);
+            return Result.Success(paginatedResult);
         }
         catch (Exception ex)
         {
-            return Result.Failure<IEnumerable<BookingComprehensiveResponse>>(
+            return Result.Failure<PaginatedResponse<BookingComprehensiveResponse>>(
                 new Error("GetBookingsFailed", "Failed to retrieve bookings", 500));
         }
     }
@@ -2719,18 +2759,16 @@ public class CityAdminService(
 
     #endregion
 
-
     #region UNITS MANAGEMENT
 
-    public async Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetCityUnitsAsync(
-        string userId,
+    public async Task<Result<PaginatedResponse<UnitComprehensiveResponse>>> GetCityUnitsAsync(string userId,
         UnitFilter filter)
     {
         try
         {
             var departmentId = await GetAdminDepartmentIdAsync(userId);
             if (!departmentId.IsSuccess)
-                return Result.Failure<IEnumerable<UnitComprehensiveResponse>>(departmentId.Error);
+                return Result.Failure<PaginatedResponse<UnitComprehensiveResponse>>(departmentId.Error);
 
             var query = _context.Units
                 .Include(u => u.City)
@@ -2752,6 +2790,8 @@ public class CityAdminService(
             if (filter.IsVerified.HasValue)
                 query = query.Where(u => u.IsVerified == filter.IsVerified.Value);
 
+            var totalCount = await query.CountAsync();
+
             var units = await query.ToListAsync();
 
             // Get general policies
@@ -2765,11 +2805,12 @@ public class CityAdminService(
             var responses = units.Select(u => MapToComprehensiveResponse(u,
                 generalPolicies.Where(p => p.UnitId == u.Id).ToList())).ToList();
 
-            return Result.Success<IEnumerable<UnitComprehensiveResponse>>(responses);
+            var paginatedResult = CreatePaginatedResponse(responses, totalCount, filter.Page, filter.PageSize);
+            return Result.Success(paginatedResult);
         }
         catch (Exception ex)
         {
-            return Result.Failure<IEnumerable<UnitComprehensiveResponse>>(
+            return Result.Failure<PaginatedResponse<UnitComprehensiveResponse>>(
                 new Error("GetUnitsFailed", "Failed to retrieve units", 500));
         }
     }
@@ -3843,4 +3884,25 @@ public class CityAdminService(
     }
 
     #endregion
+
+
+
+    private PaginatedResponse<T> CreatePaginatedResponse<T>(
+        IEnumerable<T> items,
+        int totalCount,
+        int page,
+        int pageSize)
+    {
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        return new PaginatedResponse<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            CurrentPage = page,
+            NextPage = page < totalPages ? page + 1 : null,
+            PrevPage = page > 1 ? page - 1 : null
+        };
+    }
 }
