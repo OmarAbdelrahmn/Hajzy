@@ -1,5 +1,6 @@
 ﻿using Application.Contracts.Admin;
 using Application.Contracts.Bookin;
+using Application.Extensions;
 using Application.Service.Admin;
 using Application.User;
 using Microsoft.AspNetCore.Authorization;
@@ -113,6 +114,19 @@ public class AdminController(IAdminService service,IUserService service1) : Cont
             user.ToProblem();
     }
 
+    [HttpGet("dashboard")]
+    public async Task<IActionResult> GetDashboard()
+    {
+        var result = await service.GetDashboardAsync(User.GetUserId()!);
+        return result.IsSuccess ? Ok(result.Value) : BadRequest(result.Error);
+    }
+
+    [HttpGet("stats")]
+    public async Task<IActionResult> GetStats()
+    {
+        var result = await service.GetQuickStatsAsync(User.GetUserId()!);
+        return result.IsSuccess ? Ok(result.Value) : BadRequest(result.Error);
+    }
 
 
 }
