@@ -1091,14 +1091,15 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     /// <summary>
     /// Upload new image for a unit
     /// </summary>
-    [HttpPost("units/{unitId}/images/upload")]
-    [Consumes("multipart/form-data")]
+    [HttpPost("unit/images/upload")]
     public async Task<IActionResult> UploadUnitImage(
-        [FromForm] IFormFile image,
-        [FromForm] string? caption)
+        [FromForm] UploadDto request)
     {
         var userId = User.GetUserId();
-        var result = await _hotelAdminService.UploadUnitImageAsync(userId!, image, caption);
+        var result = await _hotelAdminService.UploadUnitImageAsync(userId!, request.image,request.caption);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
+
+    public record UploadDto(IFormFile image, string? caption);
+  
 }

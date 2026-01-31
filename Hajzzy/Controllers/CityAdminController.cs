@@ -153,13 +153,12 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
     /// </summary>
     [HttpPatch("units/{unitId}/verify")]
     public async Task<IActionResult> ToggleUnitVerification(
-        int unitId,
-        [FromBody] bool isVerified)
+        int unitId)
     {
         var userId = User.GetUserId();
-        var result = await _cityAdminService.ToggleUnitVerificationAsync(userId!, unitId, isVerified);
+        var result = await _cityAdminService.ToggleUnitVerificationAsync(userId!, unitId);
         return result.IsSuccess
-            ? Ok(new { message = $"Unit {(isVerified ? "verified" : "unverified")} successfully" })
+            ? Ok(new { message = $"done successfully" })
             : result.ToProblem();
     }
 
@@ -168,13 +167,12 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
     /// </summary>
     [HttpPatch("units/{unitId}/feature")]
     public async Task<IActionResult> ToggleUnitFeatured(
-        int unitId,
-        [FromBody] bool isFeatured)
+        int unitId)
     {
         var userId = User.GetUserId();
-        var result = await _cityAdminService.ToggleUnitFeaturedAsync(userId!, unitId, isFeatured);
+        var result = await _cityAdminService.ToggleUnitFeaturedAsync(userId!, unitId);
         return result.IsSuccess
-            ? Ok(new { message = $"Unit {(isFeatured ? "featured" : "unfeatured")} successfully" })
+            ? Ok(new { message = $"done successfully" })
             : result.ToProblem();
     }
 
@@ -183,13 +181,12 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
     /// </summary>
     [HttpPatch("units/{unitId}/status")]
     public async Task<IActionResult> ToggleUnitStatus(
-        int unitId,
-        [FromBody] bool isActive)
+        int unitId)
     {
         var userId = User.GetUserId();
-        var result = await _cityAdminService.ToggleUnitStatusAsync(userId!, unitId, isActive);
+        var result = await _cityAdminService.ToggleUnitStatusAsync(userId!, unitId);
         return result.IsSuccess
-            ? Ok(new { message = $"Unit {(isActive ? "activated" : "deactivated")} successfully" })
+            ? Ok(new { message = $"done successfully" })
             : result.ToProblem();
     }
 
@@ -453,20 +450,11 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
             : result.ToProblem();
     }
 
-    [HttpPost("departments/{departmentId}/images")]
-    [Consumes("multipart/form-data")] // ADD THIS
+    [HttpPost("department/image")]
     public async Task<IActionResult> UploadDepartmentImage(
-        [FromForm] IFormFile image, // CHANGE THIS
-        [FromForm] string? caption,
-        [FromForm] string? imageType)
+        [FromForm] UploadDepartmentImageRequest request)
     {
         var userId = User.GetUserId();
-        var request = new UploadDepartmentImageRequest
-        {
-            ImageFile = image,
-            Caption = caption,
-            ImageType = imageType
-        };
         var result = await _cityAdminService.UploadDepartmentImageAsync(userId!, request);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }

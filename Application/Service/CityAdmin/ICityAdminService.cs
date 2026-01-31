@@ -84,24 +84,21 @@ public interface ICityAdminService
     /// </summary>
     Task<Result> ToggleUnitVerificationAsync(
         string userId,
-        int unitId,
-        bool isVerified);
+        int unitId);
 
     /// <summary>
     /// Feature/Unfeature a unit
     /// </summary>
     Task<Result> ToggleUnitFeaturedAsync(
         string userId,
-        int unitId,
-        bool isFeatured);
+        int unitId);
 
     /// <summary>
     /// Activate/Deactivate a unit
     /// </summary>
     Task<Result> ToggleUnitStatusAsync(
         string userId,
-        int unitId,
-        bool isActive);
+        int unitId);
 
     // ============= BOOKING MANAGEMENT =============
 

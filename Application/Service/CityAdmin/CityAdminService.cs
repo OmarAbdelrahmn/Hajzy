@@ -302,8 +302,13 @@ public class CityAdminService(
             if (!departmentId.IsSuccess)
                 return Result.Failure<PaginatedResponse<CouponResponse>>(departmentId.Error);
 
+            var UnitsIds = await _context.Units
+                .Where(u => u.CityId == departmentId.Value && !u.IsDeleted)
+                .Select(u => u.Id)
+                .ToListAsync();
+
             var query = _context.Coupons
-                .Where(c => c.TargetCityId == departmentId.Value)
+                .Where(c => c.TargetCityId == departmentId.Value || (c.TargetUnitId.HasValue && UnitsIds.Contains(c.TargetUnitId.Value)))
                 .AsQueryable();
 
             if (filter.IsActive.HasValue)
@@ -422,8 +427,13 @@ public class CityAdminService(
             if (!departmentId.IsSuccess)
                 return Result.Failure(departmentId.Error);
 
+            var UnitsIds = await _context.Units
+              .Where(u => u.CityId == departmentId.Value && !u.IsDeleted)
+              .Select(u => u.Id)
+              .ToListAsync();
+
             var coupon = await _context.Coupons
-                .FirstOrDefaultAsync(c => c.Id == couponId && c.TargetCityId == departmentId.Value);
+                .FirstOrDefaultAsync(c => c.Id == couponId && c.TargetCityId == departmentId.Value || (c.TargetUnitId.HasValue && UnitsIds.Contains(c.TargetUnitId.Value)));
 
             if (coupon == null)
                 return Result.Failure(new Error("NotFound", "Coupon not found", 404));
@@ -2888,8 +2898,7 @@ public class CityAdminService(
 
     public async Task<Result> ToggleUnitVerificationAsync(
         string userId,
-        int unitId,
-        bool isVerified)
+        int unitId)
     {
         try
         {
@@ -2904,7 +2913,7 @@ public class CityAdminService(
             if (unit == null)
                 return Result.Failure(new Error("NotFound", "Unit not found", 404));
 
-            unit.IsVerified = isVerified;
+            unit.IsVerified = !unit.IsVerified;
             unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
 
             await _context.SaveChangesAsync();
@@ -2918,8 +2927,7 @@ public class CityAdminService(
 
     public async Task<Result> ToggleUnitFeaturedAsync(
         string userId,
-        int unitId,
-        bool isFeatured)
+        int unitId)
     {
         try
         {
@@ -2934,7 +2942,7 @@ public class CityAdminService(
             if (unit == null)
                 return Result.Failure(new Error("NotFound", "Unit not found", 404));
 
-            unit.IsFeatured = isFeatured;
+            unit.IsFeatured = !unit.IsFeatured;
             unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
 
             await _context.SaveChangesAsync();
@@ -2949,8 +2957,7 @@ public class CityAdminService(
 
     public async Task<Result> ToggleUnitStatusAsync(
         string userId,
-        int unitId,
-        bool isActive)
+        int unitId)
     {
         try
         {
@@ -2965,7 +2972,7 @@ public class CityAdminService(
             if (unit == null)
                 return Result.Failure(new Error("NotFound", "Unit not found", 404));
 
-            unit.IsActive = isActive;
+            unit.IsActive = !unit.IsActive;
             unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
 
             await _context.SaveChangesAsync();
