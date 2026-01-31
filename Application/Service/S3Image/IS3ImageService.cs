@@ -26,6 +26,27 @@ public interface IS3ImageService
 
     string GetCloudFrontUrl(string s3Key);
 
+    /// <summary>
+    /// Upload department image to S3
+    /// </summary>
+    /// <summary>
+    /// Upload department image - converted to WebP, single size only
+    /// </summary>
+    Task<Result<S3UploadResult>> UploadDepartmentImageAsync(
+        IFormFile image,
+        int departmentId,
+        string userId);
 
+    /// <summary>
+    /// Upload unit image - converted to WebP, single size only
+    /// </summary>
+    Task<Result<S3UploadResult>> UploadUnitImageAsync(
+        IFormFile image,
+        int unitId,
+        string userId);
+
+    public record S3UploadResult(
+        string ImageUrl,
+        string S3Key);
 
 }

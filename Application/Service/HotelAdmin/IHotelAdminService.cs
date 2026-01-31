@@ -1,10 +1,16 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.hoteladmincont;
+using Microsoft.AspNetCore.Http;
 
 namespace Application.Service.HotelAdmin;
 
 public interface IHotelAdminService
 {
+    Task<Result<ImageDetailResponse>> UploadUnitImageAsync(
+    string userId,
+    IFormFile image,
+    string? caption = null);
+
     /// <summary>
     /// Get comprehensive dashboard data for hotel admin
     /// </summary>

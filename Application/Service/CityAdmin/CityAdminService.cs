@@ -1183,7 +1183,7 @@ public class CityAdminService(
         }
     }
 
-    public async Task<Result> ToggleUnitAdminStatusAsync(string userId, int unitAdminId, bool isActive)
+    public async Task<Result> ToggleUnitAdminStatusAsync(string userId, int unitAdminId)
     {
         try
         {
@@ -1199,7 +1199,7 @@ public class CityAdminService(
                 return Result.Failure(
                     new Error("NoAccess", "You do not have access to this unit", 403));
 
-            unitAdmin.IsActive = isActive;
+            unitAdmin.IsActive = !unitAdmin.IsActive;
             await _context.SaveChangesAsync();
 
             return Result.Success();
@@ -2060,40 +2060,62 @@ public class CityAdminService(
         }
     }
 
+
     public async Task<Result<DepartmentImageResponse>> UploadDepartmentImageAsync(
         string userId,
-        int departmentId,
         UploadDepartmentImageRequest request)
     {
         try
         {
+            var departmentI = await GetAdminDepartmentIdAsync(userId);
+            if (!departmentI.IsSuccess)
+                return Result.Failure<DepartmentImageResponse>(departmentI.Error);
+
+            var departmentId = departmentI.Value;
+
+            // Check access
             var hasAccess = await IsCityAdminAsync(userId, departmentId);
             if (!hasAccess.Value)
                 return Result.Failure<DepartmentImageResponse>(
                     new Error("NoAccess", "You do not have access to this department", 403));
 
+            // Upload image to S3
+            var uploadResult = await _s3Service.UploadDepartmentImageAsync(
+                request.ImageFile,
+                departmentId,
+                userId);
+
+            if (!uploadResult.IsSuccess)
+                return Result.Failure<DepartmentImageResponse>(uploadResult.Error);
+
+            // Parse image type
             var imageType = Enum.TryParse<DepartmentImageType>(request.ImageType, out var type)
                 ? type
                 : DepartmentImageType.General;
 
+            // Create database record
             var image = new DepartmentImage
             {
                 DepartmentId = departmentId,
-                ImageUrl = request.ImageUrl,
-                S3Key = request.S3Key,
+                ImageUrl = uploadResult.Value.ImageUrl,
+                S3Key = uploadResult.Value.S3Key,
                 S3Bucket = "hujjzy-bucket",
+                ThumbnailUrl = null, // No thumbnail
+                MediumUrl = null,    // No medium size
                 Caption = request.Caption,
                 ImageType = imageType,
                 IsPrimary = false,
                 DisplayOrder = 0,
                 UploadedByUserId = userId,
                 UploadedAt = DateTime.UtcNow.AddHours(3),
-                ProcessingStatus = ImageProcessingStatus.Completed
+                ProcessingStatus = ImageProcessingStatus.Completed,
+                MimeType = "image/webp"
             };
 
             _context.Set<DepartmentImage>().Add(image);
             await _context.SaveChangesAsync();
 
+            // Return response
             var response = new DepartmentImageResponse
             {
                 Id = image.Id,
@@ -2105,14 +2127,16 @@ public class CityAdminService(
                 ImageType = image.ImageType.ToString(),
                 UploadedAt = image.UploadedAt
             };
+
             return Result.Success(response);
         }
         catch (Exception ex)
         {
             return Result.Failure<DepartmentImageResponse>(
-                new Error("UploadFailed", "Failed to upload image", 500));
+                new Error("UploadFailed", $"Failed to upload image: {ex.Message}", 500));
         }
     }
+
 
     #endregion
 
@@ -3578,7 +3602,7 @@ public class CityAdminService(
 
     #region USER/GUEST MANAGEMENT
 
-    public async Task<Result<IEnumerable<CityUserResponse>>> GetCityUsersAsync(
+    public async Task<Result<PaginatedResponse<CityUserResponse>>> GetCityUsersAsync(
         string userId,
         UserFilter filter)
     {
@@ -3586,7 +3610,7 @@ public class CityAdminService(
         {
             var departmentId = await GetAdminDepartmentIdAsync(userId);
             if (!departmentId.IsSuccess)
-                return Result.Failure<IEnumerable<CityUserResponse>>(departmentId.Error);
+                return Result.Failure<PaginatedResponse<CityUserResponse>>(departmentId.Error);
 
             var unitIds = await _context.Units
                 .Where(u => u.CityId == departmentId.Value && !u.IsDeleted)
@@ -3625,6 +3649,8 @@ public class CityAdminService(
                 .Where(u => userIds.Contains(u.Id))
                 .ToDictionaryAsync(u => u.Id);
 
+            var totalCount = await query.CountAsync();
+
             var responses = userStats.Select(stat => new CityUserResponse
             {
                 UserId = stat.UserId,
@@ -3637,12 +3663,13 @@ public class CityAdminService(
                 CreatedAt = users.ContainsKey(stat.UserId) ? users[stat.UserId].CreatedAt : DateTime.UtcNow
             }).ToList();
 
-            return Result.Success<IEnumerable<CityUserResponse>>(responses);
+            var paginatedResult = CreatePaginatedResponse(responses, totalCount, filter.Page, filter.PageSize);
+            return Result.Success(paginatedResult);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting city users");
-            return Result.Failure<IEnumerable<CityUserResponse>>(
+            return Result.Failure<PaginatedResponse<CityUserResponse>>(
                 new Error("GetUsersFailed", "Failed to retrieve users", 500));
         }
     }

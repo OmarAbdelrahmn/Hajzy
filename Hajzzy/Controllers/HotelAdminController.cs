@@ -1087,4 +1087,18 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     //}
 
     #endregion
+
+    /// <summary>
+    /// Upload new image for a unit
+    /// </summary>
+    [HttpPost("units/{unitId}/images/upload")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UploadUnitImage(
+        [FromForm] IFormFile image,
+        [FromForm] string? caption)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.UploadUnitImageAsync(userId!, image, caption);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
 }

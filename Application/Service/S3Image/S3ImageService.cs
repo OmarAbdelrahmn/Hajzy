@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Processing;
+using static Application.Service.S3Image.IS3ImageService;
 
 namespace Application.Service.S3Image;
 
@@ -31,6 +32,8 @@ public class S3ImageService : IS3ImageService
     /// <summary>
     /// Upload and convert images to WebP in parallel - faster than sequential
     /// </summary>
+    /// 
+
     public async Task<Result<List<string>>> UploadRegistrationImagesAsync(
         List<IFormFile> images,
         int requestId)
@@ -354,4 +357,135 @@ public class S3ImageService : IS3ImageService
 
         return Result.Success();
     }
+
+
+    /// <summary>
+    /// Upload department image - converted to WebP, single size only
+    /// </summary>
+    public async Task<Result<S3UploadResult>> UploadDepartmentImageAsync(
+        IFormFile image,
+        int departmentId,
+        string userId)
+    {
+        try
+        {
+            var validationResult = ValidateImage(image);
+            if (!validationResult.IsSuccess)
+                return Result.Failure<S3UploadResult>(validationResult.Error);
+
+            var transferUtility = new TransferUtility(_s3Client);
+            var s3Key = $"departments/{departmentId}/images/{Guid.NewGuid()}.webp";
+
+            // Convert to WebP in background thread (CPU-bound work)
+            using var inputStream = image.OpenReadStream();
+            using var webpStream = new MemoryStream();
+
+            await Task.Run(() => ConvertToWebp(inputStream, webpStream));
+            webpStream.Position = 0;
+
+            var uploadRequest = new TransferUtilityUploadRequest
+            {
+                InputStream = webpStream,
+                Key = s3Key,
+                BucketName = _bucketName,
+                ContentType = "image/webp",
+                CannedACL = S3CannedACL.Private,
+                Metadata =
+                {
+                    ["original-filename"] = image.FileName,
+                    ["uploaded-at"] = DateTime.UtcNow.ToString("o"),
+                    ["department-id"] = departmentId.ToString(),
+                    ["uploaded-by"] = userId
+                }
+            };
+
+            await transferUtility.UploadAsync(uploadRequest);
+
+            var imageUrl = GetCloudFrontUrl(s3Key);
+            return Result.Success(new S3UploadResult(imageUrl, s3Key));
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure<S3UploadResult>(
+                new Error("UploadFailed", $"Failed to upload department image: {ex.Message}", 500));
+        }
+    }
+
+    /// <summary>
+    /// Upload unit image - converted to WebP, single size only
+    /// </summary>
+    public async Task<Result<S3UploadResult>> UploadUnitImageAsync(
+        IFormFile image,
+        int unitId,
+        string userId)
+    {
+        try
+        {
+            var validationResult = ValidateImage(image);
+            if (!validationResult.IsSuccess)
+                return Result.Failure<S3UploadResult>(validationResult.Error);
+
+            var transferUtility = new TransferUtility(_s3Client);
+            var s3Key = $"units/{unitId}/images/{Guid.NewGuid()}.webp";
+
+            // Convert to WebP in background thread (CPU-bound work)
+            using var inputStream = image.OpenReadStream();
+            using var webpStream = new MemoryStream();
+
+            await Task.Run(() => ConvertToWebp(inputStream, webpStream));
+            webpStream.Position = 0;
+
+            var uploadRequest = new TransferUtilityUploadRequest
+            {
+                InputStream = webpStream,
+                Key = s3Key,
+                BucketName = _bucketName,
+                ContentType = "image/webp",
+                CannedACL = S3CannedACL.Private,
+                Metadata =
+                {
+                    ["original-filename"] = image.FileName,
+                    ["uploaded-at"] = DateTime.UtcNow.ToString("o"),
+                    ["unit-id"] = unitId.ToString(),
+                    ["uploaded-by"] = userId
+                }
+            };
+
+            await transferUtility.UploadAsync(uploadRequest);
+
+            var imageUrl = GetCloudFrontUrl(s3Key);
+            return Result.Success(new S3UploadResult(imageUrl, s3Key));
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure<S3UploadResult>(
+                new Error("UploadFailed", $"Failed to upload unit image: {ex.Message}", 500));
+        }
+    }
+
+
+
+    private Result ValidateImage(IFormFile image)
+    {
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+        var maxFileSize = 10 * 1024 * 1024; // 10MB
+
+        var extension = Path.GetExtension(image.FileName).ToLowerInvariant();
+
+        if (!allowedExtensions.Contains(extension))
+            return Result.Failure(
+                new Error("InvalidFormat", $"Invalid image format: {extension}", 400));
+
+        if (image.Length > maxFileSize)
+            return Result.Failure(
+                new Error("FileTooLarge", "Image size must be less than 10MB", 400));
+
+        if (image.Length == 0)
+            return Result.Failure(
+                new Error("EmptyFile", "Empty image file detected", 400));
+
+        return Result.Success();
+    }
+
+
 }

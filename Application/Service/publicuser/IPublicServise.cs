@@ -6,6 +6,7 @@ using Application.Contracts.Unit;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using static Application.Service.publicuser.PublicService;
 
 namespace Application.Service.publicuser;
     public interface IPublicServise
@@ -13,7 +14,7 @@ namespace Application.Service.publicuser;
     // <summary>
     /// Get all units with public information only
     /// </summary>
-    Task<Result<IEnumerable<PublicUnitResponse>>> GetAllUnitsAsync(PublicUnitFilter filter);
+    Task<Result<PaginatedResponse<PublicUnitResponse>>> GetAllUnitsAsync(PublicUnitFilter filter);
 
     /// <summary>
     /// Get single unit details (public view)
@@ -60,7 +61,7 @@ namespace Application.Service.publicuser;
     /// <summary>
     /// Get units by city
     /// </summary>
-    Task<Result<IEnumerable<PublicUnitResponse>>> GetUnitsByCityAsync(
+    Task<Result<PaginatedResponse<PublicUnitResponse>>> GetUnitsByCityAsync(
         int cityId,
         PublicUnitFilter? filter = null);
 

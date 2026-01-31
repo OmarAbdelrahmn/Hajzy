@@ -19,7 +19,7 @@ public class PublicService(
     private readonly ApplicationDbcontext _context = context;
     #region UNITS
 
-    public async Task<Result<IEnumerable<PublicUnitResponse>>> GetAllUnitsAsync(PublicUnitFilter filter)
+    public async Task<Result<PaginatedResponse<PublicUnitResponse>>> GetAllUnitsAsync(PublicUnitFilter filter)
     {
         try
         {
@@ -83,6 +83,8 @@ public class PublicService(
             // Sorting
             query = ApplySorting(query, filter.SortBy, filter.SortDirection);
 
+            var totalCount = await query.CountAsync();
+
             // Pagination
             var skip = (filter.Page - 1) * filter.PageSize;
             var units = await query
@@ -93,11 +95,12 @@ public class PublicService(
 
             var responses = units.Select(MapToPublicResponse).ToList();
 
-            return Result.Success<IEnumerable<PublicUnitResponse>>(responses);
+            var paginatedResult = CreatePaginatedResponse(responses, totalCount, filter.Page, filter.PageSize);
+            return Result.Success(paginatedResult);
         }
         catch (Exception ex)
         {
-            return Result.Failure<IEnumerable<PublicUnitResponse>>(
+            return Result.Failure<PaginatedResponse<PublicUnitResponse>>(
                 new Error("GetFailed", "Failed to retrieve units", 500));
         }
     }
@@ -474,7 +477,7 @@ public class PublicService(
         }
     }
 
-    public async Task<Result<IEnumerable<PublicUnitResponse>>> GetUnitsByCityAsync(
+    public async Task<Result<PaginatedResponse<PublicUnitResponse>>> GetUnitsByCityAsync(
         int cityId,
         PublicUnitFilter? filter = null)
     {
@@ -929,5 +932,33 @@ public class PublicService(
             IsActive: unitType.IsActive,
             TotalUnits: totalUnits
         );
+    }
+
+    private PaginatedResponse<T> CreatePaginatedResponse<T>(
+      IEnumerable<T> items,
+      int totalCount,
+      int page,
+      int pageSize)
+    {
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        return new PaginatedResponse<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            CurrentPage = page,
+            NextPage = page < totalPages ? page + 1 : null,
+            PrevPage = page > 1 ? page - 1 : null
+        };
+    }
+    public class PaginatedResponse<T>
+    {
+        public IEnumerable<T> Items { get; set; } = [];
+        public int TotalPages { get; set; }
+        public int CurrentPage { get; set; }
+        public int? NextPage { get; set; }
+        public int? PrevPage { get; set; }
+        public int TotalCount { get; set; }
     }
 }

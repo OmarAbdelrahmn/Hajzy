@@ -6,6 +6,7 @@ using Application.Service.AdService;
 using Application.Service.CityAdmin;
 using Domain;
 using Domain.Entities;
+using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
@@ -535,12 +536,11 @@ public record UpdateDepartmentRequest
     public decimal? Longitude { get; set; }
 }
 
-public record UploadDepartmentImageRequest
+public class UploadDepartmentImageRequest
 {
-    public string ImageUrl { get; set; } = string.Empty;
-    public string S3Key { get; set; } = string.Empty;
+    public IFormFile ImageFile { get; set; } = default!; // ADD THIS
     public string? Caption { get; set; }
-    public string ImageType { get; set; } = "General";
+    public string? ImageType { get; set; }
 }
 
 public record AssignUnitAdminRequest

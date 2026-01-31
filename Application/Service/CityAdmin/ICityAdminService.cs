@@ -245,7 +245,6 @@ public interface ICityAdminService
     /// </summary>
     Task<Result<DepartmentImageResponse>> UploadDepartmentImageAsync(
         string userId,
-        int departmentId,
         UploadDepartmentImageRequest request);
 
     // ============= UNIT IMAGES MANAGEMENT =============
@@ -364,8 +363,7 @@ public interface ICityAdminService
     /// </summary>
     Task<Result> ToggleUnitAdminStatusAsync(
         string userId,
-        int unitAdminId,
-        bool isActive);
+        int unitAdminId);
 
     // ============= POLICIES MANAGEMENT =============
 
@@ -474,7 +472,7 @@ public interface ICityAdminService
     /// <summary>
     /// Get all users who booked in the city
     /// </summary>
-    Task<Result<IEnumerable<CityUserResponse>>> GetCityUsersAsync(
+    Task<Result<PaginatedResponse<CityUserResponse>>> GetCityUsersAsync(
         string userId,
         UserFilter filter);
 

@@ -453,16 +453,21 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
             : result.ToProblem();
     }
 
-    /// <summary>
-    /// Upload new department image
-    /// </summary>
     [HttpPost("departments/{departmentId}/images")]
+    [Consumes("multipart/form-data")] // ADD THIS
     public async Task<IActionResult> UploadDepartmentImage(
-        int departmentId,
-        [FromBody] UploadDepartmentImageRequest request)
+        [FromForm] IFormFile image, // CHANGE THIS
+        [FromForm] string? caption,
+        [FromForm] string? imageType)
     {
         var userId = User.GetUserId();
-        var result = await _cityAdminService.UploadDepartmentImageAsync(userId!, departmentId, request);
+        var request = new UploadDepartmentImageRequest
+        {
+            ImageFile = image,
+            Caption = caption,
+            ImageType = imageType
+        };
+        var result = await _cityAdminService.UploadDepartmentImageAsync(userId!, request);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
@@ -662,13 +667,12 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
     /// </summary>
     [HttpPatch("unit-admins/{unitAdminId}/status")]
     public async Task<IActionResult> ToggleUnitAdminStatus(
-        int unitAdminId,
-        [FromBody] bool isActive)
+        int unitAdminId)
     {
         var userId = User.GetUserId();
-        var result = await _cityAdminService.ToggleUnitAdminStatusAsync(userId!, unitAdminId, isActive);
+        var result = await _cityAdminService.ToggleUnitAdminStatusAsync(userId!, unitAdminId);
         return result.IsSuccess
-            ? Ok(new { message = $"Unit admin {(isActive ? "activated" : "deactivated")} successfully" })
+            ? Ok(new { message = $"done uccessfully" })
             : result.ToProblem();
     }
 

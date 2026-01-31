@@ -1,8 +1,10 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.hoteladmincont;
 using Application.Service.Avilabilaties;
+using Application.Service.S3Image;
 using Domain;
 using Domain.Entities;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -11,12 +13,14 @@ namespace Application.Service.HotelAdmin;
 public class HotelAdminService(
     ApplicationDbcontext context,
     ILogger<HotelAdminService> logger,
-    IAvailabilityService availabilityService
+    IAvailabilityService availabilityService,
+    IS3ImageService service
     ) : IHotelAdminService
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly ILogger<HotelAdminService> _logger = logger;
     private readonly IAvailabilityService _availabilityService = availabilityService;
+    private readonly IS3ImageService service = service;
 
     #region DASHBOARD & OVERVIEW
 
@@ -3936,4 +3940,70 @@ public class HotelAdminService(
     //}
 
     #endregion
+
+
+    public async Task<Result<ImageDetailResponse>> UploadUnitImageAsync(
+        string userId,
+        IFormFile image,
+        string? caption = null)
+    {
+        try
+        {   
+            var adminUnits = await GetUserAdminUnitsAsync(userId);
+
+            if (!adminUnits.Any())
+                return Result.Failure<ImageDetailResponse>(
+                    new Error("NoAccess", "User is not a hotel administrator", 403));
+
+            var query = adminUnits.AsQueryable();
+
+            // Check access
+                
+            var unitId = adminUnits.First().Id;
+
+            // Upload to S3
+            var uploadResult = await service.UploadUnitImageAsync(image, unitId, userId);
+            if (!uploadResult.IsSuccess)
+                return Result.Failure<ImageDetailResponse>(uploadResult.Error);
+
+            // Create database record
+            var unitImage = new Domain.Entities.UnitImage
+            {
+                UnitId = unitId,
+                ImageUrl = uploadResult.Value.ImageUrl,
+                S3Key = uploadResult.Value.S3Key,
+                S3Bucket = "hujjzy-bucket",
+                ThumbnailUrl = null, // No thumbnail
+                MediumUrl = null,    // No medium size
+                Caption = caption,
+                IsPrimary = false,
+                DisplayOrder = 0,
+                UploadedByUserId = userId,
+                UploadedAt = DateTime.UtcNow.AddHours(3),
+                ProcessingStatus = ImageProcessingStatus.Completed,
+                MimeType = "image/webp"
+            };
+
+            _context.Set<Domain.Entities.UnitImage>().Add(unitImage);
+            await _context.SaveChangesAsync();
+
+            // Return response
+            return Result.Success(new ImageDetailResponse
+            {
+                Id = unitImage.Id,
+                ImageUrl = unitImage.ImageUrl,
+                ThumbnailUrl = unitImage.ThumbnailUrl,
+                IsPrimary = unitImage.IsPrimary,
+                DisplayOrder = unitImage.DisplayOrder,
+                Caption = unitImage.Caption,
+                UploadedAt = unitImage.UploadedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading unit image for unit {UnitId}");
+            return Result.Failure<ImageDetailResponse>(
+                new Error("UploadFailed", $"Failed to upload image: {ex.Message}", 500));
+        }
+    }
 }
