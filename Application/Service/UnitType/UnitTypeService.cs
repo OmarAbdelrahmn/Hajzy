@@ -1,4 +1,5 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.AD;
 using Application.Contracts.Unit;
 using Domain;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,55 @@ public class UnitTypeService(
         var response = MapToResponse(unitType, totalUnits);
         return Result.Success(response);
     }
+    public async Task<Result<PaginatedResponse<UnitTypeResponse>>> GetAllUnitTypesAsync(
+       int page = 1,
+       int pageSize = 10)
+    {
+        var query = _context.UnitTypes
+            .Where(ut => ut.IsActive)
+            .AsQueryable();
+
+        var totalCount = await query.CountAsync();
+
+        var unitTypes = await query
+            .OrderBy(ut => ut.Name)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var responses = unitTypes.Select(ut => new UnitTypeResponse(
+            ut.Id,
+            ut.Name,
+            ut.Description,
+            ut.IsActive,
+            _context.Units.Count(u => u.UnitTypeId == ut.Id && !u.IsDeleted)
+        )).ToList();
+
+        var paginatedResult = CreatePaginatedResponse(
+            responses, totalCount, page, pageSize);
+
+        return Result.Success(paginatedResult);
+    }
+
+    private PaginatedResponse<T> CreatePaginatedResponse<T>(
+        IEnumerable<T> items,
+        int totalCount,
+        int page,
+        int pageSize)
+            {
+                var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+                return new PaginatedResponse<T>
+                {
+                    Items = items,
+                    TotalCount = totalCount,
+                    TotalPages = totalPages,
+                    CurrentPage = page,
+                    NextPage = page < totalPages ? page + 1 : null,
+                    PrevPage = page > 1 ? page - 1 : null
+                };
+            }
 
     public async Task<Result<UnitTypeDetailsResponse>> GetDetailsAsync(int unitTypeId)
     {

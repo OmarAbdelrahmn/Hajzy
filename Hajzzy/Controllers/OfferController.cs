@@ -87,7 +87,7 @@ public class OfferController(IOfferService offerService) : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> GetCurrentActiveOffers()
     {
-        var result = await _offerService.GetCurrentActiveOffersAsync();
+        var result = await _offerService.GetActiveOffersAsync();
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 

@@ -5,6 +5,7 @@ using Application.Contracts.Bookin;
 using Application.Helpers;
 using Application.Notifications;
 using Application.Service.Avilabilaties;
+using Application.Service.OfferService;
 using Application.Service.PromoCode;
 using Domain;
 using Domain.Entities;
@@ -508,7 +509,7 @@ public class SubUnitBookingService(
         return Result.Success(await response.ConfigureAwait(false));
     }
 
-    public async Task<Result<IEnumerable<SubUnitBookingResponse>>> GetUserSubUnitBookingsAsync(
+    public async Task<Result<ISubUnitBookingServices.PaginatedResponse<SubUnitBookingResponse>>> GetUserSubUnitBookingsAsync(
         string userId,
         BookingFilter filter)
     {
@@ -520,6 +521,8 @@ public class SubUnitBookingService(
             .AsQueryable();
 
         query = ApplyFilters(query, filter);
+
+        var totalCount = await query.CountAsync();
 
         var bookings = await query
             .OrderByDescending(b => b.CreatedAt)
@@ -533,10 +536,13 @@ public class SubUnitBookingService(
             responses.Add(await MapToResponseAsync(booking));
         }
 
-        return Result.Success<IEnumerable<SubUnitBookingResponse>>(responses);
+        var paginatedResult = CreatePaginatedResponse(
+            responses, totalCount, filter.Page, filter.PageSize);
+
+        return Result.Success(paginatedResult);
     }
 
-    public async Task<Result<IEnumerable<SubUnitBookingResponse>>> GetSubUnitBookingsForRoomAsync(
+    public async Task<Result<ISubUnitBookingServices.PaginatedResponse<SubUnitBookingResponse>>> GetSubUnitBookingsForRoomAsync(
         int subUnitId,
         BookingFilter filter)
     {
@@ -551,6 +557,8 @@ public class SubUnitBookingService(
 
         query = ApplyFilters(query, filter);
 
+        var totalCount = await query.CountAsync();
+
         var bookings = await query
             .OrderByDescending(b => b.CreatedAt)
             .Skip((filter.Page - 1) * filter.PageSize)
@@ -563,9 +571,30 @@ public class SubUnitBookingService(
             responses.Add(await MapToResponseAsync(booking));
         }
 
-        return Result.Success<IEnumerable<SubUnitBookingResponse>>(responses);
+        var paginatedResult = CreatePaginatedResponse(
+            responses, totalCount, filter.Page, filter.PageSize);
+
+        return Result.Success(paginatedResult);
     }
 
+    private ISubUnitBookingServices.PaginatedResponse<T> CreatePaginatedResponse<T>(
+    IEnumerable<T> items,
+    int totalCount,
+    int page,
+    int pageSize)
+    {
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        return new ISubUnitBookingServices.PaginatedResponse<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            CurrentPage = page,
+            NextPage = page < totalPages ? page + 1 : null,
+            PrevPage = page > 1 ? page - 1 : null
+        };
+    }
     public async Task<Result<IEnumerable<SubUnitBookingResponse>>> GetSubUnitBookingsForUnitAsync(
         int unitId,
         BookingFilter filter)

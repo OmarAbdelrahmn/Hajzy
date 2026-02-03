@@ -15,7 +15,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace Application.Service.OfferService;
 
@@ -211,37 +210,43 @@ public class OfferService(
         return Result.Success(MapToResponse(offer));
     }
 
-    public async Task<Result<IEnumerable<OfferResponse>>> GetAllOffersAsync(OfferListFilter filter)
+    private IOfferService.PaginatedResponse<T> CreatePaginatedResponse<T>(
+        IEnumerable<T> items,
+        int totalCount,
+        int page,
+        int pageSize)
     {
-        var query = _context.Set<Offer>()
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        return new IOfferService.PaginatedResponse<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            CurrentPage = page,
+            NextPage = page < totalPages ? page + 1 : null,
+            PrevPage = page > 1 ? page - 1 : null
+        };
+    }
+
+
+    public async Task<Result<IOfferService.PaginatedResponse<OfferResponse>>> GetAllOffersAsync(OfferListFilter filter)
+    {
+        var query = _context.Offers
             .Include(o => o.Unit)
-            .ThenInclude(c=>c.UnitType)
-            .Include(o => o.User)
             .Where(o => !o.IsDeleted)
             .AsQueryable();
 
         if (filter.IsActive.HasValue)
             query = query.Where(o => o.IsActive == filter.IsActive.Value);
-     
+
         if (filter.IsFeatured.HasValue)
             query = query.Where(o => o.IsFeatured == filter.IsFeatured.Value);
-
-        if (filter.IsExpired.HasValue)
-        {
-            var now = DateTime.UtcNow;
-            query = filter.IsExpired.Value
-                ? query.Where(o => o.EndDate < now)
-                : query.Where(o => o.EndDate >= now);
-        }
 
         if (filter.UnitId.HasValue)
             query = query.Where(o => o.UnitId == filter.UnitId.Value);
 
-        if (filter.StartDateFrom.HasValue)
-            query = query.Where(o => o.StartDate >= filter.StartDateFrom.Value);
-
-        if (filter.StartDateTo.HasValue)
-            query = query.Where(o => o.StartDate <= filter.StartDateTo.Value);
+        var totalCount = await query.CountAsync();
 
         var offers = await query
             .OrderByDescending(o => o.CreatedAt)
@@ -250,46 +255,124 @@ public class OfferService(
             .AsNoTracking()
             .ToListAsync();
 
-        var responses = offers.Select(MapToResponse).ToList();
-        return Result.Success<IEnumerable<OfferResponse>>(responses);
+        var responses = offers.Select(o => new OfferResponse(
+            o.Id,
+            o.Title,
+            o.Description,
+            o.ImageUrl ?? string.Empty,
+            o.UnitId,
+            o.Unit?.Name,
+            o.Unit?.UnitType?.Name,
+            o.StartDate,
+            o.EndDate,
+            o.IsFeatured,
+            o.DiscountPercentage,
+            o.DiscountAmount,
+            o.IsActive,
+            o.IsExpired,
+            o.UserId,
+            o.User?.FullName,
+            o.CreatedAt
+        )).ToList();
+
+        var paginatedResult = CreatePaginatedResponse(
+            responses, totalCount, filter.Page, filter.PageSize);
+
+        return Result.Success(paginatedResult);
     }
 
-    public async Task<Result<IEnumerable<OfferResponse>>> GetCurrentActiveOffersAsync()
+    public async Task<Result<IOfferService.PaginatedResponse<OfferResponse>>> GetActiveOffersAsync(
+        int page = 1,
+        int pageSize = 10)
     {
         var now = DateTime.UtcNow;
 
-        var offers = await _context.Set<Offer>()
+        var query = _context.Offers
             .Include(o => o.Unit)
-            .ThenInclude(c=>c.UnitType)
-            .Include(o => o.User)
             .Where(o => !o.IsDeleted &&
                        o.IsActive &&
                        o.StartDate <= now &&
-                       o.EndDate >= now)
+                       o.EndDate >= now);
+
+        var totalCount = await query.CountAsync();
+
+        var offers = await query
             .OrderByDescending(o => o.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .AsNoTracking()
             .ToListAsync();
 
-        var responses = offers.Select(MapToResponse).ToList();
-        return Result.Success<IEnumerable<OfferResponse>>(responses);
+        var responses = offers.Select(o => new OfferResponse(
+            o.Id,
+            o.Title,
+            o.Description,
+            o.ImageUrl ?? string.Empty,
+            o.UnitId,
+            o.Unit?.Name,
+            o.Unit?.UnitType?.Name,
+            o.StartDate,
+            o.EndDate,
+            o.IsFeatured,
+            o.DiscountPercentage,
+            o.DiscountAmount,
+            o.IsActive,
+            o.IsExpired,
+            o.UserId,
+            o.User?.FullName,
+            o.CreatedAt
+        )).ToList();
+
+        var paginatedResult = CreatePaginatedResponse(
+            responses, totalCount, page, pageSize);
+
+        return Result.Success(paginatedResult);
     }
 
-    public async Task<Result<IEnumerable<OfferResponse>>> GetInactiveOffersAsync()
+    public async Task<Result<IOfferService.PaginatedResponse<OfferResponse>>> GetInactiveOffersAsync(
+        int page = 1,
+        int pageSize = 10)
     {
         var now = DateTime.UtcNow;
 
-        var offers = await _context.Set<Offer>()
+        var query = _context.Offers
             .Include(o => o.Unit)
-            .ThenInclude(c=>c.UnitType)
-            .Include(o => o.User)
             .Where(o => !o.IsDeleted &&
-                       (!o.IsActive || o.EndDate < now))
+                       (!o.IsActive || o.EndDate < now));
+
+        var totalCount = await query.CountAsync();
+
+        var offers = await query
             .OrderByDescending(o => o.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .AsNoTracking()
             .ToListAsync();
 
-        var responses = offers.Select(MapToResponse).ToList();
-        return Result.Success<IEnumerable<OfferResponse>>(responses);
+        var responses = offers.Select(o => new OfferResponse(
+            o.Id,
+            o.Title,
+            o.Description,
+            o.ImageUrl ?? string.Empty,
+            o.UnitId,
+            o.Unit?.Name,
+            o.Unit?.UnitType?.Name,
+            o.StartDate,
+            o.EndDate,
+            o.IsFeatured,
+            o.DiscountPercentage,
+            o.DiscountAmount,
+            o.IsActive,
+            o.IsExpired,
+            o.UserId,
+            o.User?.FullName,
+            o.CreatedAt
+        )).ToList();
+
+        var paginatedResult = CreatePaginatedResponse(
+            responses, totalCount, page, pageSize);
+
+        return Result.Success(paginatedResult);
     }
 
     public async Task<Result> DeactivateExpiredOffersAsync()
@@ -454,4 +537,5 @@ public class OfferService(
         var responses = query.Select(MapToResponse).ToList();
         return Result.Success<IEnumerable<OfferResponse>>(responses);
     }
+
 }

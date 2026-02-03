@@ -456,7 +456,7 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
     {
         var userId = User.GetUserId();
         var result = await _cityAdminService.UploadDepartmentImageAsync(userId!, request);
-        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+        return result.IsSuccess ? Ok(new {messager = "Done Successfully"}) : result.ToProblem();
     }
 
     #endregion

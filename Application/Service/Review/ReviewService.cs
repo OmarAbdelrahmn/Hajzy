@@ -1,6 +1,7 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Review;
 using Application.Notifications;
+using Azure;
 using Domain;
 using Domain.Entities;
 using Hangfire;
@@ -743,52 +744,7 @@ public class ReviewService(
     #endregion
 
     #region ADMIN METHODS
-
-    public async Task<Result<PagedReviewResponse>> GetPendingReviewsAsync(
-        int page = 1,
-        int pageSize = 20)
-    {
-        try
-        {
-            var query = _context.Set<Domain.Entities.Review>()
-                .Include(r => r.Unit)
-                .Include(r => r.User)
-                .Include(r => r.Images)
-                .OrderByDescending(r => r.CreatedAt);
-
-            var totalCount = await query.CountAsync();
-            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
-
-            var reviews = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .AsNoTracking()
-                .ToListAsync();
-
-            var reviewResponses = new List<ReviewResponse>();
-            foreach (var review in reviews)
-            {
-                reviewResponses.Add(await MapToResponseAsync(review));
-            }
-
-            var response = new PagedReviewResponse
-            {
-                Reviews = reviewResponses,
-                TotalCount = totalCount,
-                Page = page,
-                PageSize = pageSize,
-                TotalPages = totalPages
-            };
-
-            return Result.Success(response);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting pending reviews");
-            return Result.Failure<PagedReviewResponse>(
-                new Error("GetFailed", "Failed to retrieve pending reviews", 500));
-        }
-    }
+    
 
     public async Task<Result> ApproveReviewAsync(int reviewId)
     {
@@ -1015,8 +971,7 @@ public class ReviewService(
     #endregion
 
 
-
-    public async Task<Result<PagedReviewResponse>> GetAllReviewsAsync(AllReviewsFilter filter)
+    public async Task<Result<IReviewService.PaginatedResponse<ReviewResponse>>> GetAllReviewsAsync(AllReviewsFilter filter)
     {
         try
         {
@@ -1175,25 +1130,79 @@ public class ReviewService(
                     }).ToList() ?? new List<ReviewImageResponse>()
                 });
             }
+            var paginatedResult = CreatePaginatedResponse(reviewResponses, totalCount, filter.Page, filter.PageSize);
 
-            var response = new PagedReviewResponse
-            {
-                Reviews = reviewResponses,
-                TotalCount = totalCount,
-                Page = filter.Page,
-                PageSize = filter.PageSize,
-                TotalPages = totalPages
-            };
-
-            return Result.Success(response);
+            return Result.Success(paginatedResult);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting all reviews with filter");
-            return Result.Failure<PagedReviewResponse>(
+            return Result.Failure<IReviewService.PaginatedResponse<ReviewResponse>>(
                 new Error("GetAllFailed", $"Failed to retrieve reviews: {ex.Message}", 500));
         }
     }
+
+    private IReviewService.PaginatedResponse<T> CreatePaginatedResponse<T>(
+     IEnumerable<T> items,
+     int totalCount,
+     int page,
+     int pageSize)
+        {
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            return new IReviewService.PaginatedResponse<T>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                TotalPages = totalPages,
+                CurrentPage = page,
+                NextPage = page < totalPages ? page + 1 : null,
+                PrevPage = page > 1 ? page - 1 : null
+            };
+        }
+
+    public async Task<Result<IReviewService.PaginatedResponse<ReviewResponse>>> GetPendingReviewsAsync(
+            int page = 1,
+            int pageSize = 10)
+    {
+        try
+        {
+            var query = _context.Set<Domain.Entities.Review>()
+                .Include(r => r.Unit)
+                .Include(r => r.User)
+                .Include(r => r.Images)
+                .OrderByDescending(r => r.CreatedAt);
+
+            var totalCount = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            var reviews = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var reviewResponses = new List<ReviewResponse>();
+            foreach (var review in reviews)
+            {
+                reviewResponses.Add(await MapToResponseAsync(review));
+            }
+
+
+            var paginatedResult = CreatePaginatedResponse(
+                reviewResponses, totalCount, page, pageSize);
+
+            return Result.Success(paginatedResult);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting pending reviews");
+            return Result.Failure<IReviewService.PaginatedResponse<ReviewResponse>>(
+                new Error("GetFailed", "Failed to retrieve pending reviews", 500));
+        }
+    }
+
+
 }
 
 public class ReviewEligibility

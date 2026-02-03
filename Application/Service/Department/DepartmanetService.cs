@@ -56,22 +56,148 @@ public class DepartmanetService(
         return Result.Success(response);
     }
 
-    public async Task<Result<IEnumerable<DepartmentResponse>>> GetAllAsync(bool includeInactive = false)
+
+    public async Task<Result<PaginatedResponse<DepartmentResponse>>> GetAllDepartmentsAsync(
+          int page = 1,
+          int pageSize = 10)
     {
-        var query = dbcontext.Departments
-            .Include(d => d.DepartmentAdmins)
-                .ThenInclude(da => da.User)
-            .Where(d => !d.IsDeleted)
-            .AsNoTracking();
+        try
+        {
+            var query = dbcontext.Departments
+                .Include(d => d.DepartmentAdmins.Where(da => da.IsActive))
+                .Where(d => !d.IsDeleted)
+                .AsQueryable();
 
-        if (!includeInactive)
-            query = query.Where(d => d.IsActive);
+            var totalCount = await query.CountAsync();
 
-        var departments = await query.ToListAsync();
-        var responses = departments.Select(MapToResponse).ToList();
+            var departments = await query
+                .OrderBy(d => d.Name)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .AsNoTracking()
+                .ToListAsync();
 
-        return Result.Success<IEnumerable<DepartmentResponse>>(responses);
+            var responses = departments.Select(MapToDepartmentResponse).ToList();
+
+            var paginatedResult = CreatePaginatedResponse(
+                responses, totalCount, page, pageSize);
+
+            return Result.Success(paginatedResult);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving all departments");
+            return Result.Failure<PaginatedResponse<DepartmentResponse>>(
+                new Error("GetDepartmentsFailed", "Failed to retrieve departments", 500));
+        }
     }
+
+    public async Task<Result<PaginatedResponse<DepartmentResponse>>> GetDepartmentsByCountryAsync(
+        string country,
+        int page = 1,
+        int pageSize = 10)
+    {
+        try
+        {
+            var query = dbcontext.Departments
+                .Include(d => d.DepartmentAdmins.Where(da => da.IsActive))
+                .Where(d => !d.IsDeleted && d.Country == country)
+                .AsQueryable();
+
+            var totalCount = await query.CountAsync();
+
+            var departments = await query
+                .OrderBy(d => d.Name)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var responses = departments.Select(MapToDepartmentResponse).ToList();
+
+            var paginatedResult = CreatePaginatedResponse(
+                responses, totalCount, page, pageSize);
+
+            return Result.Success(paginatedResult);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving departments for country {Country}", country);
+            return Result.Failure<PaginatedResponse<DepartmentResponse>>(
+                new Error("GetDepartmentsFailed", "Failed to retrieve departments by country", 500));
+        }
+    }
+
+    //public async Task<Result<DepartmentResponse>> GetDepartmentByIdAsync(int id)
+    //{
+    //    try
+    //    {
+    //        var department = await dbcontext.Departments
+    //            .Include(d => d.DepartmentAdmins.Where(da => da.IsActive))
+    //            .AsNoTracking()
+    //            .FirstOrDefaultAsync(d => d.Id == id);
+
+    //        if (department == null)
+    //            return Result.Failure<DepartmentResponse>(
+    //                new Error("NotFound", "Department not found", 404));
+
+    //        var response = MapToDepartmentResponse(department);
+
+    //        return Result.Success(response);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error retrieving department {DepartmentId}", id);
+    //        return Result.Failure<DepartmentResponse>(
+    //            new Error("GetDepartmentFailed", "Failed to retrieve department", 500));
+    //    }
+    //}
+
+    private DepartmentResponse MapToDepartmentResponse(Domain.Entities.Department department)
+    {
+        var adminCount = department.DepartmentAdmins?.Count(da => da.IsActive) ?? 0;
+        var hasActiveAdmin = adminCount > 0;
+
+        return new DepartmentResponse(
+            Id: department.Id,
+            Name: department.Name,
+            Country: department.Country,
+            Description: department.Description,
+            ImageUrl: department.ImageUrl,
+            Latitude: department.Latitude,
+            Longitude: department.Longitude,
+            IsActive: department.IsActive,
+            TotalUnits: department.TotalUnits,
+            TotalBookings: department.TotalBookings,
+            AverageRating: department.AverageRating,
+            IsDeleted: department.IsDeleted,
+            CreatedAt: department.CreatedAt,
+            DeletedAt: department.DeletedAt,
+            AdminCount: adminCount,
+            HasActiveAdmin: hasActiveAdmin
+        );
+    }
+
+
+    private PaginatedResponse<T> CreatePaginatedResponse<T>(
+        IEnumerable<T> items,
+        int totalCount,
+        int page,
+        int pageSize)
+    {
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        return new PaginatedResponse<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            CurrentPage = page,
+            NextPage = page < totalPages ? page + 1 : null,
+            PrevPage = page > 1 ? page - 1 : null
+        };
+    }
+  
 
     public async Task<Result<DepartmentResponse>> CreateAsync(CreateDepartmentRequest request)
     {

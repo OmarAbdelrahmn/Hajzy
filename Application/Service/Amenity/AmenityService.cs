@@ -16,20 +16,33 @@ public class AmenityService(
 
     #region CRUD
 
-    public async Task<Result<IEnumerable<AmenityResponse>>> GetAllAmenitiesAsync()
+    public async Task<Result<PaginatedResponse<AmenityResponse>>> GetAllAmenitiesAsync(
+        )
     {
-        var amenities = await _context.Set<Domain.Entities.Amenity>()
-            .AsNoTracking()
+        var query = _context.Set<Domain.Entities.Amenity>()
+            .AsNoTracking();
+
+        var totalCount = await query.CountAsync();
+        int page = 1;
+        int pageSize = 10;
+
+        var amenities = await query
+            .OrderBy(a => a.Name)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
         var responses = amenities.Select(a => new AmenityResponse(
             a.Id,
-            a.Name ,
+            a.Name,
             a.Description,
-            a.Category 
+            a.Category
         )).ToList();
 
-        return Result.Success<IEnumerable<AmenityResponse>>(responses);
+        var paginatedResult = CreatePaginatedResponse(
+            responses, totalCount, page, pageSize);
+
+        return Result.Success(paginatedResult);
     }
 
     public async Task<Result<AmenityDetailsResponse>> GetByIdAsync(int amenityId)
@@ -279,4 +292,26 @@ public class AmenityService(
     }
 
     #endregion
+
+
+    private PaginatedResponse<T> CreatePaginatedResponse<T>(
+        IEnumerable<T> items,
+        int totalCount,
+        int page,
+        int pageSize)
+    {
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        return new PaginatedResponse<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            CurrentPage = page,
+            NextPage = page < totalPages ? page + 1 : null,
+            PrevPage = page > 1 ? page - 1 : null
+        };
+    }
+
+    
 }

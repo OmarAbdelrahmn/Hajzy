@@ -35,8 +35,10 @@ public interface ISubUnitBookingServices
 
     Task<Result<SubUnitBookingDetailsResponse>> GetSubUnitBookingByIdAsync(int bookingId);
     Task<Result<SubUnitBookingDetailsResponse>> GetSubUnitBookingByNumberAsync(string bookingNumber);
-    Task<Result<IEnumerable<SubUnitBookingResponse>>> GetUserSubUnitBookingsAsync(string userId, BookingFilter filter);
-    Task<Result<IEnumerable<SubUnitBookingResponse>>> GetSubUnitBookingsForRoomAsync(int subUnitId, BookingFilter filter);
+    Task<Result<PaginatedResponse<SubUnitBookingResponse>>> GetUserSubUnitBookingsAsync(
+        string userId, BookingFilter filter);
+    Task<Result<PaginatedResponse<SubUnitBookingResponse>>> GetSubUnitBookingsForRoomAsync(
+        int subUnitId, BookingFilter filter);
     Task<Result<IEnumerable<SubUnitBookingResponse>>> GetSubUnitBookingsForUnitAsync(int unitId, BookingFilter filter);
 
     // ============= PAYMENT OPERATIONS =============
@@ -52,5 +54,15 @@ public interface ISubUnitBookingServices
 
     Task<Result<bool>> AreSubUnitsAvailableAsync(List<int> subUnitIds, DateTime checkIn, DateTime checkOut);
     Task<Result<List<Contracts.hoteladmincont.AvailableSubUnitInfo>>> GetAvailableSubUnitsAsync(int unitId, DateTime checkIn, DateTime checkOut, int requestedCount);
+
+    public class PaginatedResponse<T>
+    {
+        public IEnumerable<T> Items { get; set; } = [];
+        public int TotalPages { get; set; }
+        public int CurrentPage { get; set; }
+        public int? NextPage { get; set; }
+        public int? PrevPage { get; set; }
+        public int TotalCount { get; set; }
+    }
 
 }

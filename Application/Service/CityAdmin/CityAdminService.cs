@@ -2071,7 +2071,7 @@ public class CityAdminService(
     }
 
 
-    public async Task<Result<DepartmentImageResponse>> UploadDepartmentImageAsync(
+    public async Task<Result> UploadDepartmentImageAsync(
         string userId,
         UploadDepartmentImageRequest request)
     {
@@ -2079,14 +2079,14 @@ public class CityAdminService(
         {
             var departmentI = await GetAdminDepartmentIdAsync(userId);
             if (!departmentI.IsSuccess)
-                return Result.Failure<DepartmentImageResponse>(departmentI.Error);
+                return Result.Failure(departmentI.Error);
 
             var departmentId = departmentI.Value;
 
             // Check access
             var hasAccess = await IsCityAdminAsync(userId, departmentId);
             if (!hasAccess.Value)
-                return Result.Failure<DepartmentImageResponse>(
+                return Result.Failure(
                     new Error("NoAccess", "You do not have access to this department", 403));
 
             // Upload image to S3
@@ -2096,53 +2096,59 @@ public class CityAdminService(
                 userId);
 
             if (!uploadResult.IsSuccess)
-                return Result.Failure<DepartmentImageResponse>(uploadResult.Error);
+                return Result.Failure(uploadResult.Error);
 
-            // Parse image type
-            var imageType = Enum.TryParse<DepartmentImageType>(request.ImageType, out var type)
-                ? type
-                : DepartmentImageType.General;
+            //// Parse image type
+            //var imageType = Enum.TryParse<DepartmentImageType>(request.ImageType, out var type)
+            //    ? type
+            //    : DepartmentImageType.General;
 
-            // Create database record
-            var image = new DepartmentImage
-            {
-                DepartmentId = departmentId,
-                ImageUrl = uploadResult.Value.ImageUrl,
-                S3Key = uploadResult.Value.S3Key,
-                S3Bucket = "hujjzy-bucket",
-                ThumbnailUrl = null, // No thumbnail
-                MediumUrl = null,    // No medium size
-                Caption = request.Caption,
-                ImageType = imageType,
-                IsPrimary = false,
-                DisplayOrder = 0,
-                UploadedByUserId = userId,
-                UploadedAt = DateTime.UtcNow.AddHours(3),
-                ProcessingStatus = ImageProcessingStatus.Completed,
-                MimeType = "image/webp"
-            };
+            //// Create database record
+            //var image = new DepartmentImage
+            //{
+            //    DepartmentId = departmentId,
+            //    ImageUrl = uploadResult.Value.ImageUrl,
+            //    S3Key = uploadResult.Value.S3Key,
+            //    S3Bucket = "hujjzy-bucket",
+            //    ThumbnailUrl = null, // No thumbnail
+            //    MediumUrl = null,    // No medium size
+            //    Caption = request.Caption,
+            //    ImageType = imageType,
+            //    IsPrimary = false,
+            //    DisplayOrder = 0,
+            //    UploadedByUserId = userId,
+            //    UploadedAt = DateTime.UtcNow.AddHours(3),
+            //    ProcessingStatus = ImageProcessingStatus.Completed,
+            //    MimeType = "image/webp"
+            //};
 
-            _context.Set<DepartmentImage>().Add(image);
+            //_context.Set<DepartmentImage>().Add(image);
+            var department = await _context.Departments
+                .FirstOrDefaultAsync(d => d.Id == departmentId);
+
+
+            department?.ImageUrl = uploadResult.Value.ImageUrl;
+
             await _context.SaveChangesAsync();
 
-            // Return response
-            var response = new DepartmentImageResponse
-            {
-                Id = image.Id,
-                ImageUrl = image.ImageUrl,
-                ThumbnailUrl = image.ThumbnailUrl,
-                IsPrimary = image.IsPrimary,
-                DisplayOrder = image.DisplayOrder,
-                Caption = image.Caption,
-                ImageType = image.ImageType.ToString(),
-                UploadedAt = image.UploadedAt
-            };
+            //// Return response
+            //var response = new DepartmentImageResponse
+            //{
+            //    Id = image.Id,
+            //    ImageUrl = image.ImageUrl,
+            //    ThumbnailUrl = image.ThumbnailUrl,
+            //    IsPrimary = image.IsPrimary,
+            //    DisplayOrder = image.DisplayOrder,
+            //    Caption = image.Caption,
+            //    ImageType = image.ImageType.ToString(),
+            //    UploadedAt = image.UploadedAt
+            //};
 
-            return Result.Success(response);
+            return Result.Success();
         }
         catch (Exception ex)
         {
-            return Result.Failure<DepartmentImageResponse>(
+            return Result.Failure(
                 new Error("UploadFailed", $"Failed to upload image: {ex.Message}", 500));
         }
     }

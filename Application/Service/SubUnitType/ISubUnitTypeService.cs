@@ -1,4 +1,5 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.AD;
 using Application.Contracts.SubUnit;
 using Application.Contracts.Unit;
 
@@ -9,7 +10,7 @@ public interface ISubUnitTypeService
     // ============= CRUD =============
     Task<Result<SubUnitTypeResponse>> GetByIdAsync(int subUnitTypeId);
     Task<Result<SubUnitTypeDetailsResponse>> GetDetailsAsync(int subUnitTypeId);
-    Task<Result<IEnumerable<SubUnitTypeResponse>>> GetAllAsync(bool includeInactive = false);
+    Task<Result<PaginatedResponse<SubUnitTypeResponse>>> GetAllSubUnitTypesAsync(int page = 1, int pageSize = 10);
     Task<Result<SubUnitTypeResponse>> CreateAsync(CreateSubUnitTypeRequest request);
     Task<Result<SubUnitTypeResponse>> UpdateAsync(int subUnitTypeId, UpdateSubUnitTypeRequest request);
     Task<Result> DeleteAsync(int subUnitTypeId);

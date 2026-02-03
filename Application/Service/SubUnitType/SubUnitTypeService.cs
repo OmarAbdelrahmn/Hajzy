@@ -1,7 +1,9 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.AD;
 using Application.Contracts.SubUnit;
 using Application.Contracts.Unit;
 using Domain;
+using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -15,6 +17,56 @@ public class SubUnitTypeService(
     private readonly ILogger<SubUnitTypeService> _logger = logger;
 
     #region CRUD Operations
+
+    private PaginatedResponse<T> CreatePaginatedResponse<T>(
+        IEnumerable<T> items,
+        int totalCount,
+        int page,
+        int pageSize)
+            {
+                var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+                return new PaginatedResponse<T>
+                {
+                    Items = items,
+                    TotalCount = totalCount,
+                    TotalPages = totalPages,
+                    CurrentPage = page,
+                    NextPage = page < totalPages ? page + 1 : null,
+                    PrevPage = page > 1 ? page - 1 : null
+                };
+            }
+
+    public async Task<Result<PaginatedResponse<SubUnitTypeResponse>>> GetAllSubUnitTypesAsync(
+       int page = 1,
+       int pageSize = 10)
+    {
+        var query = _context.Set<SubUnitTypee>()
+            .Where(sut => sut.IsActive)
+            .AsQueryable();
+
+        var totalCount = await query.CountAsync();
+
+        var subUnitTypes = await query
+            .OrderBy(sut => sut.Name)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var responses = subUnitTypes.Select(sut => new SubUnitTypeResponse(
+            sut.Id,
+            sut.Name,
+            sut.Description,
+            sut.IsActive,
+            _context.SubUnits.Count(su => su.SubUnitTypeId == sut.Id && !su.IsDeleted)
+        )).ToList();
+
+        var paginatedResult = CreatePaginatedResponse(
+            responses, totalCount, page, pageSize);
+
+        return Result.Success(paginatedResult);
+    }
 
     public async Task<Result<SubUnitTypeResponse>> GetByIdAsync(int subUnitTypeId)
     {

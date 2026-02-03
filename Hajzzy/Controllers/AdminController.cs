@@ -1,4 +1,5 @@
-﻿using Application.Contracts.Admin;
+﻿using Application.Abstraction.Consts;
+using Application.Contracts.Admin;
 using Application.Contracts.Bookin;
 using Application.Extensions;
 using Application.Service.Admin;
@@ -12,6 +13,7 @@ namespace Hajzzy.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize(Roles = DefaultRoles.SuperAdmin)]
 public class AdminController(IAdminService service,IUserService service1) : ControllerBase
 {
     private readonly IAdminService service = service;
@@ -115,6 +117,7 @@ public class AdminController(IAdminService service,IUserService service1) : Cont
     }
 
     [HttpGet("dashboard")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> GetDashboard()
     {
         var result = await service.GetDashboardAsync(User.GetUserId()!);
@@ -122,6 +125,7 @@ public class AdminController(IAdminService service,IUserService service1) : Cont
     }
 
     [HttpGet("stats")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> GetStats()
     {
         var result = await service.GetQuickStatsAsync(User.GetUserId()!);

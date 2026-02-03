@@ -1,4 +1,5 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.AD;
 using Application.Contracts.Unit;
 
 namespace Application.Service.UnitType;
@@ -6,9 +7,11 @@ namespace Application.Service.UnitType;
 public interface IUnitTypeService
 {
     // ============= CRUD =============
+
+    Task<Result<PaginatedResponse<UnitTypeResponse>>> GetAllUnitTypesAsync(int page = 1, int pageSize = 10);
+
     Task<Result<UnitTypeResponse>> GetByIdAsync(int unitTypeId);
     Task<Result<UnitTypeDetailsResponse>> GetDetailsAsync(int unitTypeId);
-    Task<Result<IEnumerable<UnitTypeResponse>>> GetAllAsync(bool includeInactive = false);
     Task<Result<UnitTypeResponse>> CreateAsync(CreateUnitTypeRequest request);
     Task<Result<UnitTypeResponse>> UpdateAsync(int unitTypeId, UpdateUnitTypeRequest request);
     Task<Result> DeleteAsync(int unitTypeId);

@@ -515,7 +515,7 @@ public class UnitBookingService(
         return Result.Success(await response.ConfigureAwait(false));
     }
 
-    public async Task<Result<IEnumerable<UnitBookingResponse>>> GetUserUnitBookingsAsync(
+    public async Task<Result<IUnitBookingServices.PaginatedResponse<UnitBookingResponse>>> GetUserUnitBookingsAsync(
         string userId,
         BookingFilter filter)
     {
@@ -525,6 +525,9 @@ public class UnitBookingService(
             .AsQueryable();
 
         query = ApplyFilters(query, filter);
+
+        // GET TOTAL COUNT
+        var totalCount = await query.CountAsync();
 
         var bookings = await query
             .OrderByDescending(b => b.CreatedAt)
@@ -538,10 +541,13 @@ public class UnitBookingService(
             responses.Add(await MapToResponseAsync(booking));
         }
 
-        return Result.Success<IEnumerable<UnitBookingResponse>>(responses);
+        var paginatedResult = CreatePaginatedResponse(
+            responses, totalCount, filter.Page, filter.PageSize);
+
+        return Result.Success(paginatedResult);
     }
 
-    public async Task<Result<IEnumerable<UnitBookingResponse>>> GetUnitBookingsForPropertyAsync(
+    public async Task<Result<IUnitBookingServices.PaginatedResponse<UnitBookingResponse>>> GetUnitBookingsForPropertyAsync(
         int unitId,
         BookingFilter filter)
     {
@@ -553,6 +559,8 @@ public class UnitBookingService(
 
         query = ApplyFilters(query, filter);
 
+        var totalCount = await query.CountAsync();
+
         var bookings = await query
             .OrderByDescending(b => b.CreatedAt)
             .Skip((filter.Page - 1) * filter.PageSize)
@@ -565,9 +573,30 @@ public class UnitBookingService(
             responses.Add(await MapToResponseAsync(booking));
         }
 
-        return Result.Success<IEnumerable<UnitBookingResponse>>(responses);
+        var paginatedResult = CreatePaginatedResponse(
+            responses, totalCount, filter.Page, filter.PageSize);
+
+        return Result.Success(paginatedResult);
     }
 
+    private IUnitBookingServices.PaginatedResponse<T> CreatePaginatedResponse<T>(
+    IEnumerable<T> items,
+    int totalCount,
+    int page,
+    int pageSize)
+    {
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        return new IUnitBookingServices.PaginatedResponse<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            CurrentPage = page,
+            NextPage = page < totalPages ? page + 1 : null,
+            PrevPage = page > 1 ? page - 1 : null
+        };
+    }
     #endregion
 
     #region STATISTICS

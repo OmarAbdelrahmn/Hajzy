@@ -1,5 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Offer;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -10,6 +11,20 @@ public interface IOfferService
     /// <summary>
     /// Create a new offer with image
     /// </summary>
+    /// 
+    public class PaginatedResponse<T>
+    {
+        public IEnumerable<T> Items { get; set; } = [];
+        public int TotalPages { get; set; }
+        public int CurrentPage { get; set; }
+        public int? NextPage { get; set; }
+        public int? PrevPage { get; set; }
+        public int TotalCount { get; set; }
+    }
+    Task<Result<PaginatedResponse<OfferResponse>>> GetAllOffersAsync(OfferListFilter filter);
+    Task<Result<PaginatedResponse<OfferResponse>>> GetActiveOffersAsync(int page = 1, int pageSize = 10);
+    Task<Result<PaginatedResponse<OfferResponse>>> GetInactiveOffersAsync(int page = 1, int pageSize = 10);
+
     Task<Result<OfferResponse>> CreateOfferAsync(CreateOfferRequest request, string userId);
 
     /// <summary>
@@ -27,21 +42,7 @@ public interface IOfferService
     /// </summary>
     Task<Result<OfferResponse>> GetOfferByIdAsync(int offerId);
 
-    /// <summary>
-    /// Get all offers with filtering
-    /// </summary>
-    Task<Result<IEnumerable<OfferResponse>>> GetAllOffersAsync(OfferListFilter filter);
-
-    /// <summary>
-    /// Get current active offers (not expired, IsActive = true)
-    /// </summary>
-    Task<Result<IEnumerable<OfferResponse>>> GetCurrentActiveOffersAsync();
-
-    /// <summary>
-    /// Get inactive/expired offers
-    /// </summary>
-    Task<Result<IEnumerable<OfferResponse>>> GetInactiveOffersAsync();
-
+    
     /// <summary>
     /// Deactivate expired offers (background job)
     /// </summary>

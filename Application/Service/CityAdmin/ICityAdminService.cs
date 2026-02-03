@@ -240,7 +240,7 @@ public interface ICityAdminService
     /// <summary>
     /// Upload new department image
     /// </summary>
-    Task<Result<DepartmentImageResponse>> UploadDepartmentImageAsync(
+    Task<Result> UploadDepartmentImageAsync(
         string userId,
         UploadDepartmentImageRequest request);
 

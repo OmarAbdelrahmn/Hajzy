@@ -211,7 +211,7 @@ public class AdService(
         return Result.Success(MapToResponse(ad));
     }
 
-    public async Task<Result<IEnumerable<AdResponse>>> GetAllAdsAsync(AdListFilter filter)
+    public async Task<Result<PaginatedResponse<AdResponse>>> GetAllAdsAsync(AdListFilter filter)
     {
         var query = _context.Set<Ad>()
             .Include(a => a.Unit)
@@ -239,6 +239,10 @@ public class AdService(
         if (filter.StartDateTo.HasValue)
             query = query.Where(a => a.StartDate <= filter.StartDateTo.Value);
 
+        // GET TOTAL COUNT BEFORE PAGINATION
+        var totalCount = await query.CountAsync();
+
+        // APPLY SORTING AND PAGINATION
         var ads = await query
             .OrderByDescending(a => a.CreatedAt)
             .Skip((filter.Page - 1) * filter.PageSize)
@@ -247,43 +251,73 @@ public class AdService(
             .ToListAsync();
 
         var responses = ads.Select(MapToResponse).ToList();
-        return Result.Success<IEnumerable<AdResponse>>(responses);
+
+        // CREATE PAGINATED RESPONSE
+        var paginatedResult = CreatePaginatedResponse(
+            responses,
+            totalCount,
+            filter.Page,
+            filter.PageSize);
+
+        return Result.Success(paginatedResult);
     }
 
-    public async Task<Result<IEnumerable<AdResponse>>> GetCurrentActiveAdsAsync()
+    public async Task<Result<PaginatedResponse<AdResponse>>> GetCurrentActiveAdsAsync(
+        int page = 1,
+        int pageSize = 10)
     {
         var now = DateTime.UtcNow;
 
-        var ads = await _context.Set<Ad>()
+        var query = _context.Set<Ad>()
             .Include(a => a.Unit)
             .Include(a => a.UploadedBy)
             .Where(a => !a.IsDeleted &&
                        a.IsActive &&
                        a.StartDate <= now &&
-                       a.EndDate >= now)
+                       a.EndDate >= now);
+
+        var totalCount = await query.CountAsync();
+
+        var ads = await query
             .OrderByDescending(a => a.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .AsNoTracking()
             .ToListAsync();
 
         var responses = ads.Select(MapToResponse).ToList();
-        return Result.Success<IEnumerable<AdResponse>>(responses);
+        var paginatedResult = CreatePaginatedResponse(
+            responses, totalCount, page, pageSize);
+
+        return Result.Success(paginatedResult);
     }
 
-    public async Task<Result<IEnumerable<AdResponse>>> GetInactiveAdsAsync()
+    public async Task<Result<PaginatedResponse<AdResponse>>> GetInactiveAdsAsync(
+        int page = 1,
+        int pageSize = 10)
     {
         var now = DateTime.UtcNow;
 
-        var ads = await _context.Set<Ad>()
+        var query = _context.Set<Ad>()
             .Include(a => a.Unit)
             .Include(a => a.UploadedBy)
             .Where(a => !a.IsDeleted &&
-                       (!a.IsActive || a.EndDate < now))
+                       (!a.IsActive || a.EndDate < now));
+
+        var totalCount = await query.CountAsync();
+
+        var ads = await query
             .OrderByDescending(a => a.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .AsNoTracking()
             .ToListAsync();
 
         var responses = ads.Select(MapToResponse).ToList();
-        return Result.Success<IEnumerable<AdResponse>>(responses);
+        var paginatedResult = CreatePaginatedResponse(
+            responses, totalCount, page, pageSize);
+
+        return Result.Success(paginatedResult);
     }
 
     public async Task<Result> DeactivateExpiredAdsAsync()
@@ -319,7 +353,24 @@ public class AdService(
                 new Error("DeactivationFailed", "Failed to deactivate expired ads", 500));
         }
     }
+    private PaginatedResponse<T> CreatePaginatedResponse<T>(
+    IEnumerable<T> items,
+    int totalCount,
+    int page,
+    int pageSize)
+    {
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
+        return new PaginatedResponse<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            CurrentPage = page,
+            NextPage = page < totalPages ? page + 1 : null,
+            PrevPage = page > 1 ? page - 1 : null
+        };
+    }
     // ============= HELPER METHODS =============
 
     private async Task<Result<(string original, string thumbnail, string medium)>> UploadAdImageAsync(

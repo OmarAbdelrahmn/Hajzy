@@ -37,9 +37,9 @@ public class SubUnitTypeController(ISubUnitTypeService service) : ControllerBase
     /// Get all sub unit types
     /// </summary>
     [HttpGet("")]
-    public async Task<IActionResult> GetAll([FromQuery] bool includeInactive = false)
+    public async Task<IActionResult> GetAll()
     {
-        var result = await _service.GetAllAsync(includeInactive);
+        var result = await _service.GetAllSubUnitTypesAsync();
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
