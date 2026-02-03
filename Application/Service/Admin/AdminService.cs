@@ -1,5 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Abstraction.Errors;
+using Application.Contracts.AD;
 using Application.Contracts.Admin;
 using Application.Contracts.Bookin;
 using Application.Contracts.Dashboard;
@@ -83,56 +84,94 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
         return Result.Failure(new Error(error.Code, error.Description, StatusCodes.Status400BadRequest));
     }
 
-    public async Task<Result<IEnumerable<UserResponse>>> GetAllUsers()
+    public async Task<Result<PaginatedResponse<UserResponse>>> GetAllUsers(int page = 1, int pageSize = 10)
     {
-        var users = await (from u in dbcontext.Users
-               join ur in dbcontext.UserRoles
-               on u.Id equals ur.UserId
-               join r in dbcontext.Roles
-               on ur.RoleId equals r.Id into roles
-               select new
-               {
-                   u.Id,
-                   u.FullName,
-                   u.Address,
-                   u.Email,
-                   u.IsDisable,
-                   u.EmailConfirmed,
-                   u.PhoneNumber,
-                   role = roles.Select(r => r.Name!).FirstOrDefault(),
-                   u.AvatarUrl,
-                   u.Bio,
-                   u.DateOfBirth,
-                   u.Nationality,
-                   u.CreatedAt,
-                   u.LastLoginAt
-               })
-                  .GroupBy(x => new { x.Id, x.FullName, x.Address, x.Email, x.IsDisable , x.EmailConfirmed , x.PhoneNumber , x.AvatarUrl , x.Bio , x.DateOfBirth , x.Nationality , x.CreatedAt , x.LastLoginAt})
-                  .Select(c => new UserResponse(
-                      c.Key.Id,
-                      c.Key.FullName,
-                      c.Key.Address,
-                      c.Key.Email,
-                      c.Key.IsDisable,
-                      c.Select(x => x.role).FirstOrDefault()!,
-                      c.Key.EmailConfirmed,
-                      c.Key.PhoneNumber,
-                      c.Key.AvatarUrl,
-                      c.Key.Bio,
-                      c.Key.DateOfBirth,
-                      c.Key.Nationality,
-                      c.Key.CreatedAt,
-                      c.Key.LastLoginAt
-                      ))
-                  .ToListAsync();
+        var query = from u in dbcontext.Users
+                    join ur in dbcontext.UserRoles on u.Id equals ur.UserId
+                    join r in dbcontext.Roles on ur.RoleId equals r.Id into roles
+                    select new
+                    {
+                        u.Id,
+                        u.FullName,
+                        u.Address,
+                        u.Email,
+                        u.IsDisable,
+                        u.EmailConfirmed,
+                        u.PhoneNumber,
+                        role = roles.Select(r => r.Name!).FirstOrDefault(),
+                        u.AvatarUrl,
+                        u.Bio,
+                        u.DateOfBirth,
+                        u.Nationality,
+                        u.CreatedAt,
+                        u.LastLoginAt
+                    };
 
-        if(users.Count() == 0)
-            return Result.Failure<IEnumerable<UserResponse>>(UserErrors.UserNotFound);
+        var totalCount = await query.CountAsync();
 
-            return Result.Success<IEnumerable<UserResponse>>(users);
-        
+        var users = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .GroupBy(x => new {
+                x.Id,
+                x.FullName,
+                x.Address,
+                x.Email,
+                x.IsDisable,
+                x.EmailConfirmed,
+                x.PhoneNumber,
+                x.AvatarUrl,
+                x.Bio,
+                x.DateOfBirth,
+                x.Nationality,
+                x.CreatedAt,
+                x.LastLoginAt
+            })
+            .Select(c => new UserResponse(
+                c.Key.Id,
+                c.Key.FullName,
+                c.Key.Address,
+                c.Key.Email,
+                c.Key.IsDisable,
+                c.Select(x => x.role).FirstOrDefault()!,
+                c.Key.EmailConfirmed,
+                c.Key.PhoneNumber,
+                c.Key.AvatarUrl,
+                c.Key.Bio,
+                c.Key.DateOfBirth,
+                c.Key.Nationality,
+                c.Key.CreatedAt,
+                c.Key.LastLoginAt
+            ))
+            .ToListAsync();
+
+        if (users.Count == 0)
+            return Result.Failure<PaginatedResponse<UserResponse>>(UserErrors.UserNotFound);
+
+        var paginatedResult = CreatePaginatedResponse(
+            users, totalCount, page, pageSize);
+
+        return Result.Success(paginatedResult);
     }
 
+    private PaginatedResponse<T> CreatePaginatedResponse<T>(
+         IEnumerable<T> items,
+         int totalCount,
+         int page,
+         int pageSize)
+            {
+                var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+                return new PaginatedResponse<T>
+                {
+                    Items = items,
+                    TotalCount = totalCount,
+                    TotalPages = totalPages,
+                    CurrentPage = page,
+                    NextPage = page < totalPages ? page + 1 : null,
+                    PrevPage = page > 1 ? page - 1 : null
+                };
+            }
     public async Task<Result<UserResponse>> GetUser2Async(string UserName)
     {
         if (await manager.FindByNameAsync(UserName) is not { } user)

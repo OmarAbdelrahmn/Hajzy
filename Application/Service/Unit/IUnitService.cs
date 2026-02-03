@@ -1,4 +1,5 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.AD;
 using Application.Contracts.Policy;
 using Application.Contracts.Unit;
 using Microsoft.AspNetCore.Http;
@@ -10,6 +11,8 @@ namespace Application.Service.Unit;
 
 public interface IUnitService
 {
+    Task<Result<PaginatedResponse<UnitResponse>>> FilterUnitsAsync(UnitFilter filter);
+
     Task<Result<UnitResponses>> GetByIdAsync(int unitId);
     Task<Result<UnitDetailsResponse>> GetDetailsAsync(int unitId);
 

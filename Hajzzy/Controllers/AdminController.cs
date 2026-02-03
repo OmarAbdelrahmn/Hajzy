@@ -32,9 +32,9 @@ public class AdminController(IAdminService service,IUserService service1) : Cont
     }
 
     [HttpGet("users")]
-    public async Task<IActionResult> GetUsers()
+    public async Task<IActionResult> GetUsers([FromQuery] int Page = 1 , [FromQuery] int Pagesize = 10)
     {
-        var users = await service.GetAllUsers();
+        var users = await service.GetAllUsers(Page,Pagesize);
 
         return users.IsSuccess ? Ok(users.Value) : users.ToProblem();
     }

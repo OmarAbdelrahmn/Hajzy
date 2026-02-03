@@ -44,6 +44,13 @@ public class UnitController(IUnitService service) : ControllerBase
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
+    [HttpPost("filter-with-pagenation")]
+    public async Task<IActionResult> GetAll([FromBody] UnitFilter filter)
+    {
+        var result = await _service.FilterUnitsAsync(filter);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
     [HttpPost("departmint/filter")]
     public async Task<IActionResult> GetAlld([FromBody] UnitFilter filter)
     {

@@ -1,4 +1,5 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.CityAdminContracts;
 using Application.Contracts.UnitRegisteration;
 using Microsoft.AspNetCore.Http;
 using System;
@@ -35,7 +36,7 @@ public interface IUnitRegistrationService
     /// <summary>
     /// Get all registration requests with filtering
     /// </summary>
-    Task<Result<IEnumerable<UnitRegistrationResponse>>> GetAllRequestsAsync(
+    Task<Result<PaginatedResponse<UnitRegistrationRequestResponse>>> GetAllRegistrationRequestsAsync(
         UnitRegistrationListFilter filter);
     Task<Result<IEnumerable<UnitRegistrationResponse>>> GetAllRequestsAsync(
         string userId

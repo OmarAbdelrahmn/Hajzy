@@ -3,6 +3,7 @@ using Amazon.S3.Transfer;
 using Application.Abstraction;
 using Application.Abstraction.Consts;
 using Application.Abstraction.Errors;
+using Application.Contracts.CityAdminContracts;
 using Application.Contracts.UnitRegisteration;
 using Application.Helpers;
 using Application.Service.Avilabilaties;
@@ -379,6 +380,89 @@ public class UnitRegistrationService(
     }
 
     // ============= ADMIN METHODS =============
+
+
+    public async Task<Result<PaginatedResponse<UnitRegistrationRequestResponse>>> GetAllRegistrationRequestsAsync(
+    UnitRegistrationListFilter filter)
+    {
+        var query = _context.Set<UnitRegistrationRequest>()
+            .Include(r => r.Department)
+            .Include(r => r.UnitType)
+            .AsQueryable();
+
+        if (filter.Status.HasValue)
+            query = query.Where(r => r.Status == filter.Status.Value);
+
+        if (filter.DepartmentId.HasValue)
+            query = query.Where(r => r.DepartmentId == filter.DepartmentId.Value);
+
+        var totalCount = await query.CountAsync();
+
+        if (filter.Status.HasValue)
+            query = query.Where(r => r.Status == filter.Status.Value);
+
+        if (filter.DepartmentId.HasValue)
+            query = query.Where(r => r.DepartmentId == filter.DepartmentId.Value);
+
+        if (filter.UnitTypeId.HasValue)
+            query = query.Where(r => r.UnitTypeId == filter.UnitTypeId.Value);
+
+        if (filter.SubmittedFrom.HasValue)
+            query = query.Where(r => r.SubmittedAt >= filter.SubmittedFrom.Value);
+
+        if (filter.SubmittedTo.HasValue)
+            query = query.Where(r => r.SubmittedAt <= filter.SubmittedTo.Value);
+
+        if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+        {
+            var keyword = filter.SearchKeyword.ToLower();
+            query = query.Where(r =>
+                r.UnitName.ToLower().Contains(keyword) ||
+                r.OwnerFullName.ToLower().Contains(keyword) ||
+                r.OwnerEmail.ToLower().Contains(keyword));
+        }
+
+        // Fix: Use correct response type mapping
+        var responses = query.Select(r => new UnitRegistrationRequestResponse
+        {
+            Id = r.Id,
+            Status = r.Status.ToString(),
+            OwnerFullName = r.OwnerFullName,
+            OwnerEmail = r.OwnerEmail,
+            OwnerPhoneNumber = r.OwnerPhoneNumber,
+            UnitName = r.UnitName,
+            Address = r.Address,
+            UnitTypeName = r.UnitType != null ? r.UnitType.Name : "",
+            BasePrice = r.BasePrice,
+            ImageCount = r.ImageCount,
+            SubmittedAt = r.SubmittedAt,
+            ReviewedAt = r.ReviewedAt
+        }).ToList();
+
+        var paginatedResult = CreatePaginatedResponse(
+            responses, totalCount, filter.Page, filter.PageSize);
+
+        return Result.Success(paginatedResult);
+    }
+
+    private PaginatedResponse<T> CreatePaginatedResponse<T>(
+     IEnumerable<T> items,
+     int totalCount,
+     int page,
+     int pageSize)
+    {
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        return new PaginatedResponse<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            CurrentPage = page,
+            NextPage = page < totalPages ? page + 1 : null,
+            PrevPage = page > 1 ? page - 1 : null
+        };
+    }
 
     public async Task<Result<IEnumerable<UnitRegistrationResponse>>> GetAllRequestsAsync(
         UnitRegistrationListFilter filter)

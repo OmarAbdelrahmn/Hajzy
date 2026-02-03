@@ -1,4 +1,5 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.AD;
 using Application.Contracts.Admin;
 using Application.Contracts.Bookin;
 using Application.Contracts.Dashboard;
@@ -8,7 +9,7 @@ namespace Application.Service.Admin;
 
 public interface IAdminService
 {
-    Task<Result<IEnumerable<UserResponse>>> GetAllUsers();
+    Task<Result<PaginatedResponse<UserResponse>>> GetAllUsers(int page = 1, int pageSize = 10);
     Task<Result<UserResponse>> GetUserAsync(string Id);
     Task<Result<UserResponse>> GetUser2Async(string UserName);
     Task<Result<UserResponse>> AddUserAsync(CreateUserRequest request);

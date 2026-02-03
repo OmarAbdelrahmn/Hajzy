@@ -1,4 +1,5 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.AD;
 using Application.Contracts.Policy;
 using Application.Contracts.Unit;
 using Application.Service.S3Image;
@@ -22,6 +23,89 @@ public class UnitService(
 
     #region BASIC CRUD
 
+    public async Task<Result<PaginatedResponse<UnitResponse>>> FilterUnitsAsync(UnitFilter filter)
+    {
+        var query = _context.Units
+            .Include(u => u.City)
+            .Include(u => u.UnitType)
+            .Include(u => u.Images)
+            .Where(u => !u.IsDeleted)
+            .AsQueryable();
+
+        // Apply filters
+        if (!string.IsNullOrWhiteSpace(filter.Name))
+            query = query.Where(u => u.Name.Contains(filter.Name));
+
+        if (filter.CityId.HasValue)
+            query = query.Where(u => u.CityId == filter.CityId.Value);
+
+        if (filter.UnitTypeId.HasValue)
+            query = query.Where(u => u.UnitTypeId == filter.UnitTypeId.Value);
+
+        if (filter.MinPrice.HasValue)
+            query = query.Where(u => u.BasePrice >= filter.MinPrice.Value);
+
+        if (filter.MaxPrice.HasValue)
+            query = query.Where(u => u.BasePrice <= filter.MaxPrice.Value);
+
+        if (filter.MinRating.HasValue)
+            query = query.Where(u => u.AverageRating >= filter.MinRating.Value);
+
+        if (filter.IsActive.HasValue)
+            query = query.Where(u => u.IsActive == filter.IsActive.Value);
+
+        if (filter.IsVerified.HasValue)
+            query = query.Where(u => u.IsVerified == filter.IsVerified.Value);
+
+
+        var totalCount = await query.CountAsync();
+
+        var units = await query
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var responses = units.Select(u => new UnitResponse
+        {
+            Id = u.Id,
+            Name = u.Name,
+            Description = u.Description,
+            Address = u.Address,
+            CityName = u.City.Name,
+            UnitTypeName = u.UnitType.Name,
+            BasePrice = u.BasePrice,
+            AverageRating = u.AverageRating,
+            TotalReviews = u.TotalReviews,
+            IsActive = u.IsActive,
+            IsVerified = u.IsVerified,
+            CreatedAt = u.CreatedAt
+        }).ToList();
+
+        var paginatedResult = CreatePaginatedResponse(
+            responses, totalCount, filter.Page, filter.PageSize);
+
+        return Result.Success(paginatedResult);
+    }
+
+    private PaginatedResponse<T> CreatePaginatedResponse<T>(
+   IEnumerable<T> items,
+   int totalCount,
+   int page,
+   int pageSize)
+    {
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        return new PaginatedResponse<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            CurrentPage = page,
+            NextPage = page < totalPages ? page + 1 : null,
+            PrevPage = page > 1 ? page - 1 : null
+        };
+    }
     public async Task<Result<UnitResponses>> GetByIdAsync(int unitId)
     {
         var unit = await _context.Units
