@@ -45,7 +45,7 @@ public class UnitController(IUnitService service) : ControllerBase
     }
 
     [HttpPost("filter-with-pagenation")]
-    public async Task<IActionResult> GetAll([FromBody] UnitFilter filter)
+    public async Task<IActionResult> GetAll2([FromBody] UnitFilter filter)
     {
         var result = await _service.FilterUnitsAsync(filter);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();

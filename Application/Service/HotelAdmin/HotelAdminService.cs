@@ -1,12 +1,17 @@
-﻿using Application.Abstraction;
+﻿using Amazon.S3;
+using Amazon.S3.Transfer;
+using Application.Abstraction;
 using Application.Contracts.hoteladmincont;
 using Application.Service.Avilabilaties;
+using Application.Service.OfferService;
 using Application.Service.S3Image;
 using Domain;
 using Domain.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Webp;
 
 namespace Application.Service.HotelAdmin;
 
@@ -14,13 +19,19 @@ public class HotelAdminService(
     ApplicationDbcontext context,
     ILogger<HotelAdminService> logger,
     IAvailabilityService availabilityService,
-    IS3ImageService service
+    IS3ImageService service,
+    IAmazonS3 _s3Client 
+
     ) : IHotelAdminService
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly ILogger<HotelAdminService> _logger = logger;
     private readonly IAvailabilityService _availabilityService = availabilityService;
     private readonly IS3ImageService service = service;
+    private readonly IAmazonS3 s3Client = _s3Client;
+    private const string CloudFrontUrl = "";
+    private const string BucketName = "hujjzy-bucket";
+
 
     #region DASHBOARD & OVERVIEW
 
@@ -3025,8 +3036,7 @@ public class HotelAdminService(
 
     public async Task<Result> ToggleSubUnitStatusAsync(
         string userId,
-        int subUnitId,
-        bool isAvailable)
+        int subUnitId)
     {
         try
         {
@@ -3042,13 +3052,9 @@ public class HotelAdminService(
                 return Result.Failure(
                     new Error("NoAccess", "You do not have access to this subunit", 403));
 
-            subUnit.IsAvailable = isAvailable;
+            subUnit.IsAvailable = !subUnit.IsAvailable;
             await _context.SaveChangesAsync();
-
-            _logger.LogInformation(
-                "SubUnit {SubUnitId} status toggled to {Status} by user {UserId}",
-                subUnitId, isAvailable, userId);
-
+            
             return Result.Success();
         }
         catch (Exception ex)
@@ -3941,6 +3947,278 @@ public class HotelAdminService(
 
     #endregion
 
+    #region OFFERS MANAGEMENT
+
+    public async Task<Result<OfferResponse>> CreateUnitOfferAsync(
+        string userId,
+        CreateOfferRequest request)
+    {
+        try
+        {
+            var adminUnits = await GetUserAdminUnitsAsync(userId);
+
+            var unitId = adminUnits.Select(u => u.Id).FirstOrDefault();
+
+
+            string? imageUrl = null;
+            if (request.ImageFile != null)
+            {
+                var uploadResult = await UploadOfferImageAsync(
+                    request.ImageFile,userId);
+
+                if (uploadResult.IsSuccess)
+                    imageUrl = uploadResult.Value;
+            }
+
+            var offer = new Offer
+            {
+                Title = request.Title,
+                Description = request.Description,
+                ImageUrl = imageUrl,
+                UnitId = unitId,
+                DiscountPercentage = request.DiscountPercentage,
+                DiscountAmount = request.DiscountAmount,
+                StartDate = request.StartDate,
+                EndDate = request.EndDate,
+                IsActive = true,
+                IsFeatured = false, // Hotel admin cannot create featured offers
+                CreatedAt = DateTime.UtcNow.AddHours(3)
+            };
+
+            _context.Offers.Add(offer);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Offer {OfferId} created for unit {UnitId} by user {UserId}",
+                offer.Id, unitId, userId);
+
+            var unit = await _context.Units.FindAsync(unitId);
+
+            return Result.Success(new OfferResponse
+            {
+                Id = offer.Id,
+                Title = offer.Title,
+                Description = offer.Description,
+                ImageUrl = offer.ImageUrl,
+                UnitId = offer.UnitId,
+                UnitName = unit?.Name ?? string.Empty,
+                DiscountPercentage = offer.DiscountPercentage,
+                DiscountAmount = offer.DiscountAmount,
+                StartDate = offer.StartDate,
+                EndDate = offer.EndDate,
+                IsActive = offer.IsActive,
+                IsFeatured = offer.IsFeatured,
+                CreatedAt = offer.CreatedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating offer for unit {UnitId}");
+            return Result.Failure<OfferResponse>(
+                new Error("CreateOfferFailed", "Failed to create offer", 500));
+        }
+    }
+
+    public async Task<Result<string>> UploadOfferImageAsync(
+      Microsoft.AspNetCore.Http.IFormFile image,
+      string userId)
+    {
+        try
+        {
+            var transferUtility = new TransferUtility(s3Client);
+            var timestamp = DateTime.UtcNow.Ticks;
+
+            var originalKey = $"offers/{userId}/{timestamp}.webp";
+            using (var originalStream = new MemoryStream())
+            {
+                await ConvertToWebpAsync(image.OpenReadStream(), originalStream, 75);
+                originalStream.Position = 0;
+
+                await transferUtility.UploadAsync(new TransferUtilityUploadRequest
+                {
+                    InputStream = originalStream,
+                    Key = originalKey,
+                    BucketName = BucketName,
+                    ContentType = "image/webp",
+                    CannedACL = S3CannedACL.Private
+                });
+            }
+
+
+            return Result.Success((originalKey));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading offer image");
+            return Result.Failure<string>(
+                new Error("UploadFailed", "Failed to upload image", 500));
+        }
+    }
+
+    private async Task ConvertToWebpAsync(Stream input, Stream output, int quality)
+    {
+        await Task.Run(() =>
+        {
+            using var image = Image.Load(input);
+            var encoder = new WebpEncoder
+            {
+                Quality = 75,
+                Method = WebpEncodingMethod.Fastest,
+                SkipMetadata = true
+            };
+            image.Save(output, encoder);
+        });
+    }
+
+
+    public async Task<Result<IEnumerable<OfferResponse>>> GetMyUnitOffersAsync(
+        string userId)
+    {
+        try
+        {
+            var adminUnits = await GetUserAdminUnitsAsync(userId);
+            if (!adminUnits.Any())
+                return Result.Failure<IEnumerable<OfferResponse>>(
+                    new Error("NoAccess", "User is not a hotel administrator", 403));
+
+            var unitIds = adminUnits.Select(u => u.Id).ToList();
+
+            var offers = await _context.Offers
+                .Include(o => o.Unit)
+                .Where(o => o.UnitId.HasValue && unitIds.Contains(o.UnitId.Value))
+                .OrderByDescending(o => o.CreatedAt)
+                .Select(o => new OfferResponse
+                {
+                    Id = o.Id,
+                    Title = o.Title,
+                    Description = o.Description,
+                    ImageUrl = o.ImageUrl,
+                    UnitId = o.UnitId,
+                    UnitName = o.Unit!.Name,
+                    DiscountPercentage = o.DiscountPercentage,
+                    DiscountAmount = o.DiscountAmount,
+                    StartDate = o.StartDate,
+                    EndDate = o.EndDate,
+                    IsActive = o.IsActive,
+                    IsFeatured = o.IsFeatured,
+                    CreatedAt = o.CreatedAt
+                })
+                .ToListAsync();
+
+            return Result.Success<IEnumerable<OfferResponse>>(offers);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting offers for user {UserId}", userId);
+            return Result.Failure<IEnumerable<OfferResponse>>(
+                new Error("GetOffersFailed", "Failed to retrieve offers", 500));
+        }
+    }
+
+    public async Task<Result<OfferResponse>> UpdateOfferAsync(
+        string userId,
+        int offerId,
+        UpdateOfferRequest request)
+    {
+        try
+        {
+            var offer = await _context.Offers
+                .Include(o => o.Unit)
+                .FirstOrDefaultAsync(o => o.Id == offerId);
+
+            if (offer == null)
+                return Result.Failure<OfferResponse>(
+                    new Error("NotFound", "Offer not found", 404));
+
+            if (!offer.UnitId.HasValue)
+                return Result.Failure<OfferResponse>(
+                    new Error("InvalidOffer", "This is a system-wide offer", 403));
+
+            var hasAccess = await IsAdminOfUnitAsync(userId, offer.UnitId.Value);
+            if (!hasAccess.Value)
+                return Result.Failure<OfferResponse>(
+                    new Error("NoAccess", "You do not have access to this offer", 403));
+
+            // Update fields
+            if (request.Title != null) offer.Title = request.Title;
+            if (request.Description != null) offer.Description = request.Description;
+            if (request.DiscountPercentage.HasValue) offer.DiscountPercentage = request.DiscountPercentage;
+            if (request.DiscountAmount.HasValue) offer.DiscountAmount = request.DiscountAmount;
+            if (request.StartDate.HasValue) offer.StartDate = request.StartDate.Value;
+            if (request.EndDate.HasValue) offer.EndDate = request.EndDate.Value;
+            if (request.IsActive.HasValue) offer.IsActive = request.IsActive.Value;
+
+            // Handle image upload
+            if (request.ImageFile != null)
+            {
+                var uploadResult = await UploadOfferImageAsync(
+                    request.ImageFile, userId);
+
+                if (uploadResult.IsSuccess)
+                    offer.ImageUrl = uploadResult.Value;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Result.Success(new OfferResponse
+            {
+                Id = offer.Id,
+                Title = offer.Title,
+                Description = offer.Description,
+                ImageUrl = offer.ImageUrl,
+                UnitId = offer.UnitId,
+                UnitName = offer.Unit?.Name ?? string.Empty,
+                DiscountPercentage = offer.DiscountPercentage,
+                DiscountAmount = offer.DiscountAmount,
+                StartDate = offer.StartDate,
+                EndDate = offer.EndDate,
+                IsActive = offer.IsActive,
+                IsFeatured = offer.IsFeatured,
+                CreatedAt = offer.CreatedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating offer {OfferId}", offerId);
+            return Result.Failure<OfferResponse>(
+                new Error("UpdateOfferFailed", "Failed to update offer", 500));
+        }
+    }
+
+    public async Task<Result> DeleteOfferAsync(string userId, int offerId)
+    {
+        try
+        {
+            var offer = await _context.Offers
+                .FirstOrDefaultAsync(o => o.Id == offerId);
+
+            if (offer == null)
+                return Result.Failure(new Error("NotFound", "Offer not found", 404));
+
+            if (!offer.UnitId.HasValue)
+                return Result.Failure(
+                    new Error("InvalidOffer", "Cannot delete system-wide offer", 403));
+
+            var hasAccess = await IsAdminOfUnitAsync(userId, offer.UnitId.Value);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this offer", 403));
+
+            _context.Offers.Remove(offer);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Offer {OfferId} deleted by user {UserId}", offerId, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting offer {OfferId}", offerId);
+            return Result.Failure(new Error("DeleteOfferFailed", "Failed to delete offer", 500));
+        }
+    }
+
+    #endregion
 
     public async Task<Result<ImageDetailResponse>> UploadUnitImageAsync(
         string userId,

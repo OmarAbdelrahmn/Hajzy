@@ -1658,6 +1658,47 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
     }
 
     #endregion
+
+
+    #region PUBLIC ENDPOINTS
+
+    public async Task<Result<IEnumerable<CityAdminResponse>>> GetAllCityAdminsAsync()
+    {
+        try
+        {
+            var cityAdmins = await dbcontext.Set<DepartmentAdmin>()
+                .Include(da => da.User)
+                .Include(da => da.City)
+                .Where(da => da.IsActive && !da.City.IsDeleted)
+                .OrderBy(da => da.City.Name)
+                .ThenBy(da => da.IsPrimary ? 0 : 1) // Primary admins first
+                .Select(da => new CityAdminResponse(
+                    da.UserId,
+                    da.User.FullName ?? "N/A",
+                    da.User.Email ?? "N/A",
+                    da.User.PhoneNumber,
+                    da.CityId,
+                    da.City.Name,
+                    da.City.Country,
+                    da.IsPrimary,
+                    da.IsActive,
+                    da.AssignedAt
+                ))
+                .ToListAsync();
+
+            return Result.Success<IEnumerable<CityAdminResponse>>(cityAdmins);
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure<IEnumerable<CityAdminResponse>>(
+                new Error("CityAdminsFailed", "Failed to retrieve city admins", 500));
+        }
+    }
+
+    #endregion
+
+
+
 }
 
 internal record resonseforthesuperadmin(int UnitId, string Name, string Item);

@@ -1,6 +1,7 @@
 ﻿// Hajzzy/Controllers/PublicController.cs
 using Application.Contracts.publicuser;
 using Application.Extensions;
+using Application.Service.Admin;
 using Application.Service.OfferService;
 using Application.Service.publicuser;
 using Microsoft.AspNetCore.Authorization;
@@ -15,11 +16,20 @@ namespace Hajzzy.Controllers;
 [Route("api/public")]
 [ApiController]
 [AllowAnonymous] // All endpoints in this controller are public
-public class PublicController(IPublicServise service,IOfferService service1) : ControllerBase
+public class PublicController(IPublicServise service,IOfferService service1,IAdminService service2) : ControllerBase
 {
     private readonly IPublicServise _service = service;
     private readonly IOfferService service1 = service1;
+    private readonly IAdminService service2 = service2;
 
+    [HttpGet("admins")]
+    public async Task<IActionResult> getallcityadmin()
+    {
+        var result = await service2.GetAllCityAdminsAsync();
+        return result.IsSuccess ?
+            Ok(result.Value) :
+            result.ToProblem();
+    }
 
     #region UNITS
 

@@ -8,9 +8,18 @@ public interface ICityAdminService
 {
     // ============= DASHBOARD & OVERVIEW =============
 
+
     /// <summary>
-    /// Get comprehensive dashboard data for city admin
+    /// Get department details by ID
     /// </summary>
+    Task<Result<DepartmentDetailsResponse>> GetDepartmentDetailsByIdAsync(
+        string userId,
+        int departmentId);
+
+    /// <summary>
+    /// 
+                              /// Get comprehensive dashboard data for city admin
+                              /// </summary>
     Task<Result<CityAdminDashboardResponse>> GetDashboardAsync(string userId);
 
     /// <summary>

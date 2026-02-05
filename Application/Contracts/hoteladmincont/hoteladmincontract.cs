@@ -3,6 +3,7 @@
 using Application.Service.Avilabilaties;
 using Domain;
 using Domain.Entities;
+using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
 namespace Application.Contracts.hoteladmincont;
@@ -12,7 +13,45 @@ namespace Application.Contracts.hoteladmincont;
 // ============================================================================
 
 #region Policy Requests
+public record CreateOfferRequest
+{
+    public string? Title { get; set; }
+    public string? Description { get; set; }
+    public IFormFile? ImageFile { get; set; }
+    public decimal? DiscountPercentage { get; set; }
+    public decimal? DiscountAmount { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+}
 
+public record UpdateOfferRequest
+{
+    public string? Title { get; set; }
+    public string? Description { get; set; }
+    public IFormFile? ImageFile { get; set; }
+    public decimal? DiscountPercentage { get; set; }
+    public decimal? DiscountAmount { get; set; }
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public bool? IsActive { get; set; }
+}
+
+public record OfferResponse
+{
+    public int Id { get; set; }
+    public string? Title { get; set; }
+    public string? Description { get; set; }
+    public string? ImageUrl { get; set; }
+    public int? UnitId { get; set; }
+    public string? UnitName { get; set; }
+    public decimal? DiscountPercentage { get; set; }
+    public decimal? DiscountAmount { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsFeatured { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
 public record CreatePolicyRequest(
     [Required] string Title,
     [Required] string Description,

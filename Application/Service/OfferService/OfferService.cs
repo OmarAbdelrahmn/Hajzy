@@ -409,7 +409,7 @@ public class OfferService(
 
     // ============= HELPER METHODS (same as AdService) =============
 
-    private async Task<Result<string>> UploadOfferImageAsync(
+    public async Task<Result<string>> UploadOfferImageAsync(
         Microsoft.AspNetCore.Http.IFormFile image,
         string userId)
     {

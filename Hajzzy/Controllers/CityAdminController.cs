@@ -53,6 +53,13 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
         var result = await _cityAdminService.GetMyDepartmentDetailsAsync(userId!);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
+    [HttpGet("departments/{departmentId}")]
+    public async Task<IActionResult> Departmentdetaisl(int departmentId)
+    {
+        var userId = User.GetUserId();
+        var result = await _cityAdminService.GetDepartmentDetailsByIdAsync(userId!,departmentId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
 
     /// <summary>
     /// Update department information

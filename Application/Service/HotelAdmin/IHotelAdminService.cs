@@ -6,6 +6,34 @@ namespace Application.Service.HotelAdmin;
 
 public interface IHotelAdminService
 {
+    // ============= OFFERS MANAGEMENT =============
+
+    /// <summary>
+    /// Create offer for unit
+    /// </summary>
+    Task<Result<OfferResponse>> CreateUnitOfferAsync(
+        string userId,
+        CreateOfferRequest request);
+
+    /// <summary>
+    /// Get offers for admin's units
+    /// </summary>
+    Task<Result<IEnumerable<OfferResponse>>> GetMyUnitOffersAsync(
+        string userId);
+
+    /// <summary>
+    /// Update offer
+    /// </summary>
+    Task<Result<OfferResponse>> UpdateOfferAsync(
+        string userId,
+        int offerId,
+        UpdateOfferRequest request);
+
+    /// <summary>
+    /// Delete/deactivate offer
+    /// </summary>
+    Task<Result> DeleteOfferAsync(string userId, int offerId);
+
     Task<Result<ImageDetailResponse>> UploadUnitImageAsync(
     string userId,
     IFormFile image,
@@ -495,8 +523,7 @@ public interface IHotelAdminService
     /// </summary>
     Task<Result> ToggleSubUnitStatusAsync(
         string userId,
-        int subUnitId,
-        bool isAvailable);
+        int subUnitId);
 
     /// <summary>
     /// Get subunit booking history

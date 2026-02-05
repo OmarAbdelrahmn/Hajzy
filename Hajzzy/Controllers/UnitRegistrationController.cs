@@ -95,7 +95,7 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
     public async Task<IActionResult> GetAllRequests(
         [FromBody] UnitRegistrationListFilter filter)
     {
-        var result = await _service.GetAllRequestsAsync(filter);
+        var result = await _service.GetAllRegistrationRequestsAsync(filter);
 
         return result.IsSuccess
             ? Ok(result.Value)

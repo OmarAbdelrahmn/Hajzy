@@ -84,4 +84,27 @@ public interface IAdminService
         string userId,
         DateTime? startDate = null,
         DateTime? endDate = null);
+
+
+    /// <summary>
+    /// Get all city admins with their contact information (Public endpoint)
+    /// </summary>
+    Task<Result<IEnumerable<CityAdminResponse>>> GetAllCityAdminsAsync();
 }
+public record CityAdminResponse(
+    string AdminId,
+    string FullName,
+    string Email,
+    string? PhoneNumber,
+    int CityId,
+    string CityName,
+    string Country,
+    bool IsPrimary,
+    bool IsActive,
+    DateTime AssignedAt
+);
+
+public record CityAdminsListResponse(
+    IEnumerable<CityAdminResponse> CityAdmins,
+    int TotalCount
+);

@@ -498,7 +498,8 @@ public class CityAdminService(
                     BasePrice = r.BasePrice,
                     ImageCount = r.ImageCount,
                     SubmittedAt = r.SubmittedAt,
-                    ReviewedAt = r.ReviewedAt
+                    ReviewedAt = r.ReviewedAt,
+                    PrimaryImageUrl = r.ImageS3Keys, // ADD THIS (you'll need to parse from ImageS3Keys)
                 })
                 .ToListAsync();
 
@@ -1092,6 +1093,7 @@ public class CityAdminService(
                     Id = ua.Id,
                     UserId = ua.UserId,
                     UserName = ua.User.FullName ?? "N/A",
+                    ProfileImageUrl = ua.User.AvatarUrl, // ADD THIS
                     Email = ua.User.Email ?? string.Empty,
                     UnitId = ua.UnitId,
                     UnitName = ua.Unit.Name,
@@ -3289,6 +3291,75 @@ public class CityAdminService(
 
     #region DEPARTMENT MANAGEMENT
 
+
+    public async Task<Result<DepartmentDetailsResponse>> GetDepartmentDetailsByIdAsync(
+    string userId,
+    int departmentId)
+    {
+        try
+        {
+            var hasAccess = await IsCityAdminAsync(userId, departmentId);
+            if (!hasAccess.Value)
+                return Result.Failure<DepartmentDetailsResponse>(
+                    new Error("NoAccess", "You do not have access to this department", 403));
+
+            var department = await _context.Departments
+                .Include(d => d.DepartmentImages.Where(i => !i.IsDeleted))
+                .Include(d => d.DepartmentAdmins.Where(a => a.IsActive))
+                    .ThenInclude(a => a.User)
+                .FirstOrDefaultAsync(d => d.Id == departmentId && !d.IsDeleted);
+
+            if (department == null)
+                return Result.Failure<DepartmentDetailsResponse>(
+                    new Error("NotFound", "Department not found", 404));
+
+            var response = new DepartmentDetailsResponse
+            {
+                Id = department.Id,
+                Name = department.Name,
+                Country = department.Country,
+                Description = department.Description,
+                ImageUrl = department.ImageUrl,
+                Latitude = department.Latitude,
+                Longitude = department.Longitude,
+                IsActive = department.IsActive,
+                TotalUnits = department.TotalUnits,
+                TotalBookings = department.TotalBookings,
+                AverageRating = department.AverageRating,
+                Images = department.DepartmentImages.Select(i => new DepartmentImageResponse
+                {
+                    Id = i.Id,
+                    ImageUrl = i.ImageUrl,
+                    ThumbnailUrl = i.ThumbnailUrl,
+                    IsPrimary = i.IsPrimary,
+                    DisplayOrder = i.DisplayOrder,
+                    Caption = i.Caption,
+                    ImageType = i.ImageType.ToString(),
+                    UploadedAt = i.UploadedAt
+                }).ToList(),
+                Admins = department.DepartmentAdmins.Select(a => new DepartmentAdminInfo
+                {
+                    Id = a.Id,
+                    UserId = a.UserId,
+                    UserName = a.User.FullName ?? "N/A",
+                    Email = a.User.Email ?? string.Empty,
+                    IsPrimary = a.IsPrimary,
+                    IsActive = a.IsActive,
+                    AssignedAt = a.AssignedAt
+                }).ToList(),
+                CreatedAt = department.CreatedAt
+            };
+
+            return Result.Success(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting department {DepartmentId}", departmentId);
+            return Result.Failure<DepartmentDetailsResponse>(
+                new Error("GetDepartmentFailed", "Failed to retrieve department details", 500));
+        }
+    }
+
     public async Task<Result<DepartmentDetailsResponse>> GetMyDepartmentDetailsAsync(string userId)
     {
         try
@@ -3670,6 +3741,7 @@ public class CityAdminService(
                 FullName = users.ContainsKey(stat.UserId) ? users[stat.UserId].FullName ?? "N/A" : "N/A",
                 Email = users.ContainsKey(stat.UserId) ? users[stat.UserId].Email ?? "" : "",
                 PhoneNumber = users.ContainsKey(stat.UserId) ? users[stat.UserId].PhoneNumber : null,
+                ProfileImageUrl = users.ContainsKey(stat.UserId) ? users[stat.UserId].AvatarUrl : null, // ADD THIS
                 TotalBookings = stat.TotalBookings,
                 TotalSpent = stat.TotalSpent,
                 LastBookingDate = stat.LastBookingDate,

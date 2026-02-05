@@ -316,6 +316,7 @@ public record UnitRegistrationRequestResponse
     public string OwnerPhoneNumber { get; set; } = string.Empty;
     public string UnitTypeName { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
+    public string PrimaryImageUrl { get; set; } = string.Empty;
     public decimal BasePrice { get; set; }
     public int ImageCount { get; set; }
     public DateTime SubmittedAt { get; set; }
@@ -366,6 +367,7 @@ public record UnitAdminResponse
     public int Id { get; set; }
     public string UserId { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
+    public string? ProfileImageUrl { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public int UnitId { get; set; }
     public string UnitName { get; set; } = string.Empty;
@@ -488,6 +490,7 @@ public record CityUserResponse
     public string UserId { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string? ProfileImageUrl { get; set; } = string.Empty;
     public string? PhoneNumber { get; set; }
     public int TotalBookings { get; set; }
     public decimal TotalSpent { get; set; }

@@ -831,10 +831,10 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     /// Toggle subunit status (available/unavailable)
     /// </summary>
     [HttpPatch("subunits/{subUnitId}/toggle-status")]
-    public async Task<IActionResult> ToggleSubUnitStatus(int subUnitId, [FromBody] bool isAvailable)
+    public async Task<IActionResult> ToggleSubUnitStatus(int subUnitId)
     {
         var userId = User.GetUserId();
-        var result = await _hotelAdminService.ToggleSubUnitStatusAsync(userId!, subUnitId, isAvailable);
+        var result = await _hotelAdminService.ToggleSubUnitStatusAsync(userId!, subUnitId);
         return result.IsSuccess
             ? Ok(new { message = "Status updated successfully" })
             : result.ToProblem();
@@ -927,6 +927,49 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     // ============================================================================
     // PART 2: Add these endpoints to HotelAdminController.cs
     // ============================================================================
+
+    #region offers
+
+    /// <summary>
+    /// Get all reviews for admin's units
+    /// </summary>
+    [HttpGet("offers")]
+    public async Task<IActionResult> GetMyUnitsReviws()
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.GetMyUnitOffersAsync(userId!);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Respond to a review
+    /// </summary>
+    [HttpPost("offers")]
+    public async Task<IActionResult> RespondTdoReview([FromBody] CreateOfferRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.CreateUnitOfferAsync(userId!,request);
+        return result.IsSuccess ? Ok(new { message = "Done" }) : result.ToProblem();
+    }
+
+    [HttpDelete("offers")]
+    public async Task<IActionResult> RespondTsdoReview(int offerId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.DeleteOfferAsync(userId!,offerId);
+        return result.IsSuccess ? Ok(new { message = "Done" }) : result.ToProblem();
+    }
+
+    [HttpPut("offers")]
+    public async Task<IActionResult> RespondTsdsoReview(int offerId, [FromBody] UpdateOfferRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.UpdateOfferAsync(userId!,offerId,request);
+        return result.IsSuccess ? Ok(new { message = "Done" }) : result.ToProblem();
+    }
+
+
+    #endregion
 
     #region IMAGE MANAGEMENT ENDPOINTS
 
@@ -1091,6 +1134,7 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     /// <summary>
     /// Upload new image for a unit
     /// </summary>
+    /// 
     [HttpPost("unit/images/upload")]
     public async Task<IActionResult> UploadUnitImage(
         [FromForm] UploadDto request)
