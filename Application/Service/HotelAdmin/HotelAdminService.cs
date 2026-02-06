@@ -8,6 +8,7 @@ using Application.Service.S3Image;
 using Domain;
 using Domain.Entities;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SixLabors.ImageSharp;
@@ -367,7 +368,7 @@ public class HotelAdminService(
 
     #region BOOKING MANAGEMENT
 
-    public async Task<Result<IEnumerable<BookingComprehensiveResponse>>> GetMyUnitBookingsAsync(
+    public async Task<Result<Application.Service.HotelAdmin.IHotelAdminService.PaginatedResponse<BookingComprehensiveResponse>>> GetMyUnitBookingsAsync(
         string userId,
         Contracts.hoteladmincont.BookingFilter filter)
     {
@@ -375,18 +376,14 @@ public class HotelAdminService(
         {
             var adminUnits = await GetUserAdminUnitsAsync(userId);
             if (!adminUnits.Any())
-                return Result.Failure<IEnumerable<BookingComprehensiveResponse>>(
+                return Result.Failure<Application.Service.HotelAdmin.IHotelAdminService.PaginatedResponse<BookingComprehensiveResponse>>(
                     new Error("NoAccess", "User is not a hotel administrator", 403));
 
             var unitIds = adminUnits.Select(u => u.Id).ToList();
 
             var query = _context.Bookings
-                .Include(b => b.Unit)
-                .Include(b => b.User)
-                .Include(b => b.BookingRooms)
-                    .ThenInclude(br => br.Room)
-                .Where(b => unitIds.Contains(b.UnitId))
-                .AsQueryable();
+                .AsNoTracking()
+                .Where(b => unitIds.Contains(b.UnitId));
 
             // Apply filters
             if (filter.Status.HasValue)
@@ -401,23 +398,74 @@ public class HotelAdminService(
             if (filter.EndDate.HasValue)
                 query = query.Where(b => b.CheckOutDate <= filter.EndDate.Value);
 
-            var bookings = await query
+            // Get count first
+            var totalCount = await query.CountAsync();
+
+            // Then get data with projection
+            var responses = await query
                 .OrderByDescending(b => b.CreatedAt)
                 .Skip((filter.Page - 1) * filter.PageSize)
                 .Take(filter.PageSize)
+                .Select(b => new BookingComprehensiveResponse
+                {
+                    Id = b.Id,
+                    BookingNumber = b.BookingNumber,
+                    UnitId = b.UnitId,
+                    UnitName = b.Unit.Name,
+                    UserId = b.UserId,
+                    GuestName = b.User.FullName ?? "N/A",
+                    GuestEmail = b.User.Email ?? string.Empty,
+                    CheckInDate = b.CheckInDate,
+                    CheckOutDate = b.CheckOutDate,
+                    NumberOfGuests = b.NumberOfGuests,
+                    NumberOfNights = b.NumberOfNights,
+                    TotalPrice = b.TotalPrice,
+                    PaidAmount = b.PaidAmount,
+                    Status = b.Status.ToString(),
+                    PaymentStatus = b.PaymentStatus.ToString(),
+                    Rooms = b.BookingRooms.Select(br => new BookedRoomInfo
+                    {
+                        RoomId = br.RoomId,
+                        RoomNumber = br.Room.RoomNumber,
+                        PricePerNight = br.PricePerNight
+                    }).ToList(),
+                    CreatedAt = b.CreatedAt
+                })
                 .ToListAsync();
 
-            var responses = await Task.WhenAll(
-                bookings.Select(async b => await MapToBookingComprehensiveResponseAsync(b)));
+            var paginatedResult = CreatePaginatedResponse(
+                responses,
+                totalCount,
+                filter.Page,
+                filter.PageSize);
 
-            return Result.Success<IEnumerable<BookingComprehensiveResponse>>(responses);
+            return Result.Success(paginatedResult);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting bookings for user {UserId}", userId);
-            return Result.Failure<IEnumerable<BookingComprehensiveResponse>>(
+            _logger.LogError(ex, "Error getting bookings for user {UserId}. Message: {Message}, StackTrace: {StackTrace}",
+                userId, ex.Message, ex.StackTrace);
+            return Result.Failure<Application.Service.HotelAdmin.IHotelAdminService.PaginatedResponse<BookingComprehensiveResponse>>(
                 new Error("GetBookingsFailed", "Failed to retrieve bookings", 500));
         }
+    }
+
+    private Application.Service.HotelAdmin.IHotelAdminService.PaginatedResponse<T> CreatePaginatedResponse<T>(
+        IEnumerable<T> items,
+        int totalCount,
+        int page,
+        int pageSize)
+    {
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+        return new Application.Service.HotelAdmin.IHotelAdminService.PaginatedResponse<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            CurrentPage = page,
+            NextPage = page < totalPages ? page + 1 : null,
+            PrevPage = page > 1 ? page - 1 : null
+        };
     }
 
     public async Task<Result<BookingDetailsResponse>> GetMyBookingDetailsAsync(
@@ -3948,7 +3996,16 @@ public class HotelAdminService(
     #endregion
 
     #region OFFERS MANAGEMENT
+    public string GetCloudFrontUrl(string s3Key)
+    {
+        if (string.IsNullOrEmpty(s3Key))
+            return string.Empty;
 
+        if (string.IsNullOrEmpty(CloudFrontUrl))
+            return $"https://{BucketName}.s3.amazonaws.com/{s3Key}";
+
+        return $"https://{CloudFrontUrl}/{s3Key}";
+    }
     public async Task<Result<OfferResponse>> CreateUnitOfferAsync(
         string userId,
         CreateOfferRequest request)
@@ -3970,11 +4027,13 @@ public class HotelAdminService(
                     imageUrl = uploadResult.Value;
             }
 
+  
             var offer = new Offer
             {
                 Title = request.Title,
+                UserId = userId,
                 Description = request.Description,
-                ImageUrl = imageUrl,
+                ImageUrl = GetCloudFrontUrl(imageUrl),
                 UnitId = unitId,
                 DiscountPercentage = request.DiscountPercentage,
                 DiscountAmount = request.DiscountAmount,
@@ -4015,7 +4074,7 @@ public class HotelAdminService(
         {
             _logger.LogError(ex, "Error creating offer for unit {UnitId}");
             return Result.Failure<OfferResponse>(
-                new Error("CreateOfferFailed", "Failed to create offer", 500));
+                new Error(ex.InnerException.Message, "Failed to create offer", 500));
         }
     }
 

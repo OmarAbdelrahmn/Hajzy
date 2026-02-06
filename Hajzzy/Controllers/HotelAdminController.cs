@@ -9,7 +9,7 @@ namespace Hajzzy.Controllers;
 
 [Route("api/hotel-admin")]
 [ApiController]
-[Authorize(Roles = DefaultRoles.HotelAdmin)]
+//[Authorize(Roles = DefaultRoles.HotelAdmin)]
 public class HotelAdminController(IHotelAdminService hotelAdminService) : ControllerBase
 {
     private readonly IHotelAdminService _hotelAdminService = hotelAdminService;
@@ -945,7 +945,8 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     /// Respond to a review
     /// </summary>
     [HttpPost("offers")]
-    public async Task<IActionResult> RespondTdoReview([FromBody] CreateOfferRequest request)
+    [Consumes("multipart/form-data")]  // Changed from application/json
+    public async Task<IActionResult> RespondTdoReview([FromForm] CreateOfferRequest request)
     {
         var userId = User.GetUserId();
         var result = await _hotelAdminService.CreateUnitOfferAsync(userId!,request);
@@ -961,7 +962,8 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     }
 
     [HttpPut("offers")]
-    public async Task<IActionResult> RespondTsdsoReview(int offerId, [FromBody] UpdateOfferRequest request)
+    [Consumes("multipart/form-data")]  // Changed from application/json
+    public async Task<IActionResult> RespondTsdsoReview(int offerId, [FromForm] UpdateOfferRequest request)
     {
         var userId = User.GetUserId();
         var result = await _hotelAdminService.UpdateOfferAsync(userId!,offerId,request);

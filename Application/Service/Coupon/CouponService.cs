@@ -963,7 +963,7 @@ public class CouponService(
         }
     }
 
-    public async Task<Result> ToggleCouponStatusAsync(int couponId, bool isActive)
+    public async Task<Result> ToggleCouponStatusAsync(int couponId)
     {
         try
         {
@@ -973,12 +973,8 @@ public class CouponService(
             if (coupon == null)
                 return Result.Failure(new Error("NotFound", "Coupon not found", 404));
 
-            coupon.IsActive = isActive;
+            coupon.IsActive = !coupon.IsActive;
             await _context.SaveChangesAsync();
-
-            _logger.LogInformation(
-                "Coupon {CouponId} status toggled to {Status}",
-                couponId, isActive ? "Active" : "Inactive");
 
             return Result.Success();
         }

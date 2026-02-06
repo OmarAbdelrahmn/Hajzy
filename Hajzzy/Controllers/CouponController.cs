@@ -193,12 +193,12 @@ public class CouponController(ICouponService couponService) : ControllerBase
     /// </summary>
     [HttpPatch("{couponId:int}/toggle-status")]
     [Authorize(Roles = "SuperAdmin,CityAdmin,HotelAdmin")]
-    public async Task<IActionResult> ToggleCouponStatus(int couponId, [FromBody] bool isActive)
+    public async Task<IActionResult> ToggleCouponStatus(int couponId)
     {
-        var result = await _couponService.ToggleCouponStatusAsync(couponId, isActive);
+        var result = await _couponService.ToggleCouponStatusAsync(couponId);
 
         return result.IsSuccess
-            ? Ok(new { message = $"Coupon {(isActive ? "activated" : "deactivated")} successfully" })
+            ? Ok(new { message = $"done successfully" })
             : result.ToProblem();
     }
 

@@ -109,7 +109,7 @@ public interface ICouponService
     /// <summary>
     /// Activate/Deactivate a coupon
     /// </summary>
-    Task<Result> ToggleCouponStatusAsync(int couponId, bool isActive);
+    Task<Result> ToggleCouponStatusAsync(int couponId);
 
     /// <summary>
     /// Get expiring coupons (expiring within X days)

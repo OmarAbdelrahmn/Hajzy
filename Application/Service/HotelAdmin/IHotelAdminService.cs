@@ -15,6 +15,18 @@ public interface IHotelAdminService
         string userId,
         CreateOfferRequest request);
 
+
+
+    public class PaginatedResponse<T>
+    {
+        public IEnumerable<T> Items { get; set; } = [];
+        public int TotalPages { get; set; }
+        public int CurrentPage { get; set; }
+        public int? NextPage { get; set; }
+        public int? PrevPage { get; set; }
+        public int TotalCount { get; set; }
+    }
+
     /// <summary>
     /// Get offers for admin's units
     /// </summary>
@@ -78,7 +90,7 @@ public interface IHotelAdminService
     /// <summary>
     /// Get all bookings for admin's units
     /// </summary>
-    Task<Result<IEnumerable<BookingComprehensiveResponse>>> GetMyUnitBookingsAsync(
+    Task<Result<PaginatedResponse<BookingComprehensiveResponse>>> GetMyUnitBookingsAsync(
         string userId,
         BookingFilter filter);
 
