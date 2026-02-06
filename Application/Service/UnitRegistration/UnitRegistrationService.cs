@@ -390,12 +390,6 @@ public class UnitRegistrationService(
             .Include(r => r.UnitType)
             .AsQueryable();
 
-        if (filter.Status.HasValue)
-            query = query.Where(r => r.Status == filter.Status.Value);
-
-        if (filter.DepartmentId.HasValue)
-            query = query.Where(r => r.DepartmentId == filter.DepartmentId.Value);
-
         var totalCount = await query.CountAsync();
 
         if (filter.Status.HasValue)
@@ -422,25 +416,37 @@ public class UnitRegistrationService(
                 r.OwnerEmail.ToLower().Contains(keyword));
         }
 
-        // Fix: Use correct response type mapping
-        var responses = query.Select(r => new UnitRegistrationRequestResponse
-        {
-            Id = r.Id,
-            Status = r.Status.ToString(),
-            OwnerFullName = r.OwnerFullName,
-            OwnerEmail = r.OwnerEmail,
-            OwnerPhoneNumber = r.OwnerPhoneNumber,
-            UnitName = r.UnitName,
-            Address = r.Address,
-            UnitTypeName = r.UnitType != null ? r.UnitType.Name : "",
-            BasePrice = r.BasePrice,
-            ImageCount = r.ImageCount,
-            SubmittedAt = r.SubmittedAt,
-            ReviewedAt = r.ReviewedAt
-        }).ToList();
+        var items = await query
+            .OrderByDescending(r => r.SubmittedAt)
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .Select(r => new UnitRegistrationRequestResponse
+            {
+                Id = r.Id,
+                Status = r.Status.ToString(),
+                OwnerFullName = r.OwnerFullName,
+                OwnerEmail = r.OwnerEmail,
+                OwnerPhoneNumber = r.OwnerPhoneNumber,
+                UnitName = r.UnitName,
+                Address = r.Address,
+                UnitTypeName = r.UnitType.Name,
+                BasePrice = r.BasePrice,
+                ImageCount = r.ImageCount,
+                SubmittedAt = r.SubmittedAt,
+                ReviewedAt = r.ReviewedAt,
+                DepartmentId = r.DepartmentId,
+                DepartmentName = r.Department.Name,
+                price = r.BasePrice.ToString(),
+                Images = r.ImageS3Keys
+                    != "[]"
+                    ? _s3Service.GetCloudFrontUrl(
+                        JsonSerializer.Deserialize<List<string>>(r.ImageS3Keys)!.First())
+                    : null
+            })
+            .ToListAsync();
 
         var paginatedResult = CreatePaginatedResponse(
-            responses, totalCount, filter.Page, filter.PageSize);
+            items, totalCount, filter.Page, filter.PageSize);
 
         return Result.Success(paginatedResult);
     }

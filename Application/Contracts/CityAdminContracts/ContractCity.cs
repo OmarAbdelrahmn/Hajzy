@@ -321,6 +321,11 @@ public record UnitRegistrationRequestResponse
     public int ImageCount { get; set; }
     public DateTime SubmittedAt { get; set; }
     public DateTime? ReviewedAt { get; set; }
+    public string price { get; set; } = string.Empty;
+    public int DepartmentId { get; set; }
+    public string DepartmentName { get; set; }
+    public string Images { get; set; }
+
 }
 
 public record UnitRegistrationRequestDetailsResponse
