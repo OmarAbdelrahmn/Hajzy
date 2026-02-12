@@ -1061,6 +1061,8 @@ public class BookingComprehensiveResponse
     public string PaymentStatus { get; set; } = string.Empty;
     public List<BookedRoomInfo> Rooms { get; set; } = [];
     public DateTime CreatedAt { get; set; }
+    public string? UserCity { get; set; }
+    public string? UserCountry { get; set; }
 }
 
 public class BookingDetailsResponse

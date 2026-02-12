@@ -56,7 +56,9 @@ public class UserServices(
             DateOfBirth: user.DateOfBirth,
             Nationality: user.Nationality,
             CreatedAt: user.CreatedAt,
-            LastLoginAt: user.LastLoginAt
+            LastLoginAt: user.LastLoginAt,
+            City: user.City,
+            Country: user.Country
         );
 
         return Result.Success(response);

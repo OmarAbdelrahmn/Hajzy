@@ -15,5 +15,7 @@ public record UserResponse
     DateTime? DateOfBirth,
     string? Nationality,
     DateTime CreatedAt,
-    DateTime? LastLoginAt
+    DateTime? LastLoginAt,
+    string? City,
+    string? Country
     );

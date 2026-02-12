@@ -501,6 +501,9 @@ public record CityUserResponse
     public decimal TotalSpent { get; set; }
     public DateTime LastBookingDate { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? City { get; set; }
+    public string? Country { get; set; }
+
 }
 
 // ============= LOYALTY RESPONSES =============

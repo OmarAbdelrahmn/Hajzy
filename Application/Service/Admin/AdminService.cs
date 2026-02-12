@@ -104,7 +104,9 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
                         u.DateOfBirth,
                         u.Nationality,
                         u.CreatedAt,
-                        u.LastLoginAt
+                        u.LastLoginAt,
+                        u.City,
+                        u.Country
                     };
 
         var totalCount = await query.CountAsync();
@@ -125,7 +127,9 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
                 x.DateOfBirth,
                 x.Nationality,
                 x.CreatedAt,
-                x.LastLoginAt
+                x.LastLoginAt,
+                x.City,
+                x.Country
             })
             .Select(c => new UserResponse(
                 c.Key.Id,
@@ -141,7 +145,9 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
                 c.Key.DateOfBirth,
                 c.Key.Nationality,
                 c.Key.CreatedAt,
-                c.Key.LastLoginAt
+                c.Key.LastLoginAt,
+                c.Key.City,
+                c.Key.Country
             ))
             .ToListAsync();
 
@@ -206,7 +212,10 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
             DateOfBirth: user.DateOfBirth,
             user.Nationality,
             user.CreatedAt,
-            user.LastLoginAt);
+            user.LastLoginAt,
+            user.City,
+            user.Country
+            );
 
         return Result.Success(response);
     }

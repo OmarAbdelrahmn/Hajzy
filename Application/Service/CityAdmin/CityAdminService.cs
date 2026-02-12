@@ -3832,7 +3832,9 @@ public class CityAdminService(
                 TotalBookings = stat.TotalBookings,
                 TotalSpent = stat.TotalSpent,
                 LastBookingDate = stat.LastBookingDate,
-                CreatedAt = users.ContainsKey(stat.UserId) ? users[stat.UserId].CreatedAt : DateTime.UtcNow
+                CreatedAt = users.ContainsKey(stat.UserId) ? users[stat.UserId].CreatedAt : DateTime.UtcNow,
+                City = users.ContainsKey(stat.UserId) ? users[stat.UserId].City : null,
+                Country = users.ContainsKey(stat.UserId) ? users[stat.UserId].Country : null
             }).ToList();
 
             var paginatedResult = CreatePaginatedResponse(responses, totalCount, filter.Page, filter.PageSize);

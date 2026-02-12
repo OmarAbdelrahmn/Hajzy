@@ -200,7 +200,9 @@ public class AuthService(
         user.UserName = request.Email;
         user.FullName = request.FullName;
         user.Address = " no data";
-        user.PhoneNumber = " no data";
+        user.PhoneNumber = request.PhoneNumber;
+        user.Country = request.Country;
+        user.City = request.City ?? "no data";
         var result = await manager.CreateAsync(user, request.Password);
 
         if (result.Succeeded)

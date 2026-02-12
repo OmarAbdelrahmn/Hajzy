@@ -429,7 +429,9 @@ public class HotelAdminService(
                         RoomNumber = br.Room.RoomNumber,
                         PricePerNight = br.PricePerNight
                     }).ToList(),
-                    CreatedAt = b.CreatedAt
+                    CreatedAt = b.CreatedAt,
+                    UserCity = b.User.City,
+                    UserCountry = b.User.Country
                 })
                 .ToListAsync();
 
