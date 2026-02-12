@@ -254,4 +254,35 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
             ? Ok(new { message = "Review rejected" })
             : result.ToProblem();
     }
+
+
+    /// <summary>
+    /// Get non-visible reviews (Admin only - for moderation)
+    /// </summary>
+    [HttpGet("admin/non-visible")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<IActionResult> GetNonVisibleReviews(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var result = await _reviewService.GetNonVisibleReviewsAsync(page, pageSize);
+
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Toggle review visibility status (Admin only)
+    /// </summary>
+    [HttpPatch("admin/{reviewId:int}/toggle-visibility")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<IActionResult> ToggleReviewVisibility(int reviewId)
+    {
+        var result = await _reviewService.ToggleReviewVisibilityAsync(reviewId);
+
+        return result.IsSuccess
+            ? Ok(new { message = "Review visibility toggled successfully" })
+            : result.ToProblem();
+    }
 }

@@ -362,6 +362,31 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
+    /// <summary>
+    /// Toggle review visibility status for reviews in the city
+    /// </summary>
+    [HttpPatch("reviews/{reviewId}/toggle-visibility")]
+    public async Task<IActionResult> ToggleReviewVisibility(int reviewId)
+    {
+        var userId = User.GetUserId();
+        var result = await _cityAdminService.ToggleReviewVisibilityAsync(userId!, reviewId);
+        return result.IsSuccess
+            ? Ok(new { message = "Review visibility toggled successfully" })
+            : result.ToProblem();
+    }
+
+    [HttpGet("reviews/non-visible")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<IActionResult> GetNonVisibleReviews(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var result = await _cityAdminService.GetNonVisibleReviewsAsync(page, pageSize);
+
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
     #endregion
 
     #region SUBUNIT MANAGEMENT

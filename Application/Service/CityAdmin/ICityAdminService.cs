@@ -8,6 +8,18 @@ public interface ICityAdminService
 {
     // ============= DASHBOARD & OVERVIEW =============
 
+    // ============= REVIEWS MANAGEMENT =============
+
+    Task<Result<PaginatedResponse<ReviewResponse>>> GetNonVisibleReviewsAsync(int page = 1, int pageSize = 10);
+
+
+    // ADD THIS NEW METHOD
+    /// <summary>
+    /// Toggle review visibility status
+    /// </summary>
+    Task<Result> ToggleReviewVisibilityAsync(
+        string userId,
+        int reviewId);
 
     /// <summary>
     /// Get department details by ID

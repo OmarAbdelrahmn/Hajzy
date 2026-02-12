@@ -284,7 +284,7 @@ public class ReviewService(
                 .Include(r => r.User)
                 .Include(r => r.Unit)
                 .Include(r => r.Images)
-                .Where(r => r.UnitId == unitId);
+                .Where(r => r.UnitId == unitId && r.IsVisible); // ADD IsVisible filter
 
             // Apply filters
             if (filter.MinRating.HasValue)
@@ -982,6 +982,7 @@ public class ReviewService(
                 .Include(r => r.Unit)
                     .ThenInclude(u => u.UnitType)
                 .Include(r => r.Images)
+                .Where(c=>c.IsVisible)
                 .AsQueryable();
 
             // Apply filters
@@ -1203,6 +1204,75 @@ public class ReviewService(
     }
 
 
+    #region NON-VISIBLE REVIEWS (ADMIN)
+
+    public async Task<Result<IReviewService.PaginatedResponse<ReviewResponse>>> GetNonVisibleReviewsAsync(
+        int page = 1,
+        int pageSize = 10)
+    {
+        try
+        {
+            var query = _context.Set<Domain.Entities.Review>()
+                .Include(r => r.Unit)
+                .Include(r => r.User)
+                .Include(r => r.Images)
+                .Where(r => !r.IsVisible) // Only non-visible reviews
+                .OrderByDescending(r => r.CreatedAt);
+
+            var totalCount = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            var reviews = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var reviewResponses = new List<ReviewResponse>();
+            foreach (var review in reviews)
+            {
+                reviewResponses.Add(await MapToResponseAsync(review));
+            }
+
+            var paginatedResult = CreatePaginatedResponse(
+                reviewResponses, totalCount, page, pageSize);
+
+            return Result.Success(paginatedResult);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting non-visible reviews");
+            return Result.Failure<IReviewService.PaginatedResponse<ReviewResponse>>(
+                new Error("GetFailed", "Failed to retrieve non-visible reviews", 500));
+        }
+    }
+
+    public async Task<Result> ToggleReviewVisibilityAsync(int reviewId)
+    {
+        try
+        {
+            var review = await _context.Set<Domain.Entities.Review>()
+                .FirstOrDefaultAsync(r => r.Id == reviewId);
+
+            if (review == null)
+                return Result.Failure(new Error("NotFound", "Review not found", 404));
+
+            review.IsVisible = !review.IsVisible;
+            review.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+            await _context.SaveChangesAsync();
+
+ 
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error toggling review visibility for review {ReviewId}", reviewId);
+            return Result.Failure(new Error("ToggleFailed", "Failed to toggle review visibility", 500));
+        }
+    }
+
+    #endregion
 }
 
 public class ReviewEligibility

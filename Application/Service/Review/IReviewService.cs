@@ -6,6 +6,9 @@ namespace Application.Service.Review;
 
 public interface IReviewService
 {
+    Task<Result<PaginatedResponse<ReviewResponse>>> GetNonVisibleReviewsAsync(int page = 1, int pageSize = 10);
+    Task<Result> ToggleReviewVisibilityAsync(int reviewId);
+
     // Create & Update
     Task<Result<PaginatedResponse<ReviewResponse>>> GetAllReviewsAsync(AllReviewsFilter filter);
     Task<Result<PaginatedResponse<ReviewResponse>>> GetPendingReviewsAsync(int page = 1, int pageSize = 10);

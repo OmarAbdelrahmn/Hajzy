@@ -120,7 +120,9 @@ public class PublicService(
                 .Include(u => u.Rooms.Where(r => !r.IsDeleted && r.IsAvailable))
                     .ThenInclude(r => r.SubUnitImages.Where(i => !i.IsDeleted))
                 .Include(u => u.CancellationPolicy)
-                .Include(u => u.Reviews.OrderByDescending(r => r.CreatedAt).Take(10))
+                .Include(u => u.Reviews
+                .Where(r => r.IsVisible) // ADD IsVisible filter
+                .OrderByDescending(r => r.CreatedAt).Take(10))
                     .ThenInclude(r => r.Images)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted && u.IsActive && u.IsVerified);

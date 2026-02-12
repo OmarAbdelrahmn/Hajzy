@@ -40,6 +40,9 @@ public class Review
 
     public bool IsVerified { get; set; } = true; // Auto-verified since based on booking
 
+    public bool IsVisible { get; set; } = true; // Default to visible
+
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
     public DateTime? CheckInDate { get; set; }
