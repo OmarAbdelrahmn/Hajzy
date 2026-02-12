@@ -116,6 +116,7 @@ public record ReviewResponse
     public int LocationRating { get; set; }
     public int ValueRating { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? OwnerResponse{ get; set; }
 }
 
 public record SubUnitComprehensiveDetail

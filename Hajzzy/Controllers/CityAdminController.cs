@@ -376,7 +376,6 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
     }
 
     [HttpGet("reviews/non-visible")]
-    [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> GetNonVisibleReviews(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)

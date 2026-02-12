@@ -284,7 +284,7 @@ public class ReviewService(
                 .Include(r => r.User)
                 .Include(r => r.Unit)
                 .Include(r => r.Images)
-                .Where(r => r.UnitId == unitId && r.IsVisible); // ADD IsVisible filter
+                .Where(r => r.UnitId == unitId); // ADD IsVisible filter
 
             // Apply filters
             if (filter.MinRating.HasValue)
@@ -982,7 +982,6 @@ public class ReviewService(
                 .Include(r => r.Unit)
                     .ThenInclude(u => u.UnitType)
                 .Include(r => r.Images)
-                .Where(c=>c.IsVisible)
                 .AsQueryable();
 
             // Apply filters

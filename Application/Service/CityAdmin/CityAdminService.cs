@@ -1809,7 +1809,8 @@ public class CityAdminService(
                     CleanlinessRating = r.CleanlinessRating,
                     LocationRating = r.LocationRating,
                     ValueRating = r.ValueRating,
-                    CreatedAt = r.CreatedAt
+                    CreatedAt = r.CreatedAt,
+                    OwnerResponse = r.OwnerResponse
                 })
                 .ToListAsync();
 
@@ -1890,7 +1891,8 @@ public class CityAdminService(
                      CleanlinessRating = r.CleanlinessRating,
                      LocationRating = r.LocationRating,
                      ValueRating = r.ValueRating,
-                     CreatedAt = r.CreatedAt
+                     CreatedAt = r.CreatedAt,
+                     OwnerResponse = r.OwnerResponse
                  })
                 .AsNoTracking()
                 .ToListAsync();
