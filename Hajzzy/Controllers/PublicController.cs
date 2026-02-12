@@ -2,6 +2,7 @@
 using Application.Contracts.publicuser;
 using Application.Extensions;
 using Application.Service.Admin;
+using Application.Service.CityAdmin;
 using Application.Service.OfferService;
 using Application.Service.publicuser;
 using Microsoft.AspNetCore.Authorization;
@@ -16,11 +17,12 @@ namespace Hajzzy.Controllers;
 [Route("api/public")]
 [ApiController]
 [AllowAnonymous] // All endpoints in this controller are public
-public class PublicController(IPublicServise service,IOfferService service1,IAdminService service2) : ControllerBase
+public class PublicController(IPublicServise service,IOfferService service1,IAdminService service2,ICityAdminService cityAdminService) : ControllerBase
 {
     private readonly IPublicServise _service = service;
     private readonly IOfferService service1 = service1;
     private readonly IAdminService service2 = service2;
+    private readonly ICityAdminService _cityAdminService = cityAdminService;
 
     [HttpGet("admins")]
     public async Task<IActionResult> getallcityadmin()
@@ -29,6 +31,31 @@ public class PublicController(IPublicServise service,IOfferService service1,IAdm
         return result.IsSuccess ?
             Ok(result.Value) :
             result.ToProblem();
+    }
+
+    /// <summary>
+    /// Get reviews for a specific unit (paginated)
+    /// </summary>
+    [HttpGet("units/{unitId}/reviews")]
+    public async Task<IActionResult> GetUnitReviews(
+        int unitId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var userId = User.GetUserId();
+        var result = await _cityAdminService.GetUnitReviewsAsync(unitId, page, pageSize);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Get statistics for a specific unit
+    /// </summary>
+    [HttpGet("units/{unitId}/statistics")]
+    public async Task<IActionResult> GetUnitStatistics(int unitId)
+    {
+        var userId = User.GetUserId();
+        var result = await _cityAdminService.GetUnitStatisticsAsync( unitId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
     #region UNITS

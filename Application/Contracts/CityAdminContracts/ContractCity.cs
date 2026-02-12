@@ -18,6 +18,108 @@ namespace Application.Contracts.CityAdminContracts;
 internal class ContractCity
 {
 }
+public record PublicAdResponse
+{
+    public int Id { get; init; }
+    public string? Title { get; init; }
+    public string? Description { get; init; }
+    public string? ImageUrl { get; init; }
+    public int? UnitId { get; init; }
+    public string? UnitName { get; init; }
+    public DateTime StartDate { get; init; }
+    public DateTime EndDate { get; init; }
+    public DateTime CreatedAt { get; init; }
+}
+
+// ============= PUBLIC OFFER DTOs =============
+
+public record PublicOfferResponse
+{
+    public int Id { get; init; }
+    public string? Title { get; init; }
+    public string? Description { get; init; }
+    public string? ImageUrl { get; init; }
+    public bool? IsFeatured { get; init; }
+    public int? UnitId { get; init; }
+    public string? UnitName { get; init; }
+    public DateTime StartDate { get; init; }
+    public DateTime EndDate { get; init; }
+    public decimal? DiscountPercentage { get; init; }
+    public decimal? DiscountAmount { get; init; }
+    public DateTime CreatedAt { get; init; }
+}
+
+// ============= REVIEW DTOs =============
+
+public record PublicReviewResponse
+{
+    public int Id { get; init; }
+    public int UnitId { get; init; }
+    public string UnitName { get; init; } = string.Empty;
+    public int Rating { get; init; }
+    public int CleanlinessRating { get; init; }
+    public int LocationRating { get; init; }
+    public int ServiceRating { get; init; }
+    public int ValueRating { get; init; }
+    public string? Comment { get; init; }
+    public string? OwnerResponse { get; init; }
+    public DateTime? OwnerResponseDate { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime? CheckInDate { get; init; }
+    public DateTime? CheckOutDate { get; init; }
+    public string ReviewerName { get; init; } = "Guest"; // Never expose real names
+    public List<string> ImageUrls { get; init; } = new();
+}
+
+// ============= STATISTICS DTOs =============
+
+public record UnitStatisticsResponse
+{
+    public int UnitId { get; init; }
+    public string UnitName { get; init; } = string.Empty;
+
+    // Review Statistics
+    public decimal AverageRating { get; init; }
+    public int TotalReviews { get; init; }
+    public decimal AverageCleanlinessRating { get; init; }
+    public decimal AverageLocationRating { get; init; }
+    public decimal AverageServiceRating { get; init; }
+    public decimal AverageValueRating { get; init; }
+
+    // Rating Distribution
+    public RatingDistribution RatingDistribution { get; init; } = new();
+
+    // Booking Statistics
+    public int TotalBookings { get; init; }
+    public int CompletedBookings { get; init; }
+    public int CancelledBookings { get; init; }
+    public decimal? OccupancyRate { get; init; } // Percentage
+
+    // Revenue Statistics (optional - may want to hide from public)
+    // public decimal TotalRevenue { get; init; }
+    // public decimal AverageBookingValue { get; init; }
+
+    // Other Statistics
+    public int TotalSubUnits { get; init; }
+    public int AvailableSubUnits { get; init; }
+    public DateTime? FirstBookingDate { get; init; }
+    public DateTime? LastBookingDate { get; init; }
+}
+
+public record RatingDistribution
+{
+    public int FiveStars { get; init; }
+    public int FourStars { get; init; }
+    public int ThreeStars { get; init; }
+    public int TwoStars { get; init; }
+    public int OneStar { get; init; }
+
+    public decimal FiveStarsPercentage { get; init; }
+    public decimal FourStarsPercentage { get; init; }
+    public decimal ThreeStarsPercentage { get; init; }
+    public decimal TwoStarsPercentage { get; init; }
+    public decimal OneStarPercentage { get; init; }
+}
 
 
 public class PaginatedResponse<T>

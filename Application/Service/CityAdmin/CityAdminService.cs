@@ -1,6 +1,8 @@
 ﻿using Application.Abstraction;
 using Application.Abstraction.Consts;
 using Application.Contracts.CityAdminContracts;
+using Application.Contracts.other;
+using Application.Contracts.publicuser;
 using Application.Helpers;
 using Application.Notifications;
 using Application.Service.Avilabilaties;
@@ -227,7 +229,7 @@ public class CityAdminService(
         }
     }
 
-    public async Task<Result> ManageOfferAsync(string userId, int offerId, bool isApproved)
+    public async Task<Result> ManageOfferAsync(string userId, int offerId)
     {
         try
         {
@@ -246,7 +248,7 @@ public class CityAdminService(
                         new Error("NoAccess", "You do not have access to this offer", 403));
             }
 
-            offer.IsActive = isApproved;
+            offer.IsActive = ! offer.IsActive;
             await _context.SaveChangesAsync();
 
 
@@ -258,7 +260,7 @@ public class CityAdminService(
         }
     }
 
-    public async Task<Result> ManageAdAsync(string userId, int adId, bool isApproved)
+    public async Task<Result> ManageAdAsync(string userId, int adId)
     {
         try
         {
@@ -277,7 +279,7 @@ public class CityAdminService(
                         new Error("NoAccess", "You do not have access to this ad", 403));
             }
 
-            ad.IsActive = isApproved;
+            ad.IsActive = ! ad.IsActive;
             await _context.SaveChangesAsync();
 
 
@@ -4087,6 +4089,196 @@ public class CityAdminService(
     }
 
     #endregion
+
+
+    #region REVIEWS & STATISTICS
+
+    public async Task<Result<PaginatedResponse<PublicReviewResponse>>> GetUnitReviewsAsync(
+        int unitId,
+        int page = 1,
+        int pageSize = 10)
+    {
+        try
+        {
+            // Check if unit exists and is public
+            var unitExists = await _context.Units
+                .AnyAsync(u => u.Id == unitId && !u.IsDeleted && u.IsActive && u.IsVerified);
+
+            if (!unitExists)
+                return Result.Failure<PaginatedResponse<PublicReviewResponse>>(
+                    new Error("NotFound", "Unit not found or not available", 404));
+
+            // Get reviews query
+            var query = _context.Reviews
+                .Include(r => r.Images.Where(i => !i.IsDeleted))
+                .Include(r => r.Unit)
+                .Where(r => r.UnitId == unitId && r.IsVisible)
+                .OrderByDescending(r => r.CreatedAt)
+                .AsQueryable();
+
+            var totalCount = await query.CountAsync();
+
+            // Pagination
+            var skip = (page - 1) * pageSize;
+            var reviews = await query
+                .Skip(skip)
+                .Take(pageSize)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var responses = reviews.Select(r => new PublicReviewResponse
+            {
+                Id = r.Id,
+                UnitId = r.UnitId,
+                UnitName = r.Unit.Name,
+                Rating = r.Rating,
+                CleanlinessRating = r.CleanlinessRating,
+                LocationRating = r.LocationRating,
+                ServiceRating = r.ServiceRating,
+                ValueRating = r.ValueRating,
+                Comment = r.Comment,
+                OwnerResponse = r.OwnerResponse,
+                OwnerResponseDate = r.OwnerResponseDate,
+                CreatedAt = r.CreatedAt,
+                CheckInDate = r.CheckInDate,
+                CheckOutDate = r.CheckOutDate,
+                ReviewerName = "Guest", // Never expose real names for privacy
+                ImageUrls = r.Images.Where(i => !i.IsDeleted)
+                    .OrderBy(i => i.DisplayOrder)
+                    .Select(i => i.ImageUrl)
+                    .ToList()
+            }).ToList();
+
+            var paginatedResult = CreatePaginatedResponse(responses, totalCount, page, pageSize);
+            return Result.Success(paginatedResult);
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure<PaginatedResponse<PublicReviewResponse>>(
+                new Error("GetFailed", "Failed to retrieve unit reviews", 500));
+        }
+    }
+
+    public async Task<Result<UnitStatisticsResponse>> GetUnitStatisticsAsync(int unitId)
+    {
+        try
+        {
+            // Check if unit exists and is public
+            var unit = await _context.Units
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted && u.IsActive && u.IsVerified);
+
+            if (unit == null)
+                return Result.Failure<UnitStatisticsResponse>(
+                    new Error("NotFound", "Unit not found or not available", 404));
+
+            // Get all visible reviews for the unit
+            var reviews = await _context.Reviews
+                .Where(r => r.UnitId == unitId && r.IsVisible)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var totalReviews = reviews.Count;
+
+            // Calculate average ratings
+            decimal avgRating = totalReviews > 0 ? (decimal)reviews.Average(r => r.Rating) : 0;
+            decimal avgCleanliness = totalReviews > 0 ? (decimal)reviews.Average(r => r.CleanlinessRating) : 0;
+            decimal avgLocation = totalReviews > 0 ? (decimal)reviews.Average(r => r.LocationRating) : 0;
+            decimal avgService = totalReviews > 0 ? (decimal)reviews.Average(r => r.ServiceRating) : 0;
+            decimal avgValue = totalReviews > 0 ? (decimal)reviews.Average(r => r.ValueRating) : 0;
+
+            // Calculate rating distribution
+            var fiveStars = reviews.Count(r => r.Rating == 5);
+            var fourStars = reviews.Count(r => r.Rating == 4);
+            var threeStars = reviews.Count(r => r.Rating == 3);
+            var twoStars = reviews.Count(r => r.Rating == 2);
+            var oneStar = reviews.Count(r => r.Rating == 1);
+
+            var ratingDistribution = new RatingDistribution
+            {
+                FiveStars = fiveStars,
+                FourStars = fourStars,
+                ThreeStars = threeStars,
+                TwoStars = twoStars,
+                OneStar = oneStar,
+                FiveStarsPercentage = totalReviews > 0 ? Math.Round((decimal)fiveStars / totalReviews * 100, 1) : 0,
+                FourStarsPercentage = totalReviews > 0 ? Math.Round((decimal)fourStars / totalReviews * 100, 1) : 0,
+                ThreeStarsPercentage = totalReviews > 0 ? Math.Round((decimal)threeStars / totalReviews * 100, 1) : 0,
+                TwoStarsPercentage = totalReviews > 0 ? Math.Round((decimal)twoStars / totalReviews * 100, 1) : 0,
+                OneStarPercentage = totalReviews > 0 ? Math.Round((decimal)oneStar / totalReviews * 100, 1) : 0
+            };
+
+            // Get booking statistics
+            var bookings = await _context.Bookings
+                .Where(b => b.UnitId == unitId && !b.IsDeleted)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var totalBookings = bookings.Count;
+            var completedBookings = bookings.Count(b => b.Status == BookingStatus.Completed);
+            var cancelledBookings = bookings.Count(b => b.Status == BookingStatus.Cancelled);
+
+            // Get subunit statistics
+            var totalSubUnits = await _context.SubUnits
+                .CountAsync(s => s.UnitId == unitId && !s.IsDeleted);
+
+            var availableSubUnits = await _context.SubUnits
+                .CountAsync(s => s.UnitId == unitId && !s.IsDeleted && s.IsAvailable);
+
+            // Calculate occupancy rate (simplified - based on completed bookings)
+            // This is a simple calculation - you might want to make it more sophisticated
+            var totalDaysAvailable = totalSubUnits * 365; // Simplified
+            var totalDaysBooked = bookings
+                .Where(b => b.Status == BookingStatus.Completed)
+                .Sum(b => b.NumberOfNights);
+            var occupancyRate = totalDaysAvailable > 0
+                ? Math.Round((decimal)totalDaysBooked / totalDaysAvailable * 100, 1)
+                : 0;
+
+            // Get first and last booking dates
+            var firstBooking = bookings.OrderBy(b => b.CreatedAt).FirstOrDefault();
+            var lastBooking = bookings.OrderByDescending(b => b.CreatedAt).FirstOrDefault();
+
+            var response = new UnitStatisticsResponse
+            {
+                UnitId = unitId,
+                UnitName = unit.Name,
+
+                // Review Statistics
+                AverageRating = Math.Round(avgRating, 1),
+                TotalReviews = totalReviews,
+                AverageCleanlinessRating = Math.Round(avgCleanliness, 1),
+                AverageLocationRating = Math.Round(avgLocation, 1),
+                AverageServiceRating = Math.Round(avgService, 1),
+                AverageValueRating = Math.Round(avgValue, 1),
+
+                // Rating Distribution
+                RatingDistribution = ratingDistribution,
+
+                // Booking Statistics
+                TotalBookings = totalBookings,
+                CompletedBookings = completedBookings,
+                CancelledBookings = cancelledBookings,
+                OccupancyRate = occupancyRate,
+
+                // Other Statistics
+                TotalSubUnits = totalSubUnits,
+                AvailableSubUnits = availableSubUnits,
+                FirstBookingDate = firstBooking?.CreatedAt,
+                LastBookingDate = lastBooking?.CreatedAt
+            };
+
+            return Result.Success(response);
+        }
+        catch (Exception ex)
+        {
+            return Result.Failure<UnitStatisticsResponse>(
+                new Error("GetFailed", "Failed to retrieve unit statistics", 500));
+        }
+    }
+
+    #endregion
+
 
 
 

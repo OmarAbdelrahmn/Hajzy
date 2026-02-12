@@ -429,16 +429,14 @@ public interface ICityAdminService
     /// </summary>
     Task<Result> ManageOfferAsync(
         string userId,
-        int offerId,
-        bool isApproved);
+        int offerId);
 
     /// <summary>
     /// Approve/reject an ad
     /// </summary>
     Task<Result> ManageAdAsync(
         string userId,
-        int adId,
-        bool isApproved);
+        int adId);
 
     // ============= COUPONS MANAGEMENT =============
 
@@ -548,4 +546,17 @@ public interface ICityAdminService
     Task<Result> BulkToggleUnitStatusAsync(
         string userId,
         BulkUnitActionRequest request);
+
+    /// <summary>
+    /// Get all reviews for a specific unit (paginated)
+    /// </summary>
+    Task<Result<PaginatedResponse<PublicReviewResponse>>> GetUnitReviewsAsync(
+        int unitId,
+        int page = 1,
+        int pageSize = 10);
+
+    /// <summary>
+    /// Get statistics for a specific unit
+    /// </summary>
+    Task<Result<UnitStatisticsResponse>> GetUnitStatisticsAsync(int unitId);
 }

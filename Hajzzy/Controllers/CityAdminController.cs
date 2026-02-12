@@ -769,13 +769,12 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
     /// </summary>
     [HttpPatch("offers/{offerId}/manage")]
     public async Task<IActionResult> ManageOffer(
-        int offerId,
-        [FromBody] bool isApproved)
+        int offerId)
     {
         var userId = User.GetUserId();
-        var result = await _cityAdminService.ManageOfferAsync(userId!, offerId, isApproved);
+        var result = await _cityAdminService.ManageOfferAsync(userId!, offerId);
         return result.IsSuccess
-            ? Ok(new { message = $"Offer {(isApproved ? "approved" : "rejected")} successfully" })
+            ? Ok(new { message = $"done successfully" })
             : result.ToProblem();
     }
 
@@ -784,13 +783,12 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
     /// </summary>
     [HttpPatch("ads/{adId}/manage")]
     public async Task<IActionResult> ManageAd(
-        int adId,
-        [FromBody] bool isApproved)
+        int adId)
     {
         var userId = User.GetUserId();
-        var result = await _cityAdminService.ManageAdAsync(userId!, adId, isApproved);
+        var result = await _cityAdminService.ManageAdAsync(userId!, adId);
         return result.IsSuccess
-            ? Ok(new { message = $"Ad {(isApproved ? "approved" : "rejected")} successfully" })
+            ? Ok(new { message = $"done successfully" })
             : result.ToProblem();
     }
 
