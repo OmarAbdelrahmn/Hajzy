@@ -6,7 +6,7 @@ namespace Application.Service.Amenity;
 public interface IAmenityService
 {
     // ============= CRUD =============
-    Task<Result<PaginatedResponse<AmenityResponse>>> GetAllAmenitiesAsync();
+    Task<Result<PaginatedResponse<AmenityResponse>>> GetAllAmenitiesAsync(int page, int pagesize);
     Task<Result<AmenityDetailsResponse>> GetByIdAsync(int amenityId);
     Task<Result<IEnumerable<AmenityResponse>>> GetByCategoryAsync(string category);
     Task<Result<AmenityResponse>> CreateAsync(CreateAmenityRequest request);

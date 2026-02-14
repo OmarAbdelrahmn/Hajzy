@@ -17,14 +17,14 @@ public class AmenityService(
     #region CRUD
 
     public async Task<Result<PaginatedResponse<AmenityResponse>>> GetAllAmenitiesAsync(
+        int page = 1, int pageSize = 10
         )
     {
         var query = _context.Set<Domain.Entities.Amenity>()
             .AsNoTracking();
 
         var totalCount = await query.CountAsync();
-        int page = 1;
-        int pageSize = 10;
+
 
         var amenities = await query
             .OrderBy(a => a.Name)
