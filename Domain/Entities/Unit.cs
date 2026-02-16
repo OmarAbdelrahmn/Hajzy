@@ -42,7 +42,9 @@ public class Unit
     // NEW: Price currency
     public PriceCurrency PriceCurrency { get; set; } = PriceCurrency.SAR;
 
-    
+    [Range(1, 5)]
+    public int? Rank { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 

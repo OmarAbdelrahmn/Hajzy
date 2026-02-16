@@ -64,6 +64,20 @@ public interface IHotelAdminService
 
     // ============= UNIT MANAGEMENT =============
 
+    #region UNIT RANK MANAGEMENT
+
+    /// <summary>
+    /// Update unit star ranking (1-5 stars)
+    /// </summary>
+    Task<Result> UpdateUnitRankAsync(string userId, int unitId, int rank);
+
+    /// <summary>
+    /// Get unit star ranking
+    /// </summary>
+    Task<Result<int?>> GetUnitRankAsync(string userId, int unitId);
+
+    #endregion
+
     /// <summary>
     /// Get all units managed by this admin with full details
     /// </summary>

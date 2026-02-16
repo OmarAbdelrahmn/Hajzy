@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Text;
 
 namespace Application.Contracts.Unit;
@@ -237,6 +238,8 @@ public record UpdateUnitRequest
     public int? Bedrooms { get; init; }
     public int? Bathrooms { get; init; }
     public bool? IsActive { get; init; }
+    [Range(1, 5, ErrorMessage = "Rank must be between 1 and 5 stars")]
+    public int? Rank { get; set; }
 }
 
 public class UnitFilter
@@ -283,6 +286,8 @@ public class UnitResponse
     public int AdminCount { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
+    public int? Rank { get; set; }
+
 }
 
 public class UnitResponses
@@ -340,6 +345,8 @@ public class UnitDetailsResponse
     public List<SubUnitSummary> Rooms { get; init; } = new();
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
+    public int? Rank { get; set; }
+
 }
 
 public record UnitAdminInfo(

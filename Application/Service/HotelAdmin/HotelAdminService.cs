@@ -348,6 +348,14 @@ public class HotelAdminService(
             if (request.MaxGuests.HasValue) unit.MaxGuests = request.MaxGuests.Value;
             if (request.Bedrooms.HasValue) unit.Bedrooms = request.Bedrooms.Value;
             if (request.Bathrooms.HasValue) unit.Bathrooms = request.Bathrooms.Value;
+            if (request.Rank.HasValue)
+            {
+                if (request.Rank.Value < 1 || request.Rank.Value > 5)
+                    return Result.Failure<UnitResponse>(
+                        new Error("InvalidRank", "Rank must be between 1 and 5 stars", 400));
+
+                unit.Rank = request.Rank.Value;
+            }
 
             unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
 
@@ -1463,6 +1471,7 @@ public class HotelAdminService(
 
         return new UnitComprehensiveResponse
         {
+            Rank = unit.Rank, // NEW
             Id = unit.Id,
             Name = unit.Name,
             Description = unit.Description,
@@ -1527,7 +1536,8 @@ public class HotelAdminService(
             Bathrooms = unit.Bathrooms,
             IsActive = unit.IsActive,
             IsVerified = unit.IsVerified,
-            UpdatedAt = unit.UpdatedAt
+            UpdatedAt = unit.UpdatedAt,
+            Rank = unit.Rank, // NEW
         };
     }
 
@@ -4668,6 +4678,83 @@ public class HotelAdminService(
             _logger.LogError(ex, "Error updating currency for unit {UnitId}", unitId);
             return Result.Failure(
                 new Error("UpdateCurrencyFailed", "Failed to update unit currency", 500));
+        }
+    }
+
+    #endregion
+
+    #region UNIT RANK MANAGEMENT
+
+    /// <summary>
+    /// Update unit star ranking (1-5 stars)
+    /// </summary>
+    public async Task<Result> UpdateUnitRankAsync(
+        string userId,
+        int unitId,
+        int rank)
+    {
+        try
+        {
+            // Validate rank
+            if (rank < 1 || rank > 5)
+                return Result.Failure(
+                    new Error("InvalidRank", "Rank must be between 1 and 5 stars", 400));
+
+            var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            var unit = await _context.Units
+                .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+
+            if (unit == null)
+                return Result.Failure(new Error("NotFound", "Unit not found", 404));
+
+            unit.Rank = rank;
+            unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Unit {UnitId} rank updated to {Rank} stars by user {UserId}",
+                unitId, rank, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating unit rank");
+            return Result.Failure(new Error("UpdateRankFailed", "Failed to update unit rank", 500));
+        }
+    }
+
+    /// <summary>
+    /// Get unit rank
+    /// </summary>
+    public async Task<Result<int?>> GetUnitRankAsync(string userId, int unitId)
+    {
+        try
+        {
+            var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
+            if (!hasAccess.Value)
+                return Result.Failure<int?>(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            var unit = await _context.Units
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+
+            if (unit == null)
+                return Result.Failure<int?>(new Error("NotFound", "Unit not found", 404));
+
+            return Result.Success(unit.Rank);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting unit rank");
+            return Result.Failure<int?>(
+                new Error("GetRankFailed", "Failed to retrieve unit rank", 500));
         }
     }
 

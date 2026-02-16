@@ -1,6 +1,7 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.CityAdminContracts;
 using Application.Service.Avilabilaties;
+using static Application.Service.CityAdmin.CityAdminService;
 
 namespace Application.Service.CityAdmin;
 
@@ -437,6 +438,13 @@ public interface ICityAdminService
     Task<Result> ManageAdAsync(
         string userId,
         int adId);
+
+    /// <summary>
+    /// Create a new offer for the city or specific unit
+    /// </summary>
+    Task<Result<OfferResponse2>> CreateCityOfferAsync(
+        string userId,
+        CreateOfferRequest request);
 
     // ============= COUPONS MANAGEMENT =============
 

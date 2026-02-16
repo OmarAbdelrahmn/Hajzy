@@ -1013,6 +1013,7 @@ public class HotelAdminStatsResponse
 public class UnitComprehensiveResponse
 {
     public int Id { get; set; }
+    public int? Rank { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
@@ -1065,6 +1066,7 @@ public class UnitResponse
     public int? MaxGuests { get; set; }
     public int? Bedrooms { get; set; }
     public int? Bathrooms { get; set; }
+    public int? Rank { get; set; }
     public bool IsActive { get; set; }
     public bool IsVerified { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -1411,6 +1413,7 @@ public class UpdateUnitRequest
     public int? MaxGuests { get; set; }
     public int? Bedrooms { get; set; }
     public int? Bathrooms { get; set; }
+    public int? Rank { get; set; }
 }
 
 public class UpdateAvailabilityRequest

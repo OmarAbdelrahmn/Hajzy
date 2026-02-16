@@ -28,7 +28,8 @@ public class Offer
     public int? UnitId { get; set; }
     public Unit? Unit { get; set; }
 
-
+    [MaxLength(2000)]
+    public string? Link { get; set; }  
     public bool IsFeatured { get; set; } = false;
 
     // Date Range

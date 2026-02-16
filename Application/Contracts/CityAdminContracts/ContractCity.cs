@@ -9,6 +9,7 @@ using Domain.Entities;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using System.Reflection;
 using System.Text;
@@ -17,6 +18,41 @@ namespace Application.Contracts.CityAdminContracts;
 
 internal class ContractCity
 {
+}
+
+public class CreateOfferRequest
+{
+    [Required(ErrorMessage = "Title is required")]
+    [MaxLength(200, ErrorMessage = "Title cannot exceed 200 characters")]
+    public string Title { get; set; } = string.Empty;
+
+    [MaxLength(1000, ErrorMessage = "Description cannot exceed 1000 characters")]
+    public string? Description { get; set; }
+
+    [MaxLength(2000, ErrorMessage = "Link cannot exceed 2000 characters")]
+    [Url(ErrorMessage = "Link must be a valid URL")]
+    public string? Link { get; set; }
+
+    [Required(ErrorMessage = "Image is required")]
+    public IFormFile Image { get; set; } = default!;
+
+    public int? UnitId { get; set; }
+
+    [Required(ErrorMessage = "Start date is required")]
+    public DateTime StartDate { get; set; }
+
+    [Required(ErrorMessage = "End date is required")]
+    public DateTime EndDate { get; set; }
+
+    [Range(0, 100, ErrorMessage = "Discount percentage must be between 0 and 100")]
+    public decimal? DiscountPercentage { get; set; }
+
+    [Range(0, double.MaxValue, ErrorMessage = "Discount amount must be positive")]
+    public decimal? DiscountAmount { get; set; }
+
+    public bool IsActive { get; set; } = true;
+
+    public bool IsFeatured { get; set; } = false;
 }
 public record PublicAdResponse
 {
@@ -557,6 +593,7 @@ public record OfferResponse
     public bool IsActive { get; set; }
     public bool IsFeatured { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? Link { get; set; }
 }
 
 public record AdResponse
@@ -753,7 +790,35 @@ public record UserFilter
     public int PageSize { get; set; } = 20;
 }
 
-public record UnitComprehensiveResponse { public int Id { get; set; } public string Name { get; set; } = string.Empty; public string Description { get; set; } = string.Empty; public string Address { get; set; } = string.Empty; public decimal Latitude { get; set; } public decimal Longitude { get; set; } public int CityId { get; set; } public string CityName { get; set; } = string.Empty; public int UnitTypeId { get; set; } public string UnitTypeName { get; set; } = string.Empty; public decimal BasePrice { get; set; } public int? MaxGuests { get; set; } public int? Bedrooms { get; set; } public int? Bathrooms { get; set; } public bool IsActive { get; set; } public bool IsVerified { get; set; } public bool IsFeatured { get; set; } public decimal AverageRating { get; set; } public int TotalReviews { get; set; } public int TotalRooms { get; set; } public int AvailableRooms { get; set; } public List<ImageResponse> Images { get; set; } = []; public List<AmenityResponse> Amenities { get; set; } = []; public List<PolicyResponse> Policies { get; set; } = []; public DateTime CreatedAt { get; set; } public DateTime? UpdatedAt { get; set; } }
+public record UnitComprehensiveResponse {
+    public int Id { get; set; }
+    public int? Rank { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty; 
+    public string Address { get; set; } = string.Empty; 
+    public decimal Latitude { get; set; } 
+    public decimal Longitude { get; set; } 
+    public int CityId { get; set; }
+    public string CityName { get; set; } = string.Empty; 
+    public int UnitTypeId { get; set; } 
+    public string UnitTypeName { get; set; } = string.Empty; 
+    public decimal BasePrice { get; set; }
+    public int? MaxGuests { get; set; } 
+    public int? Bedrooms { get; set; } 
+    public int? Bathrooms { get; set; } 
+    public bool IsActive { get; set; }
+    public bool IsVerified { get; set; } 
+    public bool IsFeatured { get; set; } 
+    public decimal AverageRating { get; set; }
+    public int TotalReviews { get; set; } 
+    public int TotalRooms { get; set; } 
+    public int AvailableRooms { get; set; }
+    public List<ImageResponse> Images { get; set; } = [];
+    public List<AmenityResponse> Amenities { get; set; } = []; 
+    public List<PolicyResponse> Policies { get; set; } = [];
+    public DateTime CreatedAt { get; set; } 
+    public DateTime? UpdatedAt { get; set; } 
+}
 
 public record ImageResponse
 {

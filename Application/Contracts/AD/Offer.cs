@@ -14,6 +14,7 @@ public record CreateOfferRequest(
     DateTime EndDate,
     decimal? DiscountPercentage,
     decimal? DiscountAmount,
+    string? Link,
     bool IsActive = true
 );
 
@@ -28,7 +29,8 @@ public record UpdateOfferRequest(
     DateTime? EndDate,
     decimal? DiscountPercentage,
     decimal? DiscountAmount,
-    bool? IsActive
+    bool? IsActive,
+    string? Link
 );
 
 // ============= RESPONSE =============
@@ -49,7 +51,8 @@ public record OfferResponse(
     bool IsExpired,
     string UploadedByUserId,
     string? UploadedByName,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? Link
 );
 
 // ============= LIST FILTER =============

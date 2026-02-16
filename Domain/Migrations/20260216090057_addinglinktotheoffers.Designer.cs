@@ -4,6 +4,7 @@ using Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Domain.Migrations
 {
     [DbContext(typeof(ApplicationDbcontext))]
-    partial class ApplicationDbcontextModelSnapshot : ModelSnapshot
+    [Migration("20260216090057_addinglinktotheoffers")]
+    partial class addinglinktotheoffers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1794,7 +1797,7 @@ namespace Domain.Migrations
                             AccessFailedCount = 0,
                             Address = "lives in hotel details",
                             ConcurrencyStamp = "B4555410-F5B0-45B1-B963-1B2351A0723C",
-                            CreatedAt = new DateTime(2026, 2, 16, 9, 42, 27, 324, DateTimeKind.Utc).AddTicks(8732),
+                            CreatedAt = new DateTime(2026, 2, 16, 9, 0, 55, 374, DateTimeKind.Utc).AddTicks(5174),
                             Email = "HotelAdmin@gmail.com",
                             EmailConfirmed = true,
                             FullName = "hotel-Admin",
@@ -1802,7 +1805,7 @@ namespace Domain.Migrations
                             LockoutEnabled = false,
                             NormalizedEmail = "HOTELADMIN@GMAIL.COM",
                             NormalizedUserName = "HOTELADMIN",
-                            PasswordHash = "AQAAAAIAAYagAAAAEBypztK8DJXrJzwV0Kd5+igUEEeLQ++7dfQF9Mwc5ZLh4I5eDAF7lMa4tZ8qyonuIg==",
+                            PasswordHash = "AQAAAAIAAYagAAAAENBcPyopBr2O0tfbvMyxKjEOq1aBcnYPz3MBip8OykNX8r3ULED1E5yvItbfaRBhcQ==",
                             PhoneNumberConfirmed = false,
                             SecurityStamp = "9FABB58491024B7BB140E4D6658B5BDA",
                             TwoFactorEnabled = false,
@@ -1814,7 +1817,7 @@ namespace Domain.Migrations
                             AccessFailedCount = 0,
                             Address = "lives in city details",
                             ConcurrencyStamp = "B4555410-F5B0-45B1-B963-1B2351A0723C",
-                            CreatedAt = new DateTime(2026, 2, 16, 9, 42, 27, 420, DateTimeKind.Utc).AddTicks(2595),
+                            CreatedAt = new DateTime(2026, 2, 16, 9, 0, 55, 491, DateTimeKind.Utc).AddTicks(5585),
                             Email = "CityAdmin@gmail.com",
                             EmailConfirmed = true,
                             FullName = "city-Admin",
@@ -1822,7 +1825,7 @@ namespace Domain.Migrations
                             LockoutEnabled = false,
                             NormalizedEmail = "CITYADMIN@GMAIL.COM",
                             NormalizedUserName = "CITYADMIN",
-                            PasswordHash = "AQAAAAIAAYagAAAAECDH6dt23KTI0t5Kj+mYa+N2SqlhrIcCw53W1dC7deTScRxzqwNv2srkjzGWoMKhfg==",
+                            PasswordHash = "AQAAAAIAAYagAAAAENQxfhFk8GlTJsQe5mAvUQmLyv2iQZ5hO9ZQJpd2SnTTPAPBuYv2dMa4IG/NQNQkrg==",
                             PhoneNumberConfirmed = false,
                             SecurityStamp = "9FABB58491024B7BB140E4D6658B5BDA",
                             TwoFactorEnabled = false,
@@ -1834,7 +1837,7 @@ namespace Domain.Migrations
                             AccessFailedCount = 0,
                             Address = "lives in every details",
                             ConcurrencyStamp = "B4555430-F5B0-45B1-B963-1B2351A0923C",
-                            CreatedAt = new DateTime(2026, 2, 16, 9, 42, 27, 498, DateTimeKind.Utc).AddTicks(9662),
+                            CreatedAt = new DateTime(2026, 2, 16, 9, 0, 55, 568, DateTimeKind.Utc).AddTicks(4703),
                             Email = "SuperAdmin@gmail.com",
                             EmailConfirmed = true,
                             FullName = "super-Admin",
@@ -1842,7 +1845,7 @@ namespace Domain.Migrations
                             LockoutEnabled = false,
                             NormalizedEmail = "SUPERADMIN@GMAIL.COM",
                             NormalizedUserName = "SUPERADMIN",
-                            PasswordHash = "AQAAAAIAAYagAAAAECxQVhyEM30iHOFrbFlOvQwSPhL5bjl7Y/vuEJ6crTkQm9t/WyMRG3C7dk73RElo0w==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEOkKh5ZJ9uMrbWlDG2btNbGdlYyxD/5o7+vCFfXBUuxSUXN9QCoFMn/qo507jEiJMw==",
                             PhoneNumberConfirmed = false,
                             SecurityStamp = "1FABB58791024B7BB190E4D6658B5BDA",
                             TwoFactorEnabled = false,
@@ -3862,9 +3865,6 @@ namespace Domain.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("PriceCurrency")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("Rank")
                         .HasColumnType("int");
 
                     b.Property<int>("TotalReviews")

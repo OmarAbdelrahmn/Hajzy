@@ -1,9 +1,12 @@
 ﻿using Application.Abstraction.Consts;
 using Application.Contracts.hoteladmincont;
 using Application.Extensions;
+using Application.Service.AdService;
 using Application.Service.HotelAdmin;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 
 namespace Hajzzy.Controllers;
 
@@ -1145,7 +1148,41 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
         var result = await _hotelAdminService.UploadUnitImageAsync(userId!, request.image,request.caption);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
+    // Update unit rank
+    [HttpPut("{unitId}/rank")]
+    [Authorize(Roles = "HotelAdmin")]
+    public async Task<IActionResult> UpdateUnitRank(int unitId, [FromBody] UpdateRankRequest request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var result = await _hotelAdminService.UpdateUnitRankAsync(userId, unitId, request.Rank);
 
-    public record UploadDto(IFormFile image, string? caption);
-  
+        if (!result.IsSuccess)
+            return result.ToProblem();
+
+        return Ok(new { message = "Unit rank updated successfully" });
+    }
+
+    // Get unit rank
+    [HttpGet("{unitId}/rank")]
+    [Authorize(Roles = "HotelAdmin")]
+    public async Task<IActionResult> GetUnitRank(int unitId)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var result = await _hotelAdminService.GetUnitRankAsync(userId, unitId);
+
+        if (!result.IsSuccess)
+            return result.ToProblem();
+
+        return Ok(new { rank = result.Value });
+    }
 }
+
+// Request DTO
+public class UpdateRankRequest
+{
+    [Required]
+    [Range(1, 5, ErrorMessage = "Rank must be between 1 and 5 stars")]
+    public int Rank { get; set; }
+}
+public record UploadDto(IFormFile image, string? caption);
+  

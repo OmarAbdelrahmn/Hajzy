@@ -70,6 +70,7 @@ public class OfferService(
                 UserId = userId,
                 CreatedAt = DateTime.UtcNow.AddHours(3),
                 IsFeatured = request.IsFeatured,
+                Link = request.Link
             };
 
             await _context.Set<Offer>().AddAsync(offer);
@@ -117,6 +118,7 @@ public class OfferService(
             if (request.DiscountAmount.HasValue) offer.DiscountAmount = request.DiscountAmount.Value;
             if (request.IsActive.HasValue) offer.IsActive = request.IsActive.Value;
             if (request.IsFeatured.HasValue) offer.IsFeatured = request.IsFeatured.Value;
+            if (request.Link != null) offer.Link = request.Link;
 
             if (request.UnitId.HasValue && request.UnitId.Value != offer.UnitId)
             {
@@ -272,7 +274,8 @@ public class OfferService(
             o.IsExpired,
             o.UserId,
             o.User?.FullName,
-            o.CreatedAt
+            o.CreatedAt,
+            o.Link
         )).ToList();
 
         var paginatedResult = CreatePaginatedResponse(
@@ -320,7 +323,8 @@ public class OfferService(
             o.IsExpired,
             o.UserId,
             o.User?.FullName,
-            o.CreatedAt
+            o.CreatedAt,
+            o.Link
         )).ToList();
 
         var paginatedResult = CreatePaginatedResponse(
@@ -366,7 +370,8 @@ public class OfferService(
             o.IsExpired,
             o.UserId,
             o.User?.FullName,
-            o.CreatedAt
+            o.CreatedAt,
+                o.Link  // ADD THIS
         )).ToList();
 
         var paginatedResult = CreatePaginatedResponse(
@@ -504,7 +509,8 @@ public class OfferService(
             offer.IsExpired,
             offer.UserId,
             offer.User?.FullName,
-            offer.CreatedAt
+            offer.CreatedAt,
+            offer.Link
         );
     }
 

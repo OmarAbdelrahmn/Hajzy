@@ -1,4 +1,6 @@
-﻿using Application.Abstraction;
+﻿using Amazon.S3;
+using Amazon.S3.Transfer;
+using Application.Abstraction;
 using Application.Abstraction.Consts;
 using Application.Contracts.CityAdminContracts;
 using Application.Contracts.other;
@@ -16,6 +18,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Webp;
 using System.Text.Json;
 
 namespace Application.Service.CityAdmin;
@@ -27,7 +31,8 @@ public class CityAdminService(
     ILogger<CityAdminService> logger,
     IHttpContextAccessor httpContextAccessor,
     IS3ImageService s3Service,
-    INotinficationService emailNotificationService) : ICityAdminService
+    INotinficationService emailNotificationService,
+    IAmazonS3 s3Client) : ICityAdminService
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly UserManager<ApplicationUser> _userManager = userManager;
@@ -36,6 +41,10 @@ public class CityAdminService(
     private readonly IS3ImageService _s3Service = s3Service;
     private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
     private readonly INotinficationService _emailNotificationService = emailNotificationService;
+    private const string CloudFrontUrl = "";
+    private const string BucketName = "hujjzy-bucket";
+    private readonly IAmazonS3 _s3Client = s3Client;
+
 
 
 
@@ -106,6 +115,190 @@ public class CityAdminService(
 
     #region OFFERS & ADS MANAGEMENT
 
+    public async Task<Result<OfferResponse2>> CreateCityOfferAsync(
+    string userId,
+    CreateOfferRequest request)
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            var departmentId = await GetAdminDepartmentIdAsync(userId);
+            if (!departmentId.IsSuccess)
+                return Result.Failure<OfferResponse2>(departmentId.Error);
+
+            // If UnitId is provided, verify it belongs to this city
+            if (request.UnitId.HasValue)
+            {
+                var hasAccess = await IsUnitInMyCityAsync(userId, request.UnitId.Value);
+                if (!hasAccess.Value)
+                    return Result.Failure<OfferResponse2>(
+                        new Error("NoAccess", "You do not have access to this unit", 403));
+
+                var unitExists = await _context.Units
+                    .AnyAsync(u => u.Id == request.UnitId.Value && !u.IsDeleted);
+
+                if (!unitExists)
+                    return Result.Failure<OfferResponse2>(
+                        new Error("UnitNotFound", "Unit not found", 404));
+            }
+
+            if (request.EndDate <= request.StartDate)
+                return Result.Failure<OfferResponse2>(
+                    new Error("InvalidDates", "End date must be after start date", 400));
+
+            // Upload image
+            var imageResult = await UploadOfferImageAsync(request.Image, userId);
+            if (!imageResult.IsSuccess)
+                return Result.Failure<OfferResponse2>(imageResult.Error);
+
+            var originalKey = imageResult.Value;
+
+            var offer = new Offer
+            {
+                Title = request.Title,
+                Description = request.Description,
+                Link = request.Link,
+                ImageUrl = GetCloudFrontUrl(originalKey),
+                S3Key = originalKey, // Adjust based on your S3 service return
+                UnitId = request.UnitId,
+                StartDate = request.StartDate,
+                EndDate = request.EndDate,
+                DiscountPercentage = request.DiscountPercentage,
+                DiscountAmount = request.DiscountAmount,
+                IsActive = request.IsActive,
+                IsFeatured = request.IsFeatured,
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow.AddHours(3)
+            };
+
+            await _context.Set<Offer>().AddAsync(offer);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            // Fetch the created offer with navigation properties
+            var createdOffer = await _context.Set<Offer>()
+                .Include(o => o.Unit)
+                    .ThenInclude(u => u.UnitType)
+                .Include(o => o.User)
+                .FirstAsync(o => o.Id == offer.Id);
+
+            var response = new OfferResponse2(
+                createdOffer.Id,
+                createdOffer.Title,
+                createdOffer.Description,
+                createdOffer.Link,
+                createdOffer.ImageUrl ?? string.Empty,
+                createdOffer.UnitId,
+                createdOffer.Unit?.Name,
+                createdOffer.Unit?.UnitType?.Name,
+                createdOffer.StartDate,
+                createdOffer.EndDate,
+                createdOffer.IsFeatured,
+                createdOffer.DiscountPercentage,
+                createdOffer.DiscountAmount,
+                createdOffer.IsActive,
+                createdOffer.IsExpired,
+                createdOffer.UserId,
+                createdOffer.User?.FullName,
+                createdOffer.CreatedAt
+            );
+
+            _logger.LogInformation(
+                "Offer {OfferId} created by city admin {UserId}",
+                offer.Id, userId);
+
+            return Result.Success(response);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error creating offer for city admin {UserId}", userId);
+            return Result.Failure<OfferResponse2>(
+                new Error("CreateOfferFailed", "Failed to create offer", 500));
+        }
+    }
+
+    public record OfferResponse2(
+    int Id,
+    string? Title,
+    string? Description,
+    string? Link,
+    string ImageUrl,
+    int? UnitId,
+    string? UnitName,
+    string? UnitTypeName,
+    DateTime StartDate,
+    DateTime EndDate,
+    bool IsFeatured,
+    decimal? DiscountPercentage,
+    decimal? DiscountAmount,
+    bool IsActive,
+    bool IsExpired,
+    string UserId,
+    string? UserName,
+    DateTime CreatedAt
+);
+    public async Task<Result<string>> UploadOfferImageAsync(IFormFile image, string userId)
+    {
+        try
+        {
+            var transferUtility = new TransferUtility(_s3Client);
+            var timestamp = DateTime.UtcNow.Ticks;
+            var key = $"offers/{userId}/{timestamp}.webp";
+
+            using (var stream = new MemoryStream())
+            {
+                await ConvertToWebpAsync(image.OpenReadStream(), stream, 75);
+                stream.Position = 0;
+
+                await transferUtility.UploadAsync(new TransferUtilityUploadRequest
+                {
+                    InputStream = stream,
+                    Key = key,
+                    BucketName = "hujjzy-bucket",
+                    ContentType = "image/webp",
+                    CannedACL = S3CannedACL.Private
+                });
+            }
+
+            var url = GetCloudFrontUrl(key);
+            return Result.Success(url);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading offer image");
+            return Result.Failure<string>(
+                new Error("UploadFailed", "Failed to upload image", 500));
+        }
+    }
+
+    private async Task ConvertToWebpAsync(Stream input, Stream output, int quality)
+    {
+        await Task.Run(() =>
+        {
+            using var image = Image.Load(input);
+            var encoder = new WebpEncoder
+            {
+                Quality = 75,
+                Method = WebpEncodingMethod.Fastest,
+                SkipMetadata = true
+            };
+            image.Save(output, encoder);
+        });
+    }
+
+    public string GetCloudFrontUrl(string s3Key)
+    {
+        if (string.IsNullOrEmpty(s3Key))
+            return string.Empty;
+
+        if (string.IsNullOrEmpty(CloudFrontUrl))
+            return $"https://{BucketName}.s3.amazonaws.com/{s3Key}";
+
+        return $"https://{CloudFrontUrl}/{s3Key}";
+    }
+
     public async Task<Result<PaginatedResponse<OfferResponse>>> GetCityOffersAsync(
        string userId,
        OfferFilter filter)
@@ -156,7 +349,8 @@ public class CityAdminService(
                     EndDate = o.EndDate,
                     IsActive = o.IsActive,
                     IsFeatured = o.IsFeatured,
-                    CreatedAt = o.CreatedAt
+                    CreatedAt = o.CreatedAt,
+                    Link = o.Link
                 })
                 .ToListAsync();
 
@@ -3101,6 +3295,7 @@ public class CityAdminService(
     {
         return new UnitComprehensiveResponse
         {
+            Rank = unit.Rank,  // ← ADD THIS LINE
             Id = unit.Id,
             Name = unit.Name,
             Description = unit.Description,
