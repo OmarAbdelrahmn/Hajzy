@@ -1,4 +1,5 @@
-﻿using Application.Contracts.hoteladmincont;
+﻿using Application.Abstraction.Consts;
+using Application.Contracts.hoteladmincont;
 using Application.Extensions;
 using Application.Service.HotelAdmin;
 using Microsoft.AspNetCore.Authorization;
@@ -10,7 +11,7 @@ namespace Hajzzy.Controllers;
 
 [Route("api/hotel-admin")]
 [ApiController]
-//[Authorize(Roles = DefaultRoles.HotelAdmin)]
+[Authorize(Roles = DefaultRoles.HotelAdmin)]
 public class HotelAdminController(IHotelAdminService hotelAdminService) : ControllerBase
 {
     private readonly IHotelAdminService _hotelAdminService = hotelAdminService;
@@ -184,6 +185,19 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     #region SUBUNIT MANAGEMENT
 
     /// <summary>
+    /// Create a new subunit for admin's unit
+    /// </summary>
+    [HttpPost("units/{unitId}/subunits")]
+    public async Task<IActionResult> CreateSubUnit(
+        int unitId,
+        [FromBody] CreateSubUnitRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.CreateSubUnitAsync(userId!, unitId, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
     /// Get all subunits for admin's units (optionally filtered by unit)
     /// </summary>
     [HttpGet("subunits")]
@@ -355,8 +369,6 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     }
 
     #endregion
-
-
 
     #region Policy Management
 
@@ -1134,6 +1146,7 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
 
     #endregion
 
+    #region imagae management
     /// <summary>
     /// Upload new image for a unit
     /// </summary>
@@ -1173,7 +1186,7 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
 
         return Ok(new { rank = result.Value });
     }
-
+    #endregion
     // ============================================================================
     // CUSTOM POLICIES MANAGEMENT ENDPOINTS
     // ============================================================================

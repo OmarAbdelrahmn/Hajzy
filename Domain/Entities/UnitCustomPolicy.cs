@@ -1,5 +1,6 @@
 ﻿// Domain/Entities/UnitCustomPolicy.cs
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Entities;
 
@@ -26,9 +27,9 @@ public class UnitCustomPolicy
     public DateTime? UpdatedAt { get; set; }
 
     [Required]
-    public string CreatedByUserId { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty;
 
     // Navigation
     public Unit Unit { get; set; } = default!;
-    public ApplicationUser CreatedBy { get; set; } = default!;
+    public ApplicationUser User { get; set; } = default!;
 }

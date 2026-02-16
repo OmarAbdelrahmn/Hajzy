@@ -13,7 +13,88 @@ namespace Application.Contracts.hoteladmincont;
 // ============================================================================
 
 
+// Application/Contracts/hoteladmincont/CreateSubUnitRequest.cs
 
+
+public class CreateSubUnitRequest
+{
+    [Required]
+    [MaxLength(100)]
+    public string RoomNumber { get; set; } = string.Empty;
+
+    [Required]
+    public int SubUnitTypeId { get; set; }
+
+    [Required]
+    [Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than 0")]
+    public decimal PricePerNight { get; set; }
+
+    [Required]
+    [Range(1, int.MaxValue, ErrorMessage = "Max occupancy must be at least 1")]
+    public int MaxOccupancy { get; set; }
+
+    [Range(0, int.MaxValue)]
+    public int? Bedrooms { get; set; }
+
+    [Range(0, int.MaxValue)]
+    public int? Bathrooms { get; set; }
+
+    [Range(0, double.MaxValue)]
+    public decimal? Size { get; set; } // Square meters
+
+    [MaxLength(500)]
+    public string? Description { get; set; }
+
+    public bool IsAvailable { get; set; } = true;
+
+    // Room Configuration (optional)
+    public RoomConfigurationRequest? RoomConfig { get; set; }
+
+    // Optional: Amenities to add immediately
+    public List<int>? AmenityIds { get; set; }
+}
+
+public class RoomConfigurationRequest
+{
+    [Range(0, int.MaxValue)]
+    public int Bedrooms { get; set; }
+
+    [Range(0, int.MaxValue)]
+    public int Bathrooms { get; set; }
+
+    [Range(0, double.MaxValue)]
+    public decimal Size { get; set; }
+
+    public BedType BedType { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int BedCount { get; set; }
+
+    public bool HasKitchen { get; set; }
+    public bool HasBalcony { get; set; }
+
+    [MaxLength(100)]
+    public string? ViewType { get; set; } // "Ocean", "Mountain", "City"
+
+    public int? Floor { get; set; }
+}
+
+public class SubUnitCreatedResponse
+{
+    public int Id { get; set; }
+    public int UnitId { get; set; }
+    public string RoomNumber { get; set; } = string.Empty;
+    public string SubUnitTypeName { get; set; } = string.Empty;
+    public decimal PricePerNight { get; set; }
+    public int MaxOccupancy { get; set; }
+    public int? Bedrooms { get; set; }
+    public int? Bathrooms { get; set; }
+    public decimal? Size { get; set; }
+    public bool IsAvailable { get; set; }
+    public string? Description { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public List<AmenityResponse>? Amenities { get; set; }
+}
 public record CreateUnitCustomPolicyRequest
 {
     public string Title { get; init; } = string.Empty;

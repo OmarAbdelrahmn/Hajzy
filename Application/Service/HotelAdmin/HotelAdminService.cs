@@ -3085,6 +3085,158 @@ public class HotelAdminService(
 
     #region SubUnit Management Extended
 
+    // Application/Service/HotelAdmin/HotelAdminService.cs
+
+    // Add this method in the #region SUBUNIT MANAGEMENT section:
+
+    public async Task<Result<SubUnitCreatedResponse>> CreateSubUnitAsync(
+        string userId,
+        int unitId,
+        CreateSubUnitRequest request)
+    {
+        try
+        {
+            // Verify admin has access to this unit
+            var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
+            if (!hasAccess.Value)
+                return Result.Failure<SubUnitCreatedResponse>(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            // Verify unit exists
+            var unit = await _context.Units
+                .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+
+            if (unit == null)
+                return Result.Failure<SubUnitCreatedResponse>(
+                    new Error("NotFound", "Unit not found", 404));
+
+            // Verify subunit type exists
+            var subUnitType = await _context.Set<SubUnitTypee>()
+                .FirstOrDefaultAsync(st => st.Id == request.SubUnitTypeId && st.IsActive);
+
+            if (subUnitType == null)
+                return Result.Failure<SubUnitCreatedResponse>(
+                    new Error("InvalidSubUnitType", "SubUnit type not found or inactive", 400));
+
+            // Check if room number already exists for this unit
+            var roomExists = await _context.SubUnits
+                .AnyAsync(s => s.UnitId == unitId &&
+                              s.RoomNumber == request.RoomNumber &&
+                              !s.IsDeleted);
+
+            if (roomExists)
+                return Result.Failure<SubUnitCreatedResponse>(
+                    new Error("DuplicateRoomNumber",
+                        $"Room number '{request.RoomNumber}' already exists for this unit", 400));
+
+            // Create room configuration if provided
+            RoomConfiguration? roomConfig = null;
+            if (request.RoomConfig != null)
+            {
+                roomConfig = new RoomConfiguration
+                {
+                    Bedrooms = request.RoomConfig.Bedrooms,
+                    Bathrooms = request.RoomConfig.Bathrooms,
+                    Size = request.RoomConfig.Size,
+                    BedType = request.RoomConfig.BedType,
+                    BedCount = request.RoomConfig.BedCount,
+                    HasKitchen = request.RoomConfig.HasKitchen,
+                    HasBalcony = request.RoomConfig.HasBalcony,
+                    ViewType = request.RoomConfig.ViewType,
+                    Floor = request.RoomConfig.Floor
+                };
+            }
+
+            // Create the subunit
+            var subUnit = new Domain.Entities.SubUnit
+            {
+                UnitId = unitId,
+                RoomNumber = request.RoomNumber,
+                SubUnitTypeId = request.SubUnitTypeId,
+                PricePerNight = request.PricePerNight,
+                MaxOccupancy = request.MaxOccupancy,
+                Bedrooms = request.Bedrooms,
+                Bathrooms = request.Bathrooms,
+                Size = request.Size,
+                Description = request.Description,
+                IsAvailable = request.IsAvailable,
+                RoomConfig = roomConfig,
+                IsDeleted = false
+            };
+
+            _context.SubUnits.Add(subUnit);
+            await _context.SaveChangesAsync();
+
+            // Add amenities if provided
+            List<AmenityResponse>? amenitiesResponse = null;
+            if (request.AmenityIds != null && request.AmenityIds.Any())
+            {
+                // Verify amenities exist
+                var amenities = await _context.Amenities
+                    .Where(a => request.AmenityIds.Contains(a.Id))
+                    .ToListAsync();
+
+                if (amenities.Count != request.AmenityIds.Count)
+                {
+                    _logger.LogWarning(
+                        "Some amenity IDs were not found. Requested: {RequestedCount}, Found: {FoundCount}",
+                        request.AmenityIds.Count, amenities.Count);
+                }
+
+                // Create amenity associations
+                var subUnitAmenities = amenities.Select(a => new SubUniteAmenity
+                {
+                    SubUnitId = subUnit.Id,
+                    AmenityId = a.Id,
+                    IsAvailable = true
+                }).ToList();
+
+                await _context.SubUniteAmenities.AddRangeAsync(subUnitAmenities);
+                await _context.SaveChangesAsync();
+
+                amenitiesResponse = amenities.Select(a => new AmenityResponse
+                {
+                    Id = a.Id,
+                    Name = a.Name,
+                    Category = a.Category,
+                    IsAvailable = true
+                }).ToList();
+            }
+
+            _logger.LogInformation(
+                "SubUnit {SubUnitId} (Room: {RoomNumber}) created for unit {UnitId} by user {UserId}",
+                subUnit.Id, subUnit.RoomNumber, unitId, userId);
+
+            // Return response
+            var response = new SubUnitCreatedResponse
+            {
+                Id = subUnit.Id,
+                UnitId = subUnit.UnitId,
+                RoomNumber = subUnit.RoomNumber,
+                SubUnitTypeName = subUnitType.Name,
+                PricePerNight = subUnit.PricePerNight,
+                MaxOccupancy = subUnit.MaxOccupancy,
+                Bedrooms = subUnit.Bedrooms,
+                Bathrooms = subUnit.Bathrooms,
+                Size = subUnit.Size,
+                IsAvailable = subUnit.IsAvailable,
+                Description = subUnit.Description,
+                CreatedAt = DateTime.UtcNow.AddHours(3),
+                Amenities = amenitiesResponse
+            };
+
+            return Result.Success(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error creating subunit for unit {UnitId} by user {UserId}",
+                unitId, userId);
+            return Result.Failure<SubUnitCreatedResponse>(
+                new Error("CreateSubUnitFailed", "Failed to create subunit", 500));
+        }
+    }
+
     public async Task<Result<SubUnitResponse>> UpdateSubUnitAsync(
         string userId,
         int subUnitId,
@@ -4369,9 +4521,6 @@ public class HotelAdminService(
 
     #endregion
 
-    // Application/Service/HotelAdmin/HotelAdminService.cs
-    // ADD THESE METHODS:
-
     #region CUSTOM POLICIES MANAGEMENT
 
     public async Task<Result<IEnumerable<UnitCustomPolicyResponse>>> GetUnitCustomPoliciesAsync(
@@ -4434,7 +4583,7 @@ public class HotelAdminService(
                 Category = request.Category,
                 DisplayOrder = request.DisplayOrder,
                 IsActive = true,
-                CreatedByUserId = userId,
+                UserId = userId,
                 CreatedAt = DateTime.UtcNow.AddHours(3)
             };
 
@@ -4461,7 +4610,7 @@ public class HotelAdminService(
         {
             _logger.LogError(ex, "Error creating custom policy for unit {UnitId}", unitId);
             return Result.Failure<UnitCustomPolicyResponse>(
-                new Error("CreatePolicyFailed", "Failed to create custom policy", 500));
+                new Error("error", "Failed to create custom policy", 500));
         }
     }
 

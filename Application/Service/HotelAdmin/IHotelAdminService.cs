@@ -18,6 +18,14 @@ public interface IHotelAdminService
 
 
 
+    /// <summary>
+    /// Create a new subunit for admin's unit
+    /// </summary>
+    Task<Result<SubUnitCreatedResponse>> CreateSubUnitAsync(
+        string userId,
+        int unitId,
+        CreateSubUnitRequest request);
+
     public class PaginatedResponse<T>
     {
         public IEnumerable<T> Items { get; set; } = [];
@@ -45,6 +53,7 @@ public interface IHotelAdminService
     /// <summary>
     /// Delete/deactivate offer
     /// </summary>
+    /// 
     Task<Result> DeleteOfferAsync(string userId, int offerId);
 
     Task<Result<ImageDetailResponse>> UploadUnitImageAsync(
