@@ -1175,6 +1175,147 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
 
         return Ok(new { rank = result.Value });
     }
+
+    // ============================================================================
+    // CUSTOM POLICIES MANAGEMENT ENDPOINTS
+    // ============================================================================
+
+    #region Custom Policies Management
+
+    /// <summary>
+    /// Get all custom policies for a unit
+    /// </summary>
+    [HttpGet("units/{unitId}/custom-policies")]
+    public async Task<IActionResult> GetUnitCustomPolicies(int unitId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.GetUnitCustomPoliciesAsync(userId!, unitId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Create a new custom policy for a unit
+    /// </summary>
+    [HttpPost("units/{unitId}/custom-policies")]
+    public async Task<IActionResult> CreateUnitCustomPolicy(
+        int unitId,
+        [FromBody] CreateUnitCustomPolicyRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.CreateUnitCustomPolicyAsync(userId!, unitId, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Update an existing custom policy
+    /// </summary>
+    [HttpPut("custom-policies/{policyId}")]
+    public async Task<IActionResult> UpdateUnitCustomPolicy(
+        int policyId,
+        [FromBody] UpdateUnitCustomPolicyRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.UpdateUnitCustomPolicyAsync(userId!, policyId, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Delete a custom policy
+    /// </summary>
+    [HttpDelete("custom-policies/{policyId}")]
+    public async Task<IActionResult> DeleteUnitCustomPolicy(int policyId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.DeleteUnitCustomPolicyAsync(userId!, policyId);
+        return result.IsSuccess
+            ? Ok(new { message = "Custom policy deleted successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Reorder custom policies for a unit
+    /// </summary>
+    [HttpPut("units/{unitId}/custom-policies/reorder")]
+    public async Task<IActionResult> ReorderUnitCustomPolicies(
+        int unitId,
+        [FromBody] ReorderPoliciesRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.ReorderUnitCustomPoliciesAsync(userId!, unitId, request.PolicyIds);
+        return result.IsSuccess
+            ? Ok(new { message = "Custom policies reordered successfully" })
+            : result.ToProblem();
+    }
+
+    #endregion
+
+    // ============================================================================
+    // UNIT OPTIONS MANAGEMENT ENDPOINTS
+    // ============================================================================
+
+    #region Unit Options Management
+
+    /// <summary>
+    /// Get options for a unit
+    /// </summary>
+    [HttpGet("units/{unitId}/options")]
+    public async Task<IActionResult> GetUnitOptions(int unitId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.GetUnitOptionsAsync(userId!, unitId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Update options for a unit
+    /// </summary>
+    [HttpPut("units/{unitId}/options")]
+    public async Task<IActionResult> UpdateUnitOptions(
+        int unitId,
+        [FromBody] UpdateUnitOptionsRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.UpdateUnitOptionsAsync(userId!, unitId, request);
+        return result.IsSuccess
+            ? Ok(new { message = "Unit options updated successfully" })
+            : result.ToProblem();
+    }
+
+    #endregion
+
+    // ============================================================================
+    // UNIT CURRENCY MANAGEMENT ENDPOINTS
+    // ============================================================================
+
+    #region Unit Currency Management
+
+    /// <summary>
+    /// Get currency for a unit
+    /// </summary>
+    [HttpGet("units/{unitId}/currency")]
+    public async Task<IActionResult> GetUnitCurrency(int unitId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.GetUnitCurrencyAsync(userId!, unitId);
+        return result.IsSuccess ? Ok(new { currency = result.Value }) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Update currency for a unit
+    /// </summary>
+    [HttpPut("units/{unitId}/currency")]
+    public async Task<IActionResult> UpdateUnitCurrency(
+        int unitId,
+        [FromBody] UpdateUnitCurrencyRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.UpdateUnitCurrencyAsync(userId!, unitId, request);
+        return result.IsSuccess
+            ? Ok(new { message = "Unit currency updated successfully" })
+            : result.ToProblem();
+    }
+
+    #endregion
 }
 
 // Request DTO
@@ -1185,4 +1326,10 @@ public class UpdateRankRequest
     public int Rank { get; set; }
 }
 public record UploadDto(IFormFile image, string? caption);
-  
+
+// Request DTO for reordering policies
+public class ReorderPoliciesRequest
+{
+    [Required]
+    public List<int> PolicyIds { get; set; } = new();
+}
