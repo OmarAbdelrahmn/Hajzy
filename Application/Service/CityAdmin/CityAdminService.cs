@@ -401,6 +401,7 @@ public class CityAdminService(
                 {
                     Id = a.Id,
                     Title = a.Title,
+                    Link = a.Link,
                     Description = a.Description,
                     ImageUrl = a.ImageUrl,
                     UnitId = a.UnitId,

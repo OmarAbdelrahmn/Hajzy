@@ -23,6 +23,10 @@ public class Ad
     [Required, MaxLength(100)]
     public string S3Bucket { get; set; } = "hujjzy-bucket";
 
+
+    [MaxLength(2000)]
+    public string? Link { get; set; }
+
     // Optional Unit Association
     public int? UnitId { get; set; }
     public Unit? Unit { get; set; }

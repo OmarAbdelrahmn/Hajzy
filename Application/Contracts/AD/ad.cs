@@ -18,7 +18,8 @@ public record CreateAdRequest(
     int? UnitId,
     DateTime StartDate,
     DateTime EndDate,
-    bool IsActive = true
+    bool IsActive = true,
+    string? Link
 );
 
 // ============= UPDATE REQUEST =============
@@ -29,7 +30,8 @@ public record UpdateAdRequest(
     int? UnitId,
     DateTime? StartDate,
     DateTime? EndDate,
-    bool? IsActive
+    bool? IsActive,
+    string? Link
 );
 public class PaginatedResponse<T>
 {
@@ -54,7 +56,8 @@ public record AdResponse(
     bool IsExpired,
     string UploadedByUserId,
     string? UploadedByName,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? Link
 );
 
 // ============= LIST FILTER =============

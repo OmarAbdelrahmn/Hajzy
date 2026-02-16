@@ -69,7 +69,8 @@ public class AdService(
                 EndDate = request.EndDate,
                 IsActive = request.IsActive,
                 UploadedByUserId = userId,
-                CreatedAt = DateTime.UtcNow.AddHours(3)
+                CreatedAt = DateTime.UtcNow.AddHours(3),
+                Link = request.Link
             };
 
             await _context.Set<Ad>().AddAsync(ad);
@@ -114,6 +115,7 @@ public class AdService(
             if (request.StartDate.HasValue) ad.StartDate = request.StartDate.Value;
             if (request.EndDate.HasValue) ad.EndDate = request.EndDate.Value;
             if (request.IsActive.HasValue) ad.IsActive = request.IsActive.Value;
+            if (request.Link != null) ad.Link = request.Link;
 
             // Update unit if changed
             if (request.UnitId.HasValue && request.UnitId.Value != ad.UnitId)
@@ -529,7 +531,8 @@ public class AdService(
             ad.IsExpired,
             ad.UploadedByUserId,
             ad.UploadedBy?.FullName,
-            ad.CreatedAt
+            ad.CreatedAt,
+            ad.Link
         );
     }
 }
