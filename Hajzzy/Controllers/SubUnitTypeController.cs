@@ -1,5 +1,4 @@
-﻿using Application.Contracts.SubUnit;
-using Application.Service.SubUnitType;
+﻿using Application.Service.SubUnitType;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -37,9 +36,9 @@ public class SubUnitTypeController(ISubUnitTypeService service) : ControllerBase
     /// Get all sub unit types
     /// </summary>
     [HttpGet("")]
-    public async Task<IActionResult> GetAll(int page = 1 , int pageSize = 10)
+    public async Task<IActionResult> GetAll(int page = 1, int pageSize = 10)
     {
-        var result = await _service.GetAllSubUnitTypesAsync(page , pageSize);
+        var result = await _service.GetAllSubUnitTypesAsync(page, pageSize);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 

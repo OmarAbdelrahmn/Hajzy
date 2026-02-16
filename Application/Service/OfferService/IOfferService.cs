@@ -1,8 +1,5 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Offer;
-using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Application.Service.OfferService;
 
@@ -42,7 +39,7 @@ public interface IOfferService
     /// </summary>
     Task<Result<OfferResponse>> GetOfferByIdAsync(int offerId);
 
-    
+
     /// <summary>
     /// Deactivate expired offers (background job)
     /// </summary>

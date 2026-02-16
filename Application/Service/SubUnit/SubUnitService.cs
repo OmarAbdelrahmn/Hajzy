@@ -2,7 +2,6 @@
 using Application.Contracts.SubUnit;
 using Application.Contracts.Unit;
 using Application.Service.Avilabilaties;
-using Application.Service.S3Image;
 using Application.Service.SubUnitImage;
 using Domain;
 using Domain.Entities;
@@ -430,160 +429,160 @@ public class SubUnitService(
     }
 
     public async Task<Result> DeleteImageAsync(int subUnitId, int imageId)
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            var image = await _context.Set<Domain.Entities.SubUnitImage>()
+                .FirstOrDefaultAsync(i => i.Id == imageId &&
+                                         i.SubUnitId == subUnitId &&
+                                         !i.IsDeleted);
 
-            try
-            {
-                var image = await _context.Set<Domain.Entities.SubUnitImage>()
-                    .FirstOrDefaultAsync(i => i.Id == imageId &&
-                                             i.SubUnitId == subUnitId &&
-                                             !i.IsDeleted);
-
-                if (image == null)
-                    return Result.Failure(
-                        new Error("NotFound", "Image not found", 404));
-
-                // Mark as soft deleted in database
-                image.IsDeleted = true;
-                image.DeletedAt = DateTime.UtcNow.AddHours(3);
-
-                // If it was primary, set another image as primary
-                if (image.IsPrimary)
-                {
-                    var nextPrimary = await _context.Set<Domain.Entities.SubUnitImage>()
-                        .Where(i => i.SubUnitId == subUnitId &&
-                                   i.Id != imageId &&
-                                   !i.IsDeleted)
-                        .OrderBy(i => i.DisplayOrder)
-                        .FirstOrDefaultAsync();
-
-                    if (nextPrimary != null)
-                    {
-                        nextPrimary.IsPrimary = true;
-                    }
-                }
-
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                // ACTUALLY DELETE from S3 (all three sizes: original + thumbnail + medium)
-                var deleteResult = await _s3Service.DeleteImagesAsync(new List<string> { image.S3Key });
-
-                if (!deleteResult.IsSuccess)
-                {
-                    _logger.LogWarning(
-                        "Image {ImageId} marked as deleted in DB but failed to delete from S3: {Error}",
-                        imageId, deleteResult.Error.Description);
-                }
-                else
-                {
-                    _logger.LogInformation(
-                        "Successfully deleted image {ImageId} from SubUnit {SubUnitId} (DB + S3)",
-                        imageId, subUnitId);
-                }
-
-                return Result.Success();
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error deleting image {ImageId}", imageId);
+            if (image == null)
                 return Result.Failure(
-                    new Error("DeleteFailed", "Failed to delete image", 500));
-            }
-        }
+                    new Error("NotFound", "Image not found", 404));
 
-        public async Task<Result> SetPrimaryImageAsync(int subUnitId, int imageId)
-        {
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            // Mark as soft deleted in database
+            image.IsDeleted = true;
+            image.DeletedAt = DateTime.UtcNow.AddHours(3);
 
-            try
+            // If it was primary, set another image as primary
+            if (image.IsPrimary)
             {
-                var images = await _context.Set<Domain.Entities.SubUnitImage>()
-                    .Where(i => i.SubUnitId == subUnitId && !i.IsDeleted)
-                    .ToListAsync();
+                var nextPrimary = await _context.Set<Domain.Entities.SubUnitImage>()
+                    .Where(i => i.SubUnitId == subUnitId &&
+                               i.Id != imageId &&
+                               !i.IsDeleted)
+                    .OrderBy(i => i.DisplayOrder)
+                    .FirstOrDefaultAsync();
 
-                var targetImage = images.FirstOrDefault(i => i.Id == imageId);
-                if (targetImage == null)
-                    return Result.Failure(
-                        new Error("NotFound", "Image not found", 404));
-
-                // Remove primary flag from all images
-                foreach (var img in images)
+                if (nextPrimary != null)
                 {
-                    img.IsPrimary = img.Id == imageId;
+                    nextPrimary.IsPrimary = true;
                 }
+            }
 
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
 
+            // ACTUALLY DELETE from S3 (all three sizes: original + thumbnail + medium)
+            var deleteResult = await _s3Service.DeleteImagesAsync(new List<string> { image.S3Key });
+
+            if (!deleteResult.IsSuccess)
+            {
+                _logger.LogWarning(
+                    "Image {ImageId} marked as deleted in DB but failed to delete from S3: {Error}",
+                    imageId, deleteResult.Error.Description);
+            }
+            else
+            {
                 _logger.LogInformation(
-                    "Set image {ImageId} as primary for SubUnit {SubUnitId}",
+                    "Successfully deleted image {ImageId} from SubUnit {SubUnitId} (DB + S3)",
                     imageId, subUnitId);
+            }
 
-                return Result.Success();
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error setting primary image");
-                return Result.Failure(
-                    new Error("UpdateFailed", "Failed to set primary image", 500));
-            }
+            return Result.Success();
         }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error deleting image {ImageId}", imageId);
+            return Result.Failure(
+                new Error("DeleteFailed", "Failed to delete image", 500));
+        }
+    }
 
-        #endregion
+    public async Task<Result> SetPrimaryImageAsync(int subUnitId, int imageId)
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            var images = await _context.Set<Domain.Entities.SubUnitImage>()
+                .Where(i => i.SubUnitId == subUnitId && !i.IsDeleted)
+                .ToListAsync();
+
+            var targetImage = images.FirstOrDefault(i => i.Id == imageId);
+            if (targetImage == null)
+                return Result.Failure(
+                    new Error("NotFound", "Image not found", 404));
+
+            // Remove primary flag from all images
+            foreach (var img in images)
+            {
+                img.IsPrimary = img.Id == imageId;
+            }
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            _logger.LogInformation(
+                "Set image {ImageId} as primary for SubUnit {SubUnitId}",
+                imageId, subUnitId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error setting primary image");
+            return Result.Failure(
+                new Error("UpdateFailed", "Failed to set primary image", 500));
+        }
+    }
+
+    #endregion
 
     #region HELPER METHODS
 
-        private static SubUnitImageResponses MapToImageResponse(Domain.Entities.SubUnitImage image)
+    private static SubUnitImageResponses MapToImageResponse(Domain.Entities.SubUnitImage image)
+    {
+        return new SubUnitImageResponses
         {
-            return new SubUnitImageResponses
-            {
-                Id = image.Id,
-                ImageUrl = image.ImageUrl,              // Original (full size)
-                ThumbnailUrl = image.ThumbnailUrl,      // 150x150
-                MediumUrl = image.MediumUrl,            // 800x800
-                IsPrimary = image.IsPrimary,
-                DisplayOrder = image.DisplayOrder,
-                Caption = image.Caption ?? "no caption"
-            };
-        }
+            Id = image.Id,
+            ImageUrl = image.ImageUrl,              // Original (full size)
+            ThumbnailUrl = image.ThumbnailUrl,      // 150x150
+            MediumUrl = image.MediumUrl,            // 800x800
+            IsPrimary = image.IsPrimary,
+            DisplayOrder = image.DisplayOrder,
+            Caption = image.Caption ?? "no caption"
+        };
+    }
 
-        /// <summary>
-        /// Get the S3 key for the thumbnail version of an image
-        /// </summary>
-        private static string GetThumbnailKey(string originalKey)
-        {
-            var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
-            var filename = Path.GetFileNameWithoutExtension(originalKey);
-            var extension = Path.GetExtension(originalKey);
-            return $"{directory}/{filename}_thumbnail{extension}";
-        }
+    /// <summary>
+    /// Get the S3 key for the thumbnail version of an image
+    /// </summary>
+    private static string GetThumbnailKey(string originalKey)
+    {
+        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
+        var filename = Path.GetFileNameWithoutExtension(originalKey);
+        var extension = Path.GetExtension(originalKey);
+        return $"{directory}/{filename}_thumbnail{extension}";
+    }
 
-        /// <summary>
-        /// Get the S3 key for the medium version of an image
-        /// </summary>
-        private static string GetMediumKey(string originalKey)
-        {
-            var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
-            var filename = Path.GetFileNameWithoutExtension(originalKey);
-            var extension = Path.GetExtension(originalKey);
-            return $"{directory}/{filename}_medium{extension}";
-        }
+    /// <summary>
+    /// Get the S3 key for the medium version of an image
+    /// </summary>
+    private static string GetMediumKey(string originalKey)
+    {
+        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
+        var filename = Path.GetFileNameWithoutExtension(originalKey);
+        var extension = Path.GetExtension(originalKey);
+        return $"{directory}/{filename}_medium{extension}";
+    }
 
-        /// <summary>
-        /// Get bucket name from configuration (helper method)
-        /// </summary>
-        private string GetBucketNameFromConfig()
-        {
-            // You can inject IConfiguration if needed, or return a constant
-            return "your-bucket-name"; // Replace with actual bucket name from config
-        }
+    /// <summary>
+    /// Get bucket name from configuration (helper method)
+    /// </summary>
+    private string GetBucketNameFromConfig()
+    {
+        // You can inject IConfiguration if needed, or return a constant
+        return "your-bucket-name"; // Replace with actual bucket name from config
+    }
 
-        #endregion
-    
+    #endregion
+
 
     #region PRICING
 

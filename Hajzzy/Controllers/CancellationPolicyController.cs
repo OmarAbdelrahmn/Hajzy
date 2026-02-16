@@ -1,7 +1,5 @@
 ﻿using Application.Contracts.Policy;
 using Application.Service.Policy;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hajzzy.Controllers;
@@ -18,7 +16,7 @@ public class CancellationPolicyController(ICancelPolicyService service) : Contro
     /// Get all cancellation policies
     /// </summary>
     [HttpGet("")]
- 
+
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var result = await service.GetAllAsync(cancellationToken);
@@ -29,7 +27,7 @@ public class CancellationPolicyController(ICancelPolicyService service) : Contro
     /// Get only active cancellation policies
     /// </summary>
     [HttpGet("active")]
- 
+
     public async Task<IActionResult> GetActive(CancellationToken cancellationToken)
     {
         var result = await service.GetActiveAsync(cancellationToken);
@@ -40,7 +38,7 @@ public class CancellationPolicyController(ICancelPolicyService service) : Contro
     /// Get a specific cancellation policy by ID
     /// </summary>
     [HttpGet("{id:int}")]
- 
+
     public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
     {
         var result = await service.GetByIdAsync(id, cancellationToken);
@@ -51,7 +49,7 @@ public class CancellationPolicyController(ICancelPolicyService service) : Contro
     /// Get the default cancellation policy
     /// </summary>
     [HttpGet("default")]
- 
+
     public async Task<IActionResult> GetDefault(CancellationToken cancellationToken)
     {
         var result = await service.GetDefaultAsync(cancellationToken);
@@ -62,7 +60,7 @@ public class CancellationPolicyController(ICancelPolicyService service) : Contro
     /// Create a new cancellation policy
     /// </summary>
     [HttpPost("")]
- 
+
     public async Task<IActionResult> Create([FromBody] CreateCancellationPolicyRequest request, CancellationToken cancellationToken)
     {
         var result = await service.CreateAsync(request, cancellationToken);
@@ -75,7 +73,7 @@ public class CancellationPolicyController(ICancelPolicyService service) : Contro
     /// Update an existing cancellation policy
     /// </summary>
     [HttpPut("{id:int}")]
- 
+
     public async Task<IActionResult> Update(int id, [FromBody] UpdateCancellationPolicyRequest request, CancellationToken cancellationToken)
     {
         var result = await service.UpdateAsync(id, request, cancellationToken);
@@ -86,7 +84,7 @@ public class CancellationPolicyController(ICancelPolicyService service) : Contro
     /// Delete a cancellation policy
     /// </summary>
     [HttpDelete("{id:int}")]
- 
+
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         var result = await service.DeleteAsync(id, cancellationToken);
@@ -99,7 +97,7 @@ public class CancellationPolicyController(ICancelPolicyService service) : Contro
     /// Set a policy as the default
     /// </summary>
     [HttpPost("{id:int}/set-default")]
- 
+
     public async Task<IActionResult> SetDefault(int id, CancellationToken cancellationToken)
     {
         var result = await service.SetDefaultAsync(id, cancellationToken);
@@ -112,7 +110,7 @@ public class CancellationPolicyController(ICancelPolicyService service) : Contro
     /// Toggle the active status of a policy
     /// </summary>
     [HttpPost("{id:int}/toggle-active")]
- 
+
     public async Task<IActionResult> ToggleActive(int id, CancellationToken cancellationToken)
     {
         var result = await service.ToggleActiveAsync(id, cancellationToken);

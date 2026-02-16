@@ -1,8 +1,6 @@
 ﻿using Application.Abstraction;
 using Domain;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
 using System.Text;
 
 namespace Application.Service.Report;
@@ -422,7 +420,7 @@ public class ReportService(ApplicationDbcontext context) : IReportService
             .Where(u => !u.IsDeleted)
             .ToListAsync();
 
-        var totalDays = (DateOnly.FromDateTime(filter.EndDate ?? DateTime.UtcNow).Day - DateOnly.FromDateTime( filter.StartDate  ?? DateTime.UtcNow).Day);
+        var totalDays = (DateOnly.FromDateTime(filter.EndDate ?? DateTime.UtcNow).Day - DateOnly.FromDateTime(filter.StartDate ?? DateTime.UtcNow).Day);
         var totalRoomNights = units.Sum(u => u.Rooms.Count) * totalDays;
 
         var bookedRoomNights = units

@@ -1,9 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Bookin;
 using Application.Service.Avilabilaties;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Application.Service.Booking;
 

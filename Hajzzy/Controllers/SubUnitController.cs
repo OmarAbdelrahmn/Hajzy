@@ -1,7 +1,6 @@
 ﻿using Application.Contracts.SubUnit;
 using Application.Extensions;
 using Application.Service.SubUnit;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hajzzy.Controllers;
@@ -48,7 +47,7 @@ public class SubUnitController(ISubUnitService service) : ControllerBase
     /// Create a new subunit
     /// </summary>
     [HttpPost("")]
- 
+
     public async Task<IActionResult> Create([FromBody] CreateSubUnitRequest request)
     {
         var result = await _service.CreateAsync(request);
@@ -61,7 +60,7 @@ public class SubUnitController(ISubUnitService service) : ControllerBase
     /// Update an existing subunit
     /// </summary>
     [HttpPut("{subUnitId}")]
- 
+
     public async Task<IActionResult> Update(int subUnitId, [FromBody] UpdateSubUnitRequest request)
     {
         var result = await _service.UpdateAsync(subUnitId, request);
@@ -72,7 +71,7 @@ public class SubUnitController(ISubUnitService service) : ControllerBase
     /// Delete a subunit (soft delete by default)
     /// </summary>
     [HttpDelete("{subUnitId}")]
- 
+
     public async Task<IActionResult> Delete(int subUnitId, [FromQuery] bool softDelete = true)
     {
         var result = await _service.DeleteAsync(subUnitId, softDelete);
@@ -85,7 +84,7 @@ public class SubUnitController(ISubUnitService service) : ControllerBase
     /// Restore a soft-deleted subunit
     /// </summary>
     [HttpPost("{subUnitId}/restore")]
- 
+
     public async Task<IActionResult> Restore(int subUnitId)
     {
         var result = await _service.RestoreAsync(subUnitId);
@@ -102,7 +101,7 @@ public class SubUnitController(ISubUnitService service) : ControllerBase
     /// Set availability for a subunit
     /// </summary>
     [HttpPost("{subUnitId}/availability")]
- 
+
     public async Task<IActionResult> SetAvailability(
         int subUnitId,
         [FromBody] SetAvailabilityRequest request)
@@ -117,7 +116,7 @@ public class SubUnitController(ISubUnitService service) : ControllerBase
     /// Toggle subunit availability status
     /// </summary>
     [HttpPost("{subUnitId}/toggle-available")]
- 
+
     public async Task<IActionResult> ToggleAvailable(int subUnitId)
     {
         var result = await _service.ToggleAvailableAsync(subUnitId);
@@ -179,7 +178,7 @@ public class SubUnitController(ISubUnitService service) : ControllerBase
     /// Delete a specific image
     /// </summary>
     [HttpDelete("{subUnitId}/images/{imageId}")]
- 
+
     public async Task<IActionResult> DeleteImage(int subUnitId, int imageId)
     {
         var result = await _service.DeleteImageAsync(subUnitId, imageId);
@@ -192,7 +191,7 @@ public class SubUnitController(ISubUnitService service) : ControllerBase
     /// Set primary image for a subunit
     /// </summary>
     [HttpPost("{subUnitId}/images/{imageId}/set-primary")]
- 
+
     public async Task<IActionResult> SetPrimaryImage(int subUnitId, int imageId)
     {
         var result = await _service.SetPrimaryImageAsync(subUnitId, imageId);
@@ -209,7 +208,7 @@ public class SubUnitController(ISubUnitService service) : ControllerBase
     /// Set special pricing for a subunit
     /// </summary>
     [HttpPost("{subUnitId}/pricing")]
- 
+
     public async Task<IActionResult> SetSpecialPricing(
         int subUnitId,
         [FromBody] SetSpecialPricingRequestsss request)
@@ -241,7 +240,7 @@ public class SubUnitController(ISubUnitService service) : ControllerBase
     /// Attach a general policy to a subunit
     /// </summary>
     [HttpPost("{subUnitId}/general-policy/{policyId}")]
- 
+
     public async Task<IActionResult> AttachGeneralPolicy(int subUnitId, int policyId)
     {
         var result = await _service.AttachGeneralPolicyAsync(subUnitId, policyId);
@@ -254,7 +253,7 @@ public class SubUnitController(ISubUnitService service) : ControllerBase
     /// Remove a general policy from a subunit
     /// </summary>
     [HttpDelete("{subUnitId}/general-policy/{policyId}")]
- 
+
     public async Task<IActionResult> RemoveGeneralPolicy(int subUnitId, int policyId)
     {
         var result = await _service.RemoveGeneralPolicyAsync(subUnitId, policyId);

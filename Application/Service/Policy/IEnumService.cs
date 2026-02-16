@@ -1,7 +1,4 @@
 ﻿using Application.Contracts.Policy;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Application.Service.Policy;
 

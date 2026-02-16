@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Domain.Consts;
+﻿namespace Domain.Consts;
 
 
 public static class DefaultAmenities

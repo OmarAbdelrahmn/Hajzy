@@ -1,8 +1,5 @@
-﻿using Application.Abstraction;
-using Application.Contracts.Aminety;
+﻿using Application.Contracts.Aminety;
 using Application.Service.Amenity;
-using Application.Service.UnitAmenity;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hajzzy.Controllers;
@@ -19,7 +16,7 @@ public class AmenityController(IAmenityService service) : ControllerBase
     /// Get all amenities
     /// </summary>
     [HttpGet("")]
-    public async Task<IActionResult> GetAll(int page , int pageSize)
+    public async Task<IActionResult> GetAll(int page, int pageSize)
     {
         var result = await _service.GetAllAmenitiesAsync(page, pageSize);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
@@ -59,7 +56,7 @@ public class AmenityController(IAmenityService service) : ControllerBase
     /// Create a new amenity
     /// </summary>
     [HttpPost("")]
- 
+
     public async Task<IActionResult> Create([FromBody] CreateAmenityRequest request)
     {
         var result = await _service.CreateAsync(request);
@@ -72,7 +69,7 @@ public class AmenityController(IAmenityService service) : ControllerBase
     /// Update an existing amenity
     /// </summary>
     [HttpPut("{amenityId}")]
- 
+
     public async Task<IActionResult> Update(int amenityId, [FromBody] UpdateAmenityRequest request)
     {
         var result = await _service.UpdateAsync(amenityId, request);
@@ -83,7 +80,7 @@ public class AmenityController(IAmenityService service) : ControllerBase
     /// Delete an amenity
     /// </summary>
     [HttpDelete("{amenityId}")]
- 
+
     public async Task<IActionResult> Delete(int amenityId)
     {
         var result = await _service.DeleteAsync(amenityId);

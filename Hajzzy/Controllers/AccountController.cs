@@ -1,10 +1,8 @@
 ﻿using Application.Contracts.User;
 using Application.Extensions;
 using Application.User;
-using Hajzzy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 
 
@@ -29,7 +27,7 @@ public class AccountController(IUserService service) : ControllerBase
     public async Task<IActionResult> UpdateUserProfile([FromBody] UpdateUserProfileRequest request)
     {
         var result = await service.UpdateUserProfile(User.GetUserId()!, request);
-        
+
         return Ok(new Re("done"));
     }
 
@@ -40,11 +38,11 @@ public class AccountController(IUserService service) : ControllerBase
 
         return result.IsSuccess ? Ok(new Re("done")) : result.ToProblem();
     }
-    
+
     [HttpPut("change-user-role")]
     public async Task<IActionResult> Changerole([FromBody] ChangeUserRoleRequest request)
     {
-        var result = await service.ChangeRoleForUser(request.Email,request.NewRole);
+        var result = await service.ChangeRoleForUser(request.Email, request.NewRole);
 
         return result.IsSuccess ? Ok(new Re("done")) : result.ToProblem();
     }

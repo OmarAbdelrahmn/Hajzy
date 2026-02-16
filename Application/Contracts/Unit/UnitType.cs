@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Application.Contracts.Unit;
+﻿namespace Application.Contracts.Unit;
 
 internal class UnitType
 {

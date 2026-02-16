@@ -5,18 +5,15 @@ using Application.Authentication;
 using Application.Contracts.Auth;
 using Application.Helpers;
 using Domain;
-using Domain.Consts;
 using Domain.Entities;
 using Hangfire;
 using Mapster;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -59,7 +56,7 @@ public class AuthService(
 
         if (result.Succeeded)
         {
-            var (Token, ExpiresIn) = jwtProvider.GenerateToken(user,userRoles.FirstOrDefault()!);
+            var (Token, ExpiresIn) = jwtProvider.GenerateToken(user, userRoles.FirstOrDefault()!);
 
             var RefreshToken = GenerateRefreshToken();
 
@@ -81,7 +78,7 @@ public class AuthService(
             var response = new AuthResponse(
                 user.Id,
                 user.Email!,
-                user.FullName ??" ",
+                user.FullName ?? " ",
                 user.Address ?? " ",
                 Token,
                 ExpiresIn * 60,
@@ -135,8 +132,8 @@ public class AuthService(
         UserRefreshToken.RevokedOn = DateTime.UtcNow;
 
         var userRoles = await manager.GetRolesAsync(user);
-        
-        var (newToken, ExpiresIn) = jwtProvider.GenerateToken(user , userRoles.FirstOrDefault()!);
+
+        var (newToken, ExpiresIn) = jwtProvider.GenerateToken(user, userRoles.FirstOrDefault()!);
 
         var newRefreshToken = GenerateRefreshToken();
 
@@ -155,8 +152,8 @@ public class AuthService(
         var response = new AuthResponse(
             user.Id,
             user.Email!,
-            user.FullName??" ",
-            user.Address??" ",
+            user.FullName ?? " ",
+            user.Address ?? " ",
             newToken,
             ExpiresIn * 60,
             newRefreshToken,

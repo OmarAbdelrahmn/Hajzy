@@ -5,16 +5,14 @@ using Application.Extensions;
 using Application.Service.Admin;
 using Application.User;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System.Runtime.ConstrainedExecution;
 
 namespace Hajzzy.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
 [Authorize(Roles = DefaultRoles.SuperAdmin)]
-public class AdminController(IAdminService service,IUserService service1) : ControllerBase
+public class AdminController(IAdminService service, IUserService service1) : ControllerBase
 {
     private readonly IAdminService service = service;
     private readonly IUserService service1 = service1;
@@ -32,9 +30,9 @@ public class AdminController(IAdminService service,IUserService service1) : Cont
     }
 
     [HttpGet("users")]
-    public async Task<IActionResult> GetUsers([FromQuery] int Page = 1 , [FromQuery] int Pagesize = 10)
+    public async Task<IActionResult> GetUsers([FromQuery] int Page = 1, [FromQuery] int Pagesize = 10)
     {
-        var users = await service.GetAllUsers(Page,Pagesize);
+        var users = await service.GetAllUsers(Page, Pagesize);
 
         return users.IsSuccess ? Ok(users.Value) : users.ToProblem();
     }
@@ -69,9 +67,9 @@ public class AdminController(IAdminService service,IUserService service1) : Cont
 
 
     [HttpPut("users/{UserId}")]
-    public async Task<IActionResult> Update(string UserId , UpdateUserRequest request)
+    public async Task<IActionResult> Update(string UserId, UpdateUserRequest request)
     {
-        var user = await service.UpdateUserAsync(UserId,request);
+        var user = await service.UpdateUserAsync(UserId, request);
 
         return user.IsSuccess ?
             Ok(new Re("done")) :
@@ -134,6 +132,6 @@ public class AdminController(IAdminService service,IUserService service1) : Cont
 
 
 }
-public record Rer(string Email , string NewRole);
+public record Rer(string Email, string NewRole);
 
 public record Re(string Massage);

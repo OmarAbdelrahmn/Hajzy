@@ -1,9 +1,6 @@
 ﻿using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Domain.EntitiesConfigrations;
 
@@ -14,7 +11,7 @@ public class SubUnitAvailabilityConfiguration : IEntityTypeConfiguration<SubUnit
         builder.HasKey(sa => sa.Id);
 
         // CRITICAL: Unique constraint on SubUnit + Date
-        builder.HasIndex(sa => new { sa.SubUnitId, sa.StartDate,sa.EndDate })
+        builder.HasIndex(sa => new { sa.SubUnitId, sa.StartDate, sa.EndDate })
             .IsUnique()
             .HasDatabaseName("IX_SubUnitAvailability_SubUnitId_Date");
 

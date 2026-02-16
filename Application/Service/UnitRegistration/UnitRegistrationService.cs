@@ -7,10 +7,8 @@ using Application.Contracts.CityAdminContracts;
 using Application.Contracts.UnitRegisteration;
 using Application.Helpers;
 using Application.Service.Avilabilaties;
-using Application.Service.ImageProcessingJob;
 using Application.Service.S3Image;
 using Domain;
-using Domain.Consts;
 using Domain.Entities;
 using Hangfire;
 using Microsoft.AspNetCore.Http;
@@ -32,8 +30,8 @@ public class UnitRegistrationService(
     IEmailSender emailSender,
     IHttpContextAccessor httpContextAccessor,
     ILogger<UnitRegistrationService> logger,
-    IConfiguration configuration ,
-    IAvailabilityService service ,
+    IConfiguration configuration,
+    IAvailabilityService service,
     IAmazonS3 amazonS3) : IUnitRegistrationService
 {
     private readonly ApplicationDbcontext _context = context;

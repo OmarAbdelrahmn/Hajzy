@@ -288,10 +288,10 @@ public class SubUnitImageService(
 
             if (response.DeleteErrors.Any())
             {
-                return Result.Failure(new Error("nothing","nothing to delete",400));
+                return Result.Failure(new Error("nothing", "nothing to delete", 400));
             }
 
-  
+
 
             return Result.Success();
         }

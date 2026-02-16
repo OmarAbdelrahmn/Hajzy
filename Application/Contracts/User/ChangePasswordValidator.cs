@@ -1,5 +1,4 @@
-﻿using Application.Abstraction.Consts;
-using FluentValidation;
+﻿using FluentValidation;
 
 namespace Application.Contracts.User;
 

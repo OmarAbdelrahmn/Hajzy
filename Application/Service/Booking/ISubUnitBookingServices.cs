@@ -1,14 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Bookin;
 using Application.Service.Avilabilaties;
-using Application.Service.SubUnitType;
-using Domain;
-using Domain.Entities;
-using Hangfire;
-using Microsoft.AspNetCore.Identity.UI.Services;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using System.Text;
 
 namespace Application.Service.Booking;
 

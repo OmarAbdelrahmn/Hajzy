@@ -1,8 +1,6 @@
 ﻿using Application.Contracts.Department;
 using Application.Extensions;
 using Application.Service.Department;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hajzzy.Controllers;
@@ -17,7 +15,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     #region CRUD Operations
 
     [HttpGet("{departmentId}")]
-     
+
     public async Task<IActionResult> GetById(int departmentId)
     {
         var response = await service.GetByIdAsync(departmentId);
@@ -27,17 +25,17 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpGet("")]
-     
+
     public async Task<IActionResult> GetAll([FromQuery] int Page = 10, [FromQuery] int PageSize = 10)
     {
-        var response = await service.GetAllDepartmentsAsync(Page,PageSize);
+        var response = await service.GetAllDepartmentsAsync(Page, PageSize);
         return response.IsSuccess ?
             Ok(response.Value) :
             response.ToProblem();
     }
 
     [HttpPost("")]
-     
+
     public async Task<IActionResult> Create([FromBody] CreateDepartmentRequest request)
     {
         var response = await service.CreateAsync(request);
@@ -47,7 +45,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpPut("{departmentId}")]
-     
+
     public async Task<IActionResult> Update(int departmentId, [FromBody] UpdateDepartmentRequest request)
     {
         var response = await service.UpdateAsync(departmentId, request);
@@ -57,7 +55,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpDelete("{departmentId}")]
-     
+
     public async Task<IActionResult> Delete(int departmentId, [FromQuery] bool softDelete = true)
     {
         var response = await service.DeleteAsync(departmentId, softDelete);
@@ -67,7 +65,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpPost("{departmentId}/restore")]
-     
+
     public async Task<IActionResult> Restore(int departmentId)
     {
         var response = await service.RestoreAsync(departmentId);
@@ -81,7 +79,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     #region Admin Management
 
     [HttpPost("{departmentId}/admins/{userId}")]
-     
+
     public async Task<IActionResult> AttachAdmin(int departmentId, string userId, [FromQuery] bool setAsPrimary = false)
     {
         var response = await service.AttachAdminAsync(departmentId, userId, setAsPrimary);
@@ -91,7 +89,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpPut("{departmentId}/admins/{userId}/set-primary")]
-     
+
     public async Task<IActionResult> SetPrimaryAdmin(int departmentId, string userId)
     {
         var response = await service.SetPrimaryAdminAsync(departmentId, userId);
@@ -101,7 +99,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpDelete("{departmentId}/admins/{userId}")]
-     
+
     public async Task<IActionResult> RemoveAdmin(int departmentId, string userId)
     {
         var response = await service.RemoveAdminAsync(departmentId, userId);
@@ -111,7 +109,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpPut("{departmentId}/admins/{userId}/deactivate")]
-     
+
     public async Task<IActionResult> DeactivateAdmin(int departmentId, string userId)
     {
         var response = await service.DeactivateAdminAsync(departmentId, userId);
@@ -121,7 +119,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpPut("{departmentId}/admins/{userId}/activate")]
-     
+
     public async Task<IActionResult> ActivateAdmin(int departmentId, string userId)
     {
         var response = await service.ActivateAdminAsync(departmentId, userId);
@@ -131,7 +129,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpGet("{departmentId}/admins")]
-     
+
     public async Task<IActionResult> GetDepartmentAdmins(int departmentId)
     {
         var response = await service.GetDepartmentAdminsAsync(departmentId);
@@ -141,7 +139,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpGet("with-admins")]
-     
+
     public async Task<IActionResult> GetDepartmentsWithAdmins()
     {
         var response = await service.GetDepartmentsWithAdminsAsync();
@@ -155,7 +153,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     #region Statistics & Details
 
     [HttpGet("{departmentId}/details")]
-     
+
     public async Task<IActionResult> GetDepartmentDetails(int departmentId)
     {
         var response = await service.GetDepartmentDetailsAsync(departmentId);
@@ -165,7 +163,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpGet("{departmentId}/statistics")]
-     
+
     public async Task<IActionResult> GetDepartmentStatistics(int departmentId)
     {
         var response = await service.GetDepartmentStatisticsAsync(departmentId);
@@ -175,7 +173,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpGet("statistics")]
-     
+
     public async Task<IActionResult> GetAllDepartmentStatistics()
     {
         var response = await service.GetAllDepartmentStatisticsAsync();
@@ -189,7 +187,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     #region Search & Filter
 
     [HttpPost("filter")]
-     
+
     public async Task<IActionResult> Filter([FromBody] DepartmentFilter filter)
     {
         var response = await service.FilterAsync(filter);
@@ -199,7 +197,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpGet("search")]
-     
+
     public async Task<IActionResult> Search([FromQuery] string keyword)
     {
         if (string.IsNullOrWhiteSpace(keyword))
@@ -212,10 +210,10 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpGet("by-country/{country}")]
-     
+
     public async Task<IActionResult> GetByCountry(string country, [FromQuery] int Page = 10, [FromQuery] int PageSize = 10)
     {
-        var response = await service.GetDepartmentsByCountryAsync(country , Page , PageSize);
+        var response = await service.GetDepartmentsByCountryAsync(country, Page, PageSize);
         return response.IsSuccess ?
             Ok(response.Value) :
             response.ToProblem();
@@ -226,7 +224,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     #region Validation
 
     [HttpGet("{departmentId}/has-active-admin")]
-     
+
     public async Task<IActionResult> HasActiveAdmin(int departmentId)
     {
         var response = await service.HasActiveAdminAsync(departmentId);
@@ -236,7 +234,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     }
 
     [HttpGet("can-assign-admin/{userId}")]
-     
+
     public async Task<IActionResult> CanAssignAdmin(string userId)
     {
         var response = await service.CanAssignAdminAsync(userId);
@@ -256,7 +254,7 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
     [HttpPost("{departmentId}/image")]
     [RequestSizeLimit(5_000_000)] // 10MB
     public async Task<IActionResult> UploadImage(
-        [FromRoute]int departmentId,
+        [FromRoute] int departmentId,
         [FromForm] UploadImageDto dto)
     {
         var userId = User.GetUserId();

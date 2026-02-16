@@ -1,5 +1,4 @@
-﻿using System;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Domain.Entities;
 
@@ -29,7 +28,7 @@ public class Offer
     public Unit? Unit { get; set; }
 
     [MaxLength(2000)]
-    public string? Link { get; set; }  
+    public string? Link { get; set; }
     public bool IsFeatured { get; set; } = false;
 
     // Date Range

@@ -4,7 +4,6 @@ using Application.Contracts.AD;
 using Application.Contracts.Admin;
 using Application.Contracts.Bookin;
 using Application.Contracts.Dashboard;
-using Application.Contracts.Unit;
 using Application.Service.Roles;
 using Domain;
 using Domain.Entities;
@@ -12,7 +11,6 @@ using Mapster;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 namespace Application.Service.Admin;
 
@@ -37,7 +35,7 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
         user.EmailConfirmed = true;
 
         user.Address = request.UserAddress;
-        user.FullName = request.UserFullName;   
+        user.FullName = request.UserFullName;
 
         var result = await manager.CreateAsync(user, request.Password);
 
@@ -114,7 +112,8 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
         var users = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .GroupBy(x => new {
+            .GroupBy(x => new
+            {
                 x.Id,
                 x.FullName,
                 x.Address,
@@ -165,19 +164,19 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
          int totalCount,
          int page,
          int pageSize)
-            {
-                var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+    {
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-                return new PaginatedResponse<T>
-                {
-                    Items = items,
-                    TotalCount = totalCount,
-                    TotalPages = totalPages,
-                    CurrentPage = page,
-                    NextPage = page < totalPages ? page + 1 : null,
-                    PrevPage = page > 1 ? page - 1 : null
-                };
-            }
+        return new PaginatedResponse<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            CurrentPage = page,
+            NextPage = page < totalPages ? page + 1 : null,
+            PrevPage = page > 1 ? page - 1 : null
+        };
+    }
     public async Task<Result<UserResponse>> GetUser2Async(string UserName)
     {
         if (await manager.FindByNameAsync(UserName) is not { } user)

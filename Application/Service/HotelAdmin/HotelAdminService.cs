@@ -3,12 +3,10 @@ using Amazon.S3.Transfer;
 using Application.Abstraction;
 using Application.Contracts.hoteladmincont;
 using Application.Service.Avilabilaties;
-using Application.Service.OfferService;
 using Application.Service.S3Image;
 using Domain;
 using Domain.Entities;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SixLabors.ImageSharp;
@@ -21,7 +19,7 @@ public class HotelAdminService(
     ILogger<HotelAdminService> logger,
     IAvailabilityService availabilityService,
     IS3ImageService service,
-    IAmazonS3 _s3Client 
+    IAmazonS3 _s3Client
 
     ) : IHotelAdminService
 {
@@ -245,6 +243,19 @@ public class HotelAdminService(
             if (filter.IsVerified.HasValue)
                 query = query.Where(u => u.IsVerified == filter.IsVerified.Value);
 
+            // ADD SMART SEARCH
+            if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+            {
+                var keyword = filter.SearchKeyword.ToLower().Trim();
+                query = query.Where(u =>
+                    u.Name.ToLower().Contains(keyword) ||
+                    u.Description.ToLower().Contains(keyword) ||
+                    u.Address.ToLower().Contains(keyword) ||
+                    u.UnitType.Name.ToLower().Contains(keyword) ||
+                    u.City.Name.ToLower().Contains(keyword)
+                );
+            }
+
             var units = query.ToList();
 
             // Get general policies
@@ -405,6 +416,19 @@ public class HotelAdminService(
 
             if (filter.EndDate.HasValue)
                 query = query.Where(b => b.CheckOutDate <= filter.EndDate.Value);
+
+            // ADD SMART SEARCH
+            if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+            {
+                var keyword = filter.SearchKeyword.ToLower().Trim();
+                query = query.Where(b =>
+                    b.BookingNumber.ToLower().Contains(keyword) ||
+                    b.Unit.Name.ToLower().Contains(keyword) ||
+                    (b.User.FullName != null && b.User.FullName.ToLower().Contains(keyword)) ||
+                    (b.User.Email != null && b.User.Email.ToLower().Contains(keyword)) ||
+                    (b.User.PhoneNumber != null && b.User.PhoneNumber.Contains(keyword))
+                );
+            }
 
             // Get count first
             var totalCount = await query.CountAsync();
@@ -1146,6 +1170,18 @@ public class HotelAdminService(
                     ? r.OwnerResponse != null
                     : r.OwnerResponse == null);
 
+            // ADD SMART SEARCH
+            if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+            {
+                var keyword = filter.SearchKeyword.ToLower().Trim();
+                query = query.Where(r =>
+                    r.Unit.Name.ToLower().Contains(keyword) ||
+                    (r.User.FullName != null && r.User.FullName.ToLower().Contains(keyword)) ||
+                    (r.Comment != null && r.Comment.ToLower().Contains(keyword)) ||
+                    (r.OwnerResponse != null && r.OwnerResponse.ToLower().Contains(keyword))
+                );
+            }
+
             var reviews = await query
                 .OrderByDescending(r => r.CreatedAt)
                 .Skip((filter.Page - 1) * filter.PageSize)
@@ -1356,6 +1392,19 @@ public class HotelAdminService(
 
             if (filter.EndDate.HasValue)
                 query = query.Where(p => p.PaymentDate <= filter.EndDate.Value);
+
+            // ADD SMART SEARCH
+            if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+            {
+                var keyword = filter.SearchKeyword.ToLower().Trim();
+                query = query.Where(p =>
+                    p.TransactionId.ToLower().Contains(keyword) ||
+                    p.Booking.BookingNumber.ToLower().Contains(keyword) ||
+                    p.Booking.Unit.Name.ToLower().Contains(keyword) ||
+                    (p.Booking.User.FullName != null && p.Booking.User.FullName.ToLower().Contains(keyword)) ||
+                    (p.Booking.User.Email != null && p.Booking.User.Email.ToLower().Contains(keyword))
+                );
+            }
 
             var payments = await query
                 .OrderByDescending(p => p.PaymentDate)
@@ -3141,7 +3190,7 @@ public class HotelAdminService(
 
             subUnit.IsAvailable = !subUnit.IsAvailable;
             await _context.SaveChangesAsync();
-            
+
             return Result.Success();
         }
         catch (Exception ex)
@@ -4060,13 +4109,13 @@ public class HotelAdminService(
             if (request.ImageFile != null)
             {
                 var uploadResult = await UploadOfferImageAsync(
-                    request.ImageFile,userId);
+                    request.ImageFile, userId);
 
                 if (uploadResult.IsSuccess)
                     imageUrl = uploadResult.Value;
             }
 
-  
+
             var offer = new Offer
             {
                 Title = request.Title,
@@ -4202,6 +4251,8 @@ public class HotelAdminService(
                     CreatedAt = o.CreatedAt
                 })
                 .ToListAsync();
+
+
 
             return Result.Success<IEnumerable<OfferResponse>>(offers);
         }
@@ -4765,7 +4816,7 @@ public class HotelAdminService(
         string? caption = null)
     {
         try
-        {   
+        {
             var adminUnits = await GetUserAdminUnitsAsync(userId);
 
             if (!adminUnits.Any())
@@ -4775,7 +4826,7 @@ public class HotelAdminService(
             var query = adminUnits.AsQueryable();
 
             // Check access
-                
+
             var unitId = adminUnits.First().Id;
 
             // Upload to S3

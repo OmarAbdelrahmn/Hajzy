@@ -65,9 +65,9 @@ public class AmenityService(
         var response = new AmenityDetailsResponse
         {
             Id = amenity.Id,
-            Name = amenity.Name ,
+            Name = amenity.Name,
             Description = amenity.Description,
-            Category = amenity.Category ,
+            Category = amenity.Category,
             TotalUnitsUsing = unitCount,
             TotalSubUnitsUsing = subUnitCount,
             CreatedAt = DateTime.UtcNow, // You might want to add this to your entity
@@ -80,15 +80,15 @@ public class AmenityService(
     public async Task<Result<IEnumerable<AmenityResponse>>> GetByCategoryAsync(string category)
     {
         var amenities = await _context.Set<Domain.Entities.Amenity>()
-            .Where(a => a.Category  == category)
+            .Where(a => a.Category == category)
             .AsNoTracking()
             .ToListAsync();
 
         var responses = amenities.Select(a => new AmenityResponse(
             a.Id,
-            a.Name ,
+            a.Name,
             a.Description,
-            a.Category 
+            a.Category
         )).ToList();
 
         return Result.Success<IEnumerable<AmenityResponse>>(responses);
@@ -100,7 +100,7 @@ public class AmenityService(
         {
             // Check for duplicate name
             var exists = await _context.Set<Domain.Entities.Amenity>()
-                .AnyAsync(a => a.Name  == request.Name);
+                .AnyAsync(a => a.Name == request.Name);
 
             if (exists)
                 return Result.Failure<AmenityResponse>(
@@ -109,8 +109,8 @@ public class AmenityService(
             var amenity = new Domain.Entities.Amenity
             {
                 // You'll need to parse the enum values
-                 Name = request.Name,
-                 Category = request.Category,
+                Name = request.Name,
+                Category = request.Category,
                 Description = request.Description
             };
 
@@ -121,9 +121,9 @@ public class AmenityService(
 
             var response = new AmenityResponse(
                 amenity.Id,
-                amenity.Name ,
+                amenity.Name,
                 amenity.Description,
-                amenity.Category 
+                amenity.Category
             );
 
             return Result.Success(response);
@@ -152,18 +152,18 @@ public class AmenityService(
             {
                 // Check for duplicate
                 var duplicate = await _context.Set<Domain.Entities.Amenity>()
-                    .AnyAsync(a => a.Id != amenityId && a.Name  == request.Name);
+                    .AnyAsync(a => a.Id != amenityId && a.Name == request.Name);
 
                 if (duplicate)
                     return Result.Failure<AmenityResponse>(
                         new Error("DuplicateAmenity", "An amenity with this name already exists", 400));
 
-                 amenity.Name = request.Name;
+                amenity.Name = request.Name;
             }
 
             if (!string.IsNullOrEmpty(request.Category))
             {
-                 amenity.Category = request.Category;
+                amenity.Category = request.Category;
             }
 
             if (request.Description != null)
@@ -177,9 +177,9 @@ public class AmenityService(
 
             var response = new AmenityResponse(
                 amenity.Id,
-                amenity.Name ,
+                amenity.Name,
                 amenity.Description,
-                amenity.Category 
+                amenity.Category
             );
 
             return Result.Success(response);
@@ -239,7 +239,7 @@ public class AmenityService(
         // Apply category filter
         if (!string.IsNullOrWhiteSpace(filter.Category))
         {
-            query = query.Where(a => a.Category  == filter.Category);
+            query = query.Where(a => a.Category == filter.Category);
         }
 
         // Apply search term filter
@@ -247,7 +247,7 @@ public class AmenityService(
         {
             var searchTerm = filter.SearchTerm.ToLower();
             query = query.Where(a =>
-                a.Name .ToLower().Contains(searchTerm) ||
+                a.Name.ToLower().Contains(searchTerm) ||
                 (a.Description != null && a.Description.ToLower().Contains(searchTerm)));
         }
 
@@ -263,9 +263,9 @@ public class AmenityService(
 
         var responses = amenities.Select(a => new AmenityResponse(
             a.Id,
-            a.Name ,
+            a.Name,
             a.Description,
-            a.Category 
+            a.Category
         )).ToList();
 
         return Result.Success<IEnumerable<AmenityResponse>>(responses);
@@ -283,7 +283,7 @@ public class AmenityService(
     public async Task<Result<IEnumerable<string>>> GetCategoriesAsync()
     {
         var categories = await _context.Set<Domain.Entities.Amenity>()
-            .Select(a => a.Category )
+            .Select(a => a.Category)
             .Distinct()
             .AsNoTracking()
             .ToListAsync();
@@ -313,5 +313,5 @@ public class AmenityService(
         };
     }
 
-    
+
 }

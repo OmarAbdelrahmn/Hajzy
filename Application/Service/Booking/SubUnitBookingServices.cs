@@ -1,11 +1,8 @@
 ﻿using Application.Abstraction;
-using Application.Contracts;
 using Application.Contracts.Availability;
 using Application.Contracts.Bookin;
-using Application.Helpers;
 using Application.Notifications;
 using Application.Service.Avilabilaties;
-using Application.Service.OfferService;
 using Application.Service.PromoCode;
 using Domain;
 using Domain.Entities;

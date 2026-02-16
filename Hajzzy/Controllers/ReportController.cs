@@ -1,5 +1,4 @@
 ﻿using Application.Service.Report;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hajzzy.Controllers;
@@ -17,7 +16,7 @@ public class ReportController(IReportService service) : ControllerBase
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
-   
+
     [HttpPost("booking")]
     public async Task<IActionResult> GenerateBookingReportAsync(ReportFilter filter)
     {
@@ -25,7 +24,7 @@ public class ReportController(IReportService service) : ControllerBase
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
-    
+
     [HttpPost("unit-performance")]
     public async Task<IActionResult> GenerateUnitPerformanceReportAsync(ReportFilter filter)
     {

@@ -6,7 +6,6 @@ using Application.Service.CityAdmin;
 using Application.Service.OfferService;
 using Application.Service.publicuser;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hajzzy.Controllers;
@@ -17,7 +16,7 @@ namespace Hajzzy.Controllers;
 [Route("api/public")]
 [ApiController]
 [AllowAnonymous] // All endpoints in this controller are public
-public class PublicController(IPublicServise service,IOfferService service1,IAdminService service2,ICityAdminService cityAdminService) : ControllerBase
+public class PublicController(IPublicServise service, IOfferService service1, IAdminService service2, ICityAdminService cityAdminService) : ControllerBase
 {
     private readonly IPublicServise _service = service;
     private readonly IOfferService service1 = service1;
@@ -54,7 +53,7 @@ public class PublicController(IPublicServise service,IOfferService service1,IAdm
     public async Task<IActionResult> GetUnitStatistics(int unitId)
     {
         var userId = User.GetUserId();
-        var result = await _cityAdminService.GetUnitStatisticsAsync( unitId);
+        var result = await _cityAdminService.GetUnitStatisticsAsync(unitId);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 

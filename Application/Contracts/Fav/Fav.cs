@@ -1,7 +1,4 @@
 ﻿using Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Application.Contracts.Fav;
 
@@ -13,7 +10,7 @@ internal class Fav
 
 public record AddFavoriteRequest(
     int? FavId,
-    FavoriteType? Type 
+    FavoriteType? Type
 );
 
 public record UpdateFavoriteNotesRequest(

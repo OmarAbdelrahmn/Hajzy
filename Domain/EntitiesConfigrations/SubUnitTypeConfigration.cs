@@ -1,9 +1,6 @@
 ﻿using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Domain.EntitiesConfigrations;
 
@@ -12,7 +9,7 @@ public class SubUnitTypeConfigration : IEntityTypeConfiguration<SubUnitTypee>
     public void Configure(EntityTypeBuilder<SubUnitTypee> builder)
     {
         builder.HasData(
-    // ===== HOTELS =====
+        // ===== HOTELS =====
         new SubUnitTypee { Id = 1, Name = SubUnitType.StandardRoom.ToString(), Description = "Standard hotel room" },
         new SubUnitTypee { Id = 2, Name = SubUnitType.DeluxeRoom.ToString(), Description = "Deluxe hotel room with extra amenities" },
         new SubUnitTypee { Id = 3, Name = SubUnitType.Suite.ToString(), Description = "Spacious hotel suite" },

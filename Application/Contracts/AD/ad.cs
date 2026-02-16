@@ -1,7 +1,4 @@
 ﻿using Microsoft.AspNetCore.Http;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Application.Contracts.AD;
 
@@ -16,10 +13,10 @@ public record CreateAdRequest(
     string? Description,
     IFormFile Image,
     int? UnitId,
+    string? Link,
     DateTime StartDate,
     DateTime EndDate,
-    bool IsActive = true,
-    string? Link
+    bool IsActive = true
 );
 
 // ============= UPDATE REQUEST =============

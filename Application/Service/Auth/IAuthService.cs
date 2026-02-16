@@ -1,6 +1,5 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Auth;
-using Microsoft.AspNetCore.Identity.Data;
 using ResetPasswordRequest = Application.Contracts.Auth.ResetPasswordRequest;
 
 

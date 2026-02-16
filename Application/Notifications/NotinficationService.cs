@@ -14,7 +14,7 @@ public class EmailNotificationService(
     ApplicationDbcontext context,
     IEmailSender emailSender,
     IHttpContextAccessor httpContextAccessor,
-    ILogger<EmailNotificationService> logger ,
+    ILogger<EmailNotificationService> logger,
     UserManager<ApplicationUser> manager) : INotinficationService
 {
     private readonly ApplicationDbcontext _context = context;

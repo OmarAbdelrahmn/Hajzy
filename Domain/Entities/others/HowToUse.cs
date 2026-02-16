@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Domain.Entities.others;
+﻿namespace Domain.Entities.others;
 
 public class HowToUse
 {

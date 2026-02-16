@@ -1,40 +1,36 @@
 ﻿using Domain.Entities;
 using Domain.Entities.others;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using System;
-using System.Collections.Generic;
 using System.Reflection;
-using System.Text;
 
 namespace Domain;
 
-public class ApplicationDbcontext(DbContextOptions<ApplicationDbcontext> options) : IdentityDbContext<ApplicationUser,ApplicationRole,string>(options)
+public class ApplicationDbcontext(DbContextOptions<ApplicationDbcontext> options) : IdentityDbContext<ApplicationUser, ApplicationRole, string>(options)
 {
 
     public required DbSet<ApplicationUser> ApplicationUsers { get; set; }
     public required DbSet<ApplicationRole> ApplicationRoles { get; set; }
 
     public required DbSet<Department> Departments { get; set; }
-    public required DbSet<Unit> Units  { get; set; }
+    public required DbSet<Unit> Units { get; set; }
     public required DbSet<UnitType> UnitTypes { get; set; }
-    public required DbSet<SubUnitTypee> SubUnitTypees{ get; set; }
+    public required DbSet<SubUnitTypee> SubUnitTypees { get; set; }
     public required DbSet<SubUnit> SubUnits { get; set; }
     public required DbSet<RoomConfiguration> RoomConfigurations { get; set; }
     public required DbSet<Amenity> Amenities { get; set; }
-    public required DbSet<UnitAmenity> UnitAmenities{ get; set; }
+    public required DbSet<UnitAmenity> UnitAmenities { get; set; }
     public required DbSet<SubUniteAmenity> SubUniteAmenities { get; set; }
     public required DbSet<Booking> Bookings { get; set; }
-    public required DbSet<BookingRoom> BookingRooms{ get; set; }
-    public required DbSet<BookingCoupon> BookingCoupons{ get; set; }
+    public required DbSet<BookingRoom> BookingRooms { get; set; }
+    public required DbSet<BookingCoupon> BookingCoupons { get; set; }
     public required DbSet<Review> Reviews { get; set; }
     public required DbSet<Payment> Payments { get; set; }
-    public required DbSet<Notification> Notifications { get; set; } 
-    public required DbSet<UserNotification>UserNotifications { get; set; } 
+    public required DbSet<Notification> Notifications { get; set; }
+    public required DbSet<UserNotification> UserNotifications { get; set; }
     public required DbSet<DepartmentAdmin> DepartmentAdmins { get; set; }
-    public required DbSet<UnitRegistrationRequest> UnitRegistrationRequests{ get; set; }
+    public required DbSet<UnitRegistrationRequest> UnitRegistrationRequests { get; set; }
 
     // Business entities
     public required DbSet<Coupon> Coupons { get; set; }
@@ -53,9 +49,9 @@ public class ApplicationDbcontext(DbContextOptions<ApplicationDbcontext> options
     public required DbSet<SubUnitImage> SubUnitImages { get; set; }
     public required DbSet<DepartmentImage> DepartmentImages { get; set; }
     public required DbSet<ReviewImage> ReviewImages { get; set; }
-   
+
     //fav
-    public required DbSet<UserFavorite>UserFavorites { get; set; }
+    public required DbSet<UserFavorite> UserFavorites { get; set; }
 
     //other
     public DbSet<Contract> Contracts { get; set; }
@@ -64,9 +60,9 @@ public class ApplicationDbcontext(DbContextOptions<ApplicationDbcontext> options
     public DbSet<FAQ> FAQs { get; set; }
     public DbSet<HowToUse> HowToUses { get; set; }
     public DbSet<PublicCancelPolicy> PublicCancelPolicies { get; set; }
-    public DbSet<PaymentMethodd> PaymentMethods{ get; set; }
-    public DbSet<Ad> Ads{ get; set; }
-    public DbSet<Offer> Offers{ get; set; }
+    public DbSet<PaymentMethodd> PaymentMethods { get; set; }
+    public DbSet<Ad> Ads { get; set; }
+    public DbSet<Offer> Offers { get; set; }
     public DbSet<UnitCustomPolicy> UnitCustomPolicies { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -206,5 +202,5 @@ public class ApplicationDbcontext(DbContextOptions<ApplicationDbcontext> options
     //        // AuditLogs.Add(auditLog);
     //    }
     //}
-//}
+    //}
 }

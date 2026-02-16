@@ -1,13 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Text;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Domain.Entities;
 
 public class Unit
 {
-     public int Id { get; set; }
+    public int Id { get; set; }
 
     [Required, MaxLength(200)]
     public string Name { get; set; } = string.Empty;

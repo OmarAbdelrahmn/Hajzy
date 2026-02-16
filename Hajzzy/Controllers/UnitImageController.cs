@@ -18,7 +18,7 @@
 //    /// <param name="unitId">Unit ID</param>
 //    /// <param name="images">Image files (max 20)</param>
 //    [HttpPost("")]
- 
+
 //    [RequestSizeLimit(100_000_000)] // 100MB
 //    public async Task<IActionResult> UploadImages(
 //        int unitId,
@@ -42,7 +42,7 @@
 //    /// Move images from temporary location to unit's permanent location
 //    /// </summary>
 //    [HttpPost("move")]
- 
+
 //    public async Task<IActionResult> MoveImages(
 //        int unitId,
 //        [FromBody] MoveImagesRequest request)
@@ -58,7 +58,7 @@
 //    /// Delete specific images by S3 keys
 //    /// </summary>
 //    [HttpDelete("")]
- 
+
 //    public async Task<IActionResult> DeleteImages(
 //        int unitId,
 //        [FromBody] DeleteImagesRequest request)
@@ -74,7 +74,7 @@
 //    /// Get presigned URL for temporary access to an image
 //    /// </summary>
 //    [HttpGet("presigned-url")]
- 
+
 //    public async Task<IActionResult> GetPresignedUrl(
 //        int unitId,
 //        [FromQuery] string s3Key,
@@ -104,7 +104,7 @@
 //    /// Reorder images
 //    /// </summary>
 //    [HttpPut("reorder")]
- 
+
 //    public async Task<IActionResult> ReorderImages(
 //        int unitId,
 //        [FromBody] ReorderImagesRequest request)

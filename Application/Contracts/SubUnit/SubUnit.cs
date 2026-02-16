@@ -1,10 +1,6 @@
 ﻿using Application.Contracts.Unit;
-using Domain;
 using Domain.Entities;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Text;
 
 namespace Application.Contracts.SubUnit;
 
@@ -111,7 +107,7 @@ public class SubUnitDetailsResponse
     public int UnitId { get; init; }
     public string UnitName { get; init; } = string.Empty;
     public string RoomNumber { get; init; } = string.Empty;
-    public int TypeId { get; init; } 
+    public int TypeId { get; init; }
     public decimal PricePerNight { get; init; }
     public int MaxOccupancy { get; init; }
     public int? Bedrooms { get; init; }

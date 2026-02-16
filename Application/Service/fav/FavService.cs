@@ -162,7 +162,7 @@ public class FavService(
                 .ToList();
 
             // Load Units with their data
-            Dictionary<int,Domain.Entities.Unit> unitsDict = new();
+            Dictionary<int, Domain.Entities.Unit> unitsDict = new();
             if (unitIds.Any())
             {
                 var units = await _context.Units
@@ -204,7 +204,7 @@ public class FavService(
                         responses.Add(MapToResponse(fav));
                     }
                 }
-                else if (fav.Type == FavoriteType.SubUnit && fav.FavId !=0)
+                else if (fav.Type == FavoriteType.SubUnit && fav.FavId != 0)
                 {
                     if (subUnitsDict.TryGetValue(fav.FavId, out var subUnit))
                     {
@@ -329,12 +329,12 @@ public class FavService(
 
             // Load necessary data for statistics
             var unitIds = favorites
-                .Where(f => f.Type == FavoriteType.Unit && f.FavId !=0)
+                .Where(f => f.Type == FavoriteType.Unit && f.FavId != 0)
                 .Select(f => f.FavId!)
                 .ToList();
 
             var subUnitIds = favorites
-                .Where(f => f.Type == FavoriteType.SubUnit && f.FavId !=0)
+                .Where(f => f.Type == FavoriteType.SubUnit && f.FavId != 0)
                 .Select(f => f.FavId!)
                 .ToList();
 

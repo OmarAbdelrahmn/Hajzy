@@ -1,12 +1,11 @@
 ﻿
 using Application.Abstraction;
 using Application.Contracts.Aminety;
-using Application.Service.UnitAmenity;
 using Domain;
-using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 namespace Application.Service.UnitAmenity;
+
 public class UnitAmenityService(
     ApplicationDbcontext context,
     ILogger<UnitAmenityService> logger) : IUnitAmenityService

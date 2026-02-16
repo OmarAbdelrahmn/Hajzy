@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Text;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Domain.Entities.others;
 
@@ -15,9 +12,9 @@ public class PrivacyPolicy
     public string TitleE { get; set; } = string.Empty;
 
     [Required]
-    public string DescreptionA { get; set; } = string.Empty ;
+    public string DescreptionA { get; set; } = string.Empty;
 
-    public string DescreptionE { get; set; } = string.Empty ;
+    public string DescreptionE { get; set; } = string.Empty;
 
     public string Version { get; set; } = string.Empty;
     public bool IsActive { get; set; }

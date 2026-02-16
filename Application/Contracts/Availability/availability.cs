@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using Domain.Entities;
+﻿using Domain.Entities;
 
 namespace Application.Contracts.Availability;
 

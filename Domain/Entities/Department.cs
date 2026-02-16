@@ -1,13 +1,9 @@
-﻿using Domain.Migrations;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Text;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Domain.Entities;
 
 public class Department
-  {
+{
     public int Id { get; set; }
 
     [Required, MaxLength(100)]
@@ -40,4 +36,4 @@ public class Department
     public ICollection<Unit> Units { get; set; } = [];
     public ICollection<DepartmentAdmin> DepartmentAdmins { get; set; } = [];
     public ICollection<DepartmentImage> DepartmentImages { get; set; } = [];
-  }
+}

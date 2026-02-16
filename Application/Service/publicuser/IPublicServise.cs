@@ -3,13 +3,11 @@ using Application.Contracts.Aminety;
 using Application.Contracts.other;
 using Application.Contracts.publicuser;
 using Application.Contracts.Unit;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using static Application.Service.publicuser.PublicService;
 
 namespace Application.Service.publicuser;
-    public interface IPublicServise
+
+public interface IPublicServise
 {
     // <summary>
     /// Get all units with public information only

@@ -1,8 +1,6 @@
-﻿using Application.Abstraction;
-using Application.Contracts.BookingManagement;
+﻿using Application.Contracts.BookingManagement;
 using Application.Extensions;
 using Application.Service.Booking;
-using Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

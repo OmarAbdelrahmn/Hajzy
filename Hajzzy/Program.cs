@@ -2,7 +2,6 @@ using Application;
 using Application.Notifications;
 using Application.Service.ImageProcessingJob;
 using Hangfire;
-using Hangfire.Dashboard;
 using Hangfire.SqlServer;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -47,11 +46,11 @@ var app = builder.Build();
 
 //if (app.Environment.IsDevelopment())
 //{
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
-    });
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
+});
 //}
 
 app.UseHangfireDashboard("/jobs", new DashboardOptions

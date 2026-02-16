@@ -1,14 +1,11 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.BookingManagement;
-using Application.Contracts.CityAdminContracts;
 using Application.Notifications;
-using Application.Service.Avilabilaties;
 using Domain;
 using Domain.Entities;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System.Runtime.Serialization;
 using BookedRoomInfo = Application.Contracts.BookingManagement.BookedRoomInfo;
 using BookingTrendsResponse = Application.Contracts.BookingManagement.BookingTrendsResponse;
 using CancellationAnalyticsResponse = Application.Contracts.BookingManagement.CancellationAnalyticsResponse;

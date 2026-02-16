@@ -2,9 +2,6 @@
 using Application.Contracts.CityAdminContracts;
 using Application.Contracts.UnitRegisteration;
 using Microsoft.AspNetCore.Http;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using static Application.Service.UnitRegistration.UnitRegistrationService;
 
 namespace Application.Service.UnitRegistration;

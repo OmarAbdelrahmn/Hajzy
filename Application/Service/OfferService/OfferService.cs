@@ -1,5 +1,4 @@
 ﻿using Amazon.S3;
-using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 using Application.Abstraction;
 using Application.Contracts.Offer;
@@ -9,12 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
-using SixLabors.ImageSharp.Processing;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Application.Service.OfferService;
 
@@ -79,7 +72,7 @@ public class OfferService(
 
             var createdOffer = await _context.Set<Offer>()
                 .Include(o => o.Unit)
-                .ThenInclude(c=>c.UnitType)
+                .ThenInclude(c => c.UnitType)
                 .Include(o => o.User)
                 .FirstAsync(o => o.Id == offer.Id);
 
@@ -102,7 +95,7 @@ public class OfferService(
         {
             var offer = await _context.Set<Offer>()
                 .Include(o => o.Unit)
-                .ThenInclude(c=>c.UnitType)
+                .ThenInclude(c => c.UnitType)
                 .Include(o => o.User)
                 .FirstOrDefaultAsync(o => o.Id == offerId && !o.IsDeleted);
 
@@ -134,7 +127,7 @@ public class OfferService(
 
             if (request.Image != null)
             {
-                var oldKeys = new List<string> {offer.S3Key}
+                var oldKeys = new List<string> { offer.S3Key }
                     .Where(k => !string.IsNullOrEmpty(k))
                     .ToList();
 
@@ -200,7 +193,7 @@ public class OfferService(
     {
         var offer = await _context.Set<Offer>()
             .Include(o => o.Unit)
-            .ThenInclude(c=>c.UnitType)
+            .ThenInclude(c => c.UnitType)
             .Include(o => o.User)
             .AsNoTracking()
             .FirstOrDefaultAsync(o => o.Id == offerId && !o.IsDeleted);
@@ -439,7 +432,7 @@ public class OfferService(
                 });
             }
 
-          
+
             return Result.Success((originalKey));
         }
         catch (Exception ex)
@@ -530,10 +523,10 @@ public class OfferService(
     }
 
     public async Task<Result<IEnumerable<OfferResponse>>> GetFeaturedOffersAsync()
-    { 
+    {
         var query = await _context.Set<Offer>()
             .Include(o => o.Unit)
-            .ThenInclude(c=>c.UnitType)
+            .ThenInclude(c => c.UnitType)
             .Include(o => o.User)
             .Where(o => !o.IsDeleted && o.IsFeatured)
             .AsNoTracking()

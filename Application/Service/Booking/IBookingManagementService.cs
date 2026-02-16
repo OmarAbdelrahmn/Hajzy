@@ -1,8 +1,5 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.BookingManagement;
-using Application.Service.Avilabilaties;
-using Domain.Entities;
-using System.Runtime.Serialization;
 
 namespace Application.Service.Booking;
 

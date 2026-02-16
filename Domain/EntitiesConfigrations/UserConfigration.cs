@@ -38,7 +38,7 @@ public class UserConfigration : IEntityTypeConfiguration<ApplicationUser>
             FullName = "city-Admin",
             Address = "lives in city details"
         });
-        
+
         builder.HasData(new ApplicationUser
         {
             Id = DefaultUsers.SuperAdminId,

@@ -1,7 +1,5 @@
 ﻿using Application.Contracts.Policy;
 using Application.Service.Policy;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hajzzy.Controllers;
@@ -72,7 +70,7 @@ public class GenerallPolicyController(IGenerallPolicyService service) : Controll
     /// Create a new general policy
     /// </summary>
     [HttpPost("")]
-     
+
     public async Task<IActionResult> Create([FromBody] CreateGeneralPolicyRequest request, CancellationToken cancellationToken)
     {
         var result = await service.CreateAsync(request, cancellationToken);
@@ -85,7 +83,7 @@ public class GenerallPolicyController(IGenerallPolicyService service) : Controll
     /// Create a custom policy for a specific unit
     /// </summary>
     [HttpPost("custom-for-unit")]
-     
+
     public async Task<IActionResult> CreateCustomForUnit([FromBody] CreateCustomPolicyForUnitRequest request, CancellationToken cancellationToken)
     {
         var result = await service.CreateCustomPolicyForUnitAsync(request, cancellationToken);
@@ -98,7 +96,7 @@ public class GenerallPolicyController(IGenerallPolicyService service) : Controll
     /// Update an existing policy
     /// </summary>
     [HttpPut("{id:int}")]
-     
+
     public async Task<IActionResult> Update(int id, [FromBody] UpdateGeneralPolicyRequest request, CancellationToken cancellationToken)
     {
         var result = await service.UpdateAsync(id, request, cancellationToken);
@@ -109,7 +107,7 @@ public class GenerallPolicyController(IGenerallPolicyService service) : Controll
     /// Delete a policy
     /// </summary>
     [HttpDelete("{id:int}")]
-     
+
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         var result = await service.DeleteAsync(id, cancellationToken);
@@ -122,7 +120,7 @@ public class GenerallPolicyController(IGenerallPolicyService service) : Controll
     /// Attach a global policy to a unit
     /// </summary>
     [HttpPost("attach-to-unit")]
-     
+
     public async Task<IActionResult> AttachToUnit([FromBody] AttachPolicyToUnitRequest request, CancellationToken cancellationToken)
     {
         var result = await service.AttachPolicyToUnitAsync(request, cancellationToken);
@@ -133,7 +131,7 @@ public class GenerallPolicyController(IGenerallPolicyService service) : Controll
     /// Attach a global policy to a subunit
     /// </summary>
     [HttpPost("attach-to-subunit")]
-     
+
     public async Task<IActionResult> AttachToSubUnit([FromBody] AttachPolicyToSubUnitRequest request, CancellationToken cancellationToken)
     {
         var result = await service.AttachPolicyToSubUnitAsync(request, cancellationToken);
@@ -144,7 +142,7 @@ public class GenerallPolicyController(IGenerallPolicyService service) : Controll
     /// Remove a policy from a unit
     /// </summary>
     [HttpDelete("unit/{unitId:int}/policy/{policyId:int}")]
-     
+
     public async Task<IActionResult> RemoveFromUnit(int policyId, int unitId, CancellationToken cancellationToken)
     {
         var result = await service.RemovePolicyFromUnitAsync(policyId, unitId, cancellationToken);
@@ -157,7 +155,7 @@ public class GenerallPolicyController(IGenerallPolicyService service) : Controll
     /// Remove a policy from a subunit
     /// </summary>
     [HttpDelete("subunit/{subUnitId:int}/policy/{policyId:int}")]
-     
+
     public async Task<IActionResult> RemoveFromSubUnit(int policyId, int subUnitId, CancellationToken cancellationToken)
     {
         var result = await service.RemovePolicyFromSubUnitAsync(policyId, subUnitId, cancellationToken);
@@ -170,7 +168,7 @@ public class GenerallPolicyController(IGenerallPolicyService service) : Controll
     /// Toggle the active status of a policy
     /// </summary>
     [HttpPost("{id:int}/toggle-active")]
-     
+
     public async Task<IActionResult> ToggleActive(int id, CancellationToken cancellationToken)
     {
         var result = await service.ToggleActiveAsync(id, cancellationToken);

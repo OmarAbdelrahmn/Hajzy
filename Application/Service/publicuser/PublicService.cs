@@ -4,13 +4,9 @@ using Application.Contracts.Aminety;
 using Application.Contracts.other;
 using Application.Contracts.publicuser;
 using Application.Contracts.Unit;
-using Application.Service.publicuser;
 using Domain;
 using Domain.Entities;
-using Domain.Migrations;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Logging;
 
 namespace Application.Service.publicuser;
 
@@ -117,7 +113,7 @@ public class PublicService(
 
             var unit = await _context.Units
                 .Include(u => u.CustomPolicies.Where(p => p.IsActive)) // ADD THIS
-                .Include(c=>c.Rooms)
+                .Include(c => c.Rooms)
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
                 .Include(u => u.Images.Where(i => !i.IsDeleted))
@@ -155,7 +151,7 @@ public class PublicService(
 
 
 
-            var response =  new PublicUnitDetailsResponses
+            var response = new PublicUnitDetailsResponses
             {
                 Id = unit.Id,
                 Name = unit.Name,
@@ -320,7 +316,7 @@ public class PublicService(
             // Get top rated units
             var topRated = await _context.Units
                 .Include(u => u.CustomPolicies.Where(p => p.IsActive)) // ADD THIS
-                //.Where(u => u.IsFeatured)
+                                                                       //.Where(u => u.IsFeatured)
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
                 .Include(u => u.Images.Where(i => !i.IsDeleted))
@@ -661,7 +657,7 @@ public class PublicService(
             TotalReviews = unit.TotalReviews,
             PrimaryImageUrl = unit.Images?.FirstOrDefault()?.ImageUrl,
             IsAvailable = unit.IsActive && unit.IsVerified,
-            IsFeatured = unit.AverageRating >= 4.5m && unit.TotalReviews >= 10  ,
+            IsFeatured = unit.AverageRating >= 4.5m && unit.TotalReviews >= 10,
             Options = options,
             Currency = unit.PriceCurrency.ToString(),
             CustomPolicies = unit.CustomPolicies

@@ -1,7 +1,5 @@
-﻿using Application.Abstraction.Consts;
-using Application.Contracts.hoteladmincont;
+﻿using Application.Contracts.hoteladmincont;
 using Application.Extensions;
-using Application.Service.AdService;
 using Application.Service.HotelAdmin;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -358,7 +356,7 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
 
     #endregion
 
-   
+
 
     #region Policy Management
 
@@ -952,7 +950,7 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     public async Task<IActionResult> RespondTdoReview([FromForm] CreateOfferRequest request)
     {
         var userId = User.GetUserId();
-        var result = await _hotelAdminService.CreateUnitOfferAsync(userId!,request);
+        var result = await _hotelAdminService.CreateUnitOfferAsync(userId!, request);
         return result.IsSuccess ? Ok(new { message = "Done" }) : result.ToProblem();
     }
 
@@ -960,7 +958,7 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     public async Task<IActionResult> RespondTsdoReview(int offerId)
     {
         var userId = User.GetUserId();
-        var result = await _hotelAdminService.DeleteOfferAsync(userId!,offerId);
+        var result = await _hotelAdminService.DeleteOfferAsync(userId!, offerId);
         return result.IsSuccess ? Ok(new { message = "Done" }) : result.ToProblem();
     }
 
@@ -969,7 +967,7 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     public async Task<IActionResult> RespondTsdsoReview(int offerId, [FromForm] UpdateOfferRequest request)
     {
         var userId = User.GetUserId();
-        var result = await _hotelAdminService.UpdateOfferAsync(userId!,offerId,request);
+        var result = await _hotelAdminService.UpdateOfferAsync(userId!, offerId, request);
         return result.IsSuccess ? Ok(new { message = "Done" }) : result.ToProblem();
     }
 
@@ -1145,7 +1143,7 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
         [FromForm] UploadDto request)
     {
         var userId = User.GetUserId();
-        var result = await _hotelAdminService.UploadUnitImageAsync(userId!, request.image,request.caption);
+        var result = await _hotelAdminService.UploadUnitImageAsync(userId!, request.image, request.caption);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
     // Update unit rank

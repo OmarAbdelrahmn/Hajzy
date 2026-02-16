@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Application.Contracts.Department;
+﻿namespace Application.Contracts.Department;
 
 public class Departmentrecords
 {

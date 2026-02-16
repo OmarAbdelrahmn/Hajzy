@@ -1,6 +1,5 @@
 ﻿using Application.Contracts.Aminety;
 using Application.Service.SubUnitAmenity;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hajzzy.Controllers;
@@ -31,7 +30,7 @@ public class SubUnitAmenityController(ISubUnitAmenityService service) : Controll
     /// Attach a single amenity to a subunit
     /// </summary>
     [HttpPost("{amenityId}")]
- 
+
     public async Task<IActionResult> AttachAmenity(int subUnitId, int amenityId)
     {
         var result = await _service.AttachAmenityAsync(subUnitId, amenityId);
@@ -44,7 +43,7 @@ public class SubUnitAmenityController(ISubUnitAmenityService service) : Controll
     /// Attach multiple amenities to a subunit
     /// </summary>
     [HttpPost("batch")]
- 
+
     public async Task<IActionResult> AttachAmenities(int subUnitId, [FromBody] AttachAmenitiesRequest request)
     {
         var result = await _service.AttachAmenitiesAsync(subUnitId, request.AmenityIds);
@@ -57,7 +56,7 @@ public class SubUnitAmenityController(ISubUnitAmenityService service) : Controll
     /// Copy amenities from parent unit to subunit
     /// </summary>
     [HttpPost("copy-from-unit")]
- 
+
     public async Task<IActionResult> CopyFromUnit(int subUnitId)
     {
         var result = await _service.CopyFromUnitAsync(subUnitId);
@@ -74,7 +73,7 @@ public class SubUnitAmenityController(ISubUnitAmenityService service) : Controll
     /// Update subunit amenities (replace all)
     /// </summary>
     [HttpPut("")]
- 
+
     public async Task<IActionResult> UpdateAmenities(int subUnitId, [FromBody] UpdateSubUnitAmenitiesRequest request)
     {
         var result = await _service.UpdateAmenitiesAsync(subUnitId, request);
@@ -87,7 +86,7 @@ public class SubUnitAmenityController(ISubUnitAmenityService service) : Controll
     /// Toggle availability of a specific amenity in a subunit
     /// </summary>
     [HttpPatch("{amenityId}/toggle")]
- 
+
     public async Task<IActionResult> ToggleAvailability(int subUnitId, int amenityId)
     {
         var result = await _service.ToggleAvailabilityAsync(subUnitId, amenityId);
@@ -104,7 +103,7 @@ public class SubUnitAmenityController(ISubUnitAmenityService service) : Controll
     /// Remove a single amenity from a subunit
     /// </summary>
     [HttpDelete("{amenityId}")]
- 
+
     public async Task<IActionResult> RemoveAmenity(int subUnitId, int amenityId)
     {
         var result = await _service.RemoveAmenityAsync(subUnitId, amenityId);
@@ -117,7 +116,7 @@ public class SubUnitAmenityController(ISubUnitAmenityService service) : Controll
     /// Remove all amenities from a subunit
     /// </summary>
     [HttpDelete("")]
- 
+
     public async Task<IActionResult> RemoveAllAmenities(int subUnitId)
     {
         var result = await _service.RemoveAllAmenitiesAsync(subUnitId);

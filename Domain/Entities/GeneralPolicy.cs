@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Text;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Domain.Entities;
 
@@ -15,7 +12,7 @@ public class GeneralPolicy
     [MaxLength(2000)]
     public string Description { get; set; } = string.Empty;
 
-    public GeneralPolicyName PolicyType { get; set; }      
+    public GeneralPolicyName PolicyType { get; set; }
     public GeneralPolicyCategory? PolicyCategory { get; set; }
     public string? CustomPolicyName { get; set; }
 
@@ -31,6 +28,6 @@ public class GeneralPolicy
     public int? UnitId { get; set; }
     public int? SubUnitId { get; set; }
 
-    public Unit?  Unit { get; set; } 
+    public Unit? Unit { get; set; }
     public SubUnit? SubUnit { get; set; }
 }

@@ -68,19 +68,19 @@ public class UnitTypeService(
         int totalCount,
         int page,
         int pageSize)
-            {
-                var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+    {
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-                return new PaginatedResponse<T>
-                {
-                    Items = items,
-                    TotalCount = totalCount,
-                    TotalPages = totalPages,
-                    CurrentPage = page,
-                    NextPage = page < totalPages ? page + 1 : null,
-                    PrevPage = page > 1 ? page - 1 : null
-                };
-            }
+        return new PaginatedResponse<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            CurrentPage = page,
+            NextPage = page < totalPages ? page + 1 : null,
+            PrevPage = page > 1 ? page - 1 : null
+        };
+    }
 
     public async Task<Result<UnitTypeDetailsResponse>> GetDetailsAsync(int unitTypeId)
     {

@@ -5,14 +5,14 @@
 namespace Domain.Migrations
 {
     /// <inheritdoc />
-    public partial class addinglinktotheoffers : Migration
+    public partial class addthelinktothead : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>(
                 name: "Link",
-                table: "Offers",
+                table: "Ads",
                 type: "nvarchar(2000)",
                 maxLength: 2000,
                 nullable: true);
@@ -22,21 +22,21 @@ namespace Domain.Migrations
                 keyColumn: "Id",
                 keyValue: "59724D2D-E2B5-4C67-AB6F-D93478147B03",
                 columns: new[] { "CreatedAt", "PasswordHash" },
-                values: new object[] { new DateTime(2026, 2, 16, 9, 0, 55, 374, DateTimeKind.Utc).AddTicks(5174), "AQAAAAIAAYagAAAAENBcPyopBr2O0tfbvMyxKjEOq1aBcnYPz3MBip8OykNX8r3ULED1E5yvItbfaRBhcQ==" });
+                values: new object[] { new DateTime(2026, 2, 16, 11, 55, 4, 123, DateTimeKind.Utc).AddTicks(1249), "AQAAAAIAAYagAAAAENhbY+r8StZn0Npaw6UqWPbS0M/fCDHnls0EzxWJeMwrIfibuxQ0DKgs6+4Hyb7oww==" });
 
             migrationBuilder.UpdateData(
                 table: "AspNetUsers",
                 keyColumn: "Id",
                 keyValue: "59726D2D-E2B5-4C67-AB6F-D93878317B03",
                 columns: new[] { "CreatedAt", "PasswordHash" },
-                values: new object[] { new DateTime(2026, 2, 16, 9, 0, 55, 491, DateTimeKind.Utc).AddTicks(5585), "AQAAAAIAAYagAAAAENQxfhFk8GlTJsQe5mAvUQmLyv2iQZ5hO9ZQJpd2SnTTPAPBuYv2dMa4IG/NQNQkrg==" });
+                values: new object[] { new DateTime(2026, 2, 16, 11, 55, 4, 231, DateTimeKind.Utc).AddTicks(5883), "AQAAAAIAAYagAAAAEOJmZIuOkFQfjm8GcM1TzuU0NEqx/Bi+0Ukjby2orJnAaahbEWiTwMuqLWxDRP7G5Q==" });
 
             migrationBuilder.UpdateData(
                 table: "AspNetUsers",
                 keyColumn: "Id",
                 keyValue: "59726D2D-E2B5-4C67-AB6F-D99478317B03",
                 columns: new[] { "CreatedAt", "PasswordHash" },
-                values: new object[] { new DateTime(2026, 2, 16, 9, 0, 55, 568, DateTimeKind.Utc).AddTicks(4703), "AQAAAAIAAYagAAAAEOkKh5ZJ9uMrbWlDG2btNbGdlYyxD/5o7+vCFfXBUuxSUXN9QCoFMn/qo507jEiJMw==" });
+                values: new object[] { new DateTime(2026, 2, 16, 11, 55, 4, 320, DateTimeKind.Utc).AddTicks(3074), "AQAAAAIAAYagAAAAEEK9kMlN7v+ye82XBN4y5tBPpgxGxbtOcMxQyD4eCJz5e4KcuYaL1DVPVOtplPXKcg==" });
         }
 
         /// <inheritdoc />
@@ -44,28 +44,28 @@ namespace Domain.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "Link",
-                table: "Offers");
+                table: "Ads");
 
             migrationBuilder.UpdateData(
                 table: "AspNetUsers",
                 keyColumn: "Id",
                 keyValue: "59724D2D-E2B5-4C67-AB6F-D93478147B03",
                 columns: new[] { "CreatedAt", "PasswordHash" },
-                values: new object[] { new DateTime(2026, 2, 16, 8, 21, 3, 379, DateTimeKind.Utc).AddTicks(8341), "AQAAAAIAAYagAAAAEPYoD6Kmdz9CfiQWYtqhpZZes4yrHGj/VvFcYxzZd2rVyoM1RRetpKgZtwaA0kbTrQ==" });
+                values: new object[] { new DateTime(2026, 2, 16, 9, 42, 27, 324, DateTimeKind.Utc).AddTicks(8732), "AQAAAAIAAYagAAAAEBypztK8DJXrJzwV0Kd5+igUEEeLQ++7dfQF9Mwc5ZLh4I5eDAF7lMa4tZ8qyonuIg==" });
 
             migrationBuilder.UpdateData(
                 table: "AspNetUsers",
                 keyColumn: "Id",
                 keyValue: "59726D2D-E2B5-4C67-AB6F-D93878317B03",
                 columns: new[] { "CreatedAt", "PasswordHash" },
-                values: new object[] { new DateTime(2026, 2, 16, 8, 21, 3, 436, DateTimeKind.Utc).AddTicks(4015), "AQAAAAIAAYagAAAAENQnVSSpA78c/36WM4iIGGnH5hG1dtKUkvoL/VPW6IcE77JJYP8u3WdoPEPHdGas4g==" });
+                values: new object[] { new DateTime(2026, 2, 16, 9, 42, 27, 420, DateTimeKind.Utc).AddTicks(2595), "AQAAAAIAAYagAAAAECDH6dt23KTI0t5Kj+mYa+N2SqlhrIcCw53W1dC7deTScRxzqwNv2srkjzGWoMKhfg==" });
 
             migrationBuilder.UpdateData(
                 table: "AspNetUsers",
                 keyColumn: "Id",
                 keyValue: "59726D2D-E2B5-4C67-AB6F-D99478317B03",
                 columns: new[] { "CreatedAt", "PasswordHash" },
-                values: new object[] { new DateTime(2026, 2, 16, 8, 21, 3, 489, DateTimeKind.Utc).AddTicks(6713), "AQAAAAIAAYagAAAAEJzDNUIvwuyK/KwkRLIwNlxO5A+KYDsBDyTwBE3ZsPCLfR9BYI8GDS7v12cR3KL4fg==" });
+                values: new object[] { new DateTime(2026, 2, 16, 9, 42, 27, 498, DateTimeKind.Utc).AddTicks(9662), "AQAAAAIAAYagAAAAECxQVhyEM30iHOFrbFlOvQwSPhL5bjl7Y/vuEJ6crTkQm9t/WyMRG3C7dk73RElo0w==" });
         }
     }
 }

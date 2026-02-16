@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Text;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Application.Contracts.Unit;
 
@@ -155,7 +152,7 @@ public class SubUnitComprehensiveDetail
 {
     public int Id { get; set; }
     public string RoomNumber { get; set; } = string.Empty;
-    public int  TypeId { get; set; }
+    public int TypeId { get; set; }
     public decimal PricePerNight { get; set; }
     public int MaxOccupancy { get; set; }
     public int? Bedrooms { get; set; }

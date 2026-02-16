@@ -1,6 +1,5 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.SubUnit;
-using Application.Service.Availability;
 using Microsoft.AspNetCore.Http;
 
 namespace Application.Service.SubUnit;

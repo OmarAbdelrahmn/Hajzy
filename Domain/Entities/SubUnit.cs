@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text;
 
 namespace Domain.Entities;
 
@@ -35,7 +32,7 @@ public class SubUnit
 
     [ForeignKey("SubUnitTypeId")]
     public int SubUnitTypeId { get; set; } = 1;
-    public SubUnitTypee SubUnitType  { get; set; } = default!;
+    public SubUnitTypee SubUnitType { get; set; } = default!;
     public ICollection<BookingRoom> BookingRooms { get; set; } = [];
     public ICollection<SubUniteAmenity> SubUnitAmenities { get; set; } = [];
     public ICollection<SubUnitImage> SubUnitImages { get; set; } = [];

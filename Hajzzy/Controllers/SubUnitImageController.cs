@@ -55,7 +55,7 @@
 //    /// Delete specific images by S3 keys
 //    /// </summary>
 //    [HttpDelete("")]
- 
+
 //    public async Task<IActionResult> DeleteImages(
 //        int subUnitId,
 //        [FromBody] DeleteImagesRequest request)
@@ -71,7 +71,7 @@
 //    /// Get presigned URL for temporary access to an image
 //    /// </summary>
 //    [HttpGet("presigned-url")]
- 
+
 //    public async Task<IActionResult> GetPresignedUrl(
 //        int subUnitId,
 //        [FromQuery] string s3Key,
@@ -101,7 +101,7 @@
 //    /// Reorder images
 //    ///// </summary>
 //    //[HttpPut("reorder")]
- 
+
 //    //public async Task<IActionResult> ReorderImages(
 //    //    int subUnitId,
 //    //    [FromBody] ReorderImagesRequest request)

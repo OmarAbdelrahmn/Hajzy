@@ -3,12 +3,9 @@ using Amazon.S3.Transfer;
 using Application.Abstraction;
 using Application.Abstraction.Consts;
 using Application.Contracts.CityAdminContracts;
-using Application.Contracts.other;
-using Application.Contracts.publicuser;
 using Application.Helpers;
 using Application.Notifications;
 using Application.Service.Avilabilaties;
-using Application.Service.Review;
 using Application.Service.S3Image;
 using Domain;
 using Domain.Entities;
@@ -328,6 +325,17 @@ public class CityAdminService(
             if (filter.IsFeatured.HasValue)
                 query = query.Where(o => o.IsFeatured == filter.IsFeatured.Value);
 
+            // ADD SMART SEARCH
+            if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+            {
+                var keyword = filter.SearchKeyword.ToLower().Trim();
+                query = query.Where(o =>
+                    (o.Title != null && o.Title.ToLower().Contains(keyword)) ||
+                    (o.Description != null && o.Description.ToLower().Contains(keyword)) ||
+                    (o.Unit != null && o.Unit.Name.ToLower().Contains(keyword))
+                );
+            }
+
             // ADD THIS: Get total count
             var totalCount = await query.CountAsync();
 
@@ -443,7 +451,7 @@ public class CityAdminService(
                         new Error("NoAccess", "You do not have access to this offer", 403));
             }
 
-            offer.IsActive = ! offer.IsActive;
+            offer.IsActive = !offer.IsActive;
             await _context.SaveChangesAsync();
 
 
@@ -474,7 +482,7 @@ public class CityAdminService(
                         new Error("NoAccess", "You do not have access to this ad", 403));
             }
 
-            ad.IsActive = ! ad.IsActive;
+            ad.IsActive = !ad.IsActive;
             await _context.SaveChangesAsync();
 
 
@@ -485,6 +493,284 @@ public class CityAdminService(
             return Result.Failure(new Error("ManageAdFailed", "Failed to manage ad", 500));
         }
     }
+
+    public async Task<Result<AdResponse>> UpdateCityAdAsync(
+    string userId,
+    int adId,
+    UpdateCityAdRequest request)
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            var ad = await _context.Set<Ad>()
+                .Include(a => a.Unit)
+                .Include(a => a.UploadedBy)
+                .FirstOrDefaultAsync(a => a.Id == adId && !a.IsDeleted);
+
+            if (ad == null)
+                return Result.Failure<AdResponse>(
+                    new Error("NotFound", "Ad not found", 404));
+
+            // Verify access - check if ad's unit belongs to this city admin
+            if (ad.UnitId.HasValue)
+            {
+                var hasAccess = await IsUnitInMyCityAsync(userId, ad.UnitId.Value);
+                if (!hasAccess.Value)
+                    return Result.Failure<AdResponse>(
+                        new Error("NoAccess", "You do not have access to this ad", 403));
+            }
+
+            // Update properties
+            if (request.Title != null) ad.Title = request.Title;
+            if (request.Description != null) ad.Description = request.Description;
+            if (request.StartDate.HasValue) ad.StartDate = request.StartDate.Value;
+            if (request.EndDate.HasValue) ad.EndDate = request.EndDate.Value;
+            if (request.IsActive.HasValue) ad.IsActive = request.IsActive.Value;
+            if (request.Link != null) ad.Link = request.Link;
+
+            // Update unit if changed
+            if (request.UnitId.HasValue && request.UnitId.Value != ad.UnitId)
+            {
+                var hasAccess = await IsUnitInMyCityAsync(userId, request.UnitId.Value);
+                if (!hasAccess.Value)
+                    return Result.Failure<AdResponse>(
+                        new Error("NoAccess", "You do not have access to this unit", 403));
+
+                var unitExists = await _context.Units
+                    .AnyAsync(u => u.Id == request.UnitId.Value && !u.IsDeleted);
+
+                if (!unitExists)
+                    return Result.Failure<AdResponse>(
+                        new Error("UnitNotFound", "Unit not found", 404));
+
+                ad.UnitId = request.UnitId.Value;
+            }
+
+            // Update image if provided
+            if (request.Image != null)
+            {
+                // Delete old image (original only)
+                var oldKeys = new List<string> { ad.S3Key }
+                    .Where(k => !string.IsNullOrEmpty(k))
+                    .ToList();
+
+                await DeleteS3ImagesAsync(oldKeys);
+
+                // Upload new image (original size only)
+                var imageResult = await UploadAdImageAsync(request.Image, userId);
+                if (!imageResult.IsSuccess)
+                    return Result.Failure<AdResponse>(imageResult.Error);
+
+                var originalKey = imageResult.Value;
+
+                ad.ImageUrl = GetCloudFrontUrl(originalKey);
+                ad.S3Key = originalKey;
+            }
+
+            ad.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            var response = new AdResponse
+            {
+                Id = ad.Id,
+                Title = ad.Title,
+                Description = ad.Description,
+                ImageUrl = ad.ImageUrl,
+                UnitId = ad.UnitId,
+                UnitName = ad.Unit?.Name,
+                StartDate = ad.StartDate,
+                EndDate = ad.EndDate,
+                IsActive = ad.IsActive,
+                CreatedAt = ad.CreatedAt,
+                Link = ad.Link
+            };
+
+            _logger.LogInformation(
+                "Ad {AdId} updated by city admin {UserId}",
+                adId, userId);
+
+            return Result.Success(response);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error updating ad {AdId}", adId);
+            return Result.Failure<AdResponse>(
+                new Error("UpdateAdFailed", "Failed to update ad", 500));
+        }
+    }
+    public async Task<Result<AdResponse>> CreateCityAdAsync(
+    string userId,
+    CreateCityAdRequest request)
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            var departmentId = await GetAdminDepartmentIdAsync(userId);
+            if (!departmentId.IsSuccess)
+                return Result.Failure<AdResponse>(departmentId.Error);
+
+            // If UnitId is provided, verify it belongs to this city
+            if (request.UnitId.HasValue)
+            {
+                var hasAccess = await IsUnitInMyCityAsync(userId, request.UnitId.Value);
+                if (!hasAccess.Value)
+                    return Result.Failure<AdResponse>(
+                        new Error("NoAccess", "You do not have access to this unit", 403));
+
+                var unitExists = await _context.Units
+                    .AnyAsync(u => u.Id == request.UnitId.Value && !u.IsDeleted);
+
+                if (!unitExists)
+                    return Result.Failure<AdResponse>(
+                        new Error("UnitNotFound", "Unit not found", 404));
+            }
+
+            // Validate dates
+            if (request.EndDate <= request.StartDate)
+                return Result.Failure<AdResponse>(
+                    new Error("InvalidDates", "End date must be after start date", 400));
+
+            // Upload and process image (original size only)
+            var imageResult = await UploadAdImageAsync(request.Image, userId);
+            if (!imageResult.IsSuccess)
+                return Result.Failure<AdResponse>(imageResult.Error);
+
+            var originalKey = imageResult.Value;
+
+            // Create ad entity
+            var ad = new Ad
+            {
+                Title = request.Title,
+                Description = request.Description,
+                ImageUrl = GetCloudFrontUrl(originalKey),
+                S3Key = originalKey,
+                UnitId = request.UnitId,
+                StartDate = request.StartDate,
+                EndDate = request.EndDate,
+                IsActive = request.IsActive,
+                UploadedByUserId = userId,
+                CreatedAt = DateTime.UtcNow.AddHours(3),
+                Link = request.Link
+            };
+
+            await _context.Set<Ad>().AddAsync(ad);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            // Fetch complete entity with navigation
+            var createdAd = await _context.Set<Ad>()
+                .Include(a => a.Unit)
+                .Include(a => a.UploadedBy)
+                .FirstAsync(a => a.Id == ad.Id);
+
+            var response = new AdResponse
+            {
+                Id = createdAd.Id,
+                Title = createdAd.Title,
+                Description = createdAd.Description,
+                ImageUrl = createdAd.ImageUrl,
+                UnitId = createdAd.UnitId,
+                UnitName = createdAd.Unit?.Name,
+                StartDate = createdAd.StartDate,
+                EndDate = createdAd.EndDate,
+                IsActive = createdAd.IsActive,
+                CreatedAt = createdAd.CreatedAt,
+                Link = createdAd.Link
+            };
+
+            _logger.LogInformation(
+                "Ad {AdId} created by city admin {UserId}",
+                ad.Id, userId);
+
+            return Result.Success(response);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Error creating ad for city admin {UserId}", userId);
+            return Result.Failure<AdResponse>(
+                new Error("CreateAdFailed", "Failed to create ad", 500));
+        }
+    }
+    #region AD IMAGE UPLOAD HELPERS (ORIGINAL SIZE ONLY)
+
+    private async Task<Result<string>> UploadAdImageAsync(
+        Microsoft.AspNetCore.Http.IFormFile image,
+        string userId)
+    {
+        try
+        {
+            var transferUtility = new TransferUtility(_s3Client);
+            var timestamp = DateTime.UtcNow.Ticks;
+
+            // Original (WebP 75% quality) - ONLY THIS VERSION
+            var originalKey = $"ads/{userId}/{timestamp}_original.webp";
+            using (var originalStream = new MemoryStream())
+            {
+                await ConvertToWebpForAdAsync(image.OpenReadStream(), originalStream, 75);
+                originalStream.Position = 0;
+
+                await transferUtility.UploadAsync(new TransferUtilityUploadRequest
+                {
+                    InputStream = originalStream,
+                    Key = originalKey,
+                    BucketName = BucketName,
+                    ContentType = "image/webp",
+                    CannedACL = S3CannedACL.Private
+                });
+            }
+
+            _logger.LogInformation(
+                "Ad image uploaded successfully: {OriginalKey}",
+                originalKey);
+
+            return Result.Success(originalKey);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading ad image");
+            return Result.Failure<string>(
+                new Error("UploadFailed", "Failed to upload image", 500));
+        }
+    }
+
+    private async Task ConvertToWebpForAdAsync(Stream input, Stream output, int quality)
+    {
+        await Task.Run(() =>
+        {
+            using var image = Image.Load(input);
+            var encoder = new WebpEncoder
+            {
+                Quality = quality,
+                Method = WebpEncodingMethod.Fastest,
+                SkipMetadata = true
+            };
+            image.Save(output, encoder);
+        });
+    }
+
+    private async Task DeleteS3ImagesAsync(List<string> keys)
+    {
+        try
+        {
+            foreach (var key in keys.Where(k => !string.IsNullOrEmpty(k)))
+            {
+                await _s3Client.DeleteObjectAsync(BucketName, key);
+                _logger.LogInformation("Deleted S3 object: {Key}", key);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting S3 images");
+        }
+    }
+
+    #endregion
 
     #endregion
 
@@ -514,6 +800,16 @@ public class CityAdminService(
 
             if (filter.Type.HasValue)
                 query = query.Where(c => c.Type == filter.Type.Value);
+
+            // ADD SMART SEARCH
+            if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+            {
+                var keyword = filter.SearchKeyword.ToLower().Trim();
+                query = query.Where(c =>
+                    c.Code.ToLower().Contains(keyword) ||
+                    (c.Description != null && c.Description.ToLower().Contains(keyword))
+                );
+            }
 
             // ADD THIS: Get total count
             var totalCount = await query.CountAsync();
@@ -675,6 +971,19 @@ public class CityAdminService(
 
             if (filter.EndDate.HasValue)
                 query = query.Where(r => r.SubmittedAt <= filter.EndDate.Value);
+
+            if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+            {
+                var keyword = filter.SearchKeyword.ToLower().Trim();
+                query = query.Where(r =>
+                    r.UnitName.ToLower().Contains(keyword) ||
+                    r.OwnerFullName.ToLower().Contains(keyword) ||
+                    r.OwnerEmail.ToLower().Contains(keyword) ||
+                    r.OwnerPhoneNumber.Contains(keyword) ||
+                    r.Address.ToLower().Contains(keyword) ||
+                    (r.UnitType != null && r.UnitType.Name.ToLower().Contains(keyword))
+                );
+            }
 
             // ADD THIS: Get total count
             var totalCount = await query.CountAsync();
@@ -1278,6 +1587,17 @@ public class CityAdminService(
 
             if (filter.IsActive.HasValue)
                 query = query.Where(ua => ua.IsActive == filter.IsActive.Value);
+
+            // ADD SMART SEARCH
+            if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+            {
+                var keyword = filter.SearchKeyword.ToLower().Trim();
+                query = query.Where(ua =>
+                    (ua.User.FullName != null && ua.User.FullName.ToLower().Contains(keyword)) ||
+                    (ua.User.Email != null && ua.User.Email.ToLower().Contains(keyword)) ||
+                    ua.Unit.Name.ToLower().Contains(keyword)
+                );
+            }
 
             // ADD THIS: Get total count
             var totalCount = await query.CountAsync();
@@ -1986,6 +2306,18 @@ public class CityAdminService(
             if (filter.UnitId.HasValue)
                 query = query.Where(r => r.UnitId == filter.UnitId.Value);
 
+            // ADD SMART SEARCH
+            if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+            {
+                var keyword = filter.SearchKeyword.ToLower().Trim();
+                query = query.Where(r =>
+                    r.Unit.Name.ToLower().Contains(keyword) ||
+                    (r.User.FullName != null && r.User.FullName.ToLower().Contains(keyword)) ||
+                    (r.Comment != null && r.Comment.ToLower().Contains(keyword)) ||
+                    (r.OwnerResponse != null && r.OwnerResponse.ToLower().Contains(keyword))
+                );
+            }
+
             // ADD THIS: Get total count
             var totalCount = await query.CountAsync();
 
@@ -2094,7 +2426,7 @@ public class CityAdminService(
                 .AsNoTracking()
                 .ToListAsync();
 
-  
+
 
             var paginatedResult = CreatePaginatedResponse(
                 reviews, totalCount, page, pageSize);
@@ -2663,6 +2995,19 @@ public class CityAdminService(
             if (filter.EndDate.HasValue)
                 query = query.Where(b => b.CheckOutDate <= filter.EndDate.Value);
 
+            // ADD SMART SEARCH
+            if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+            {
+                var keyword = filter.SearchKeyword.ToLower().Trim();
+                query = query.Where(b =>
+                    b.BookingNumber.ToLower().Contains(keyword) ||
+                    b.Unit.Name.ToLower().Contains(keyword) ||
+                    (b.User.FullName != null && b.User.FullName.ToLower().Contains(keyword)) ||
+                    (b.User.Email != null && b.User.Email.ToLower().Contains(keyword)) ||
+                    (b.User.PhoneNumber != null && b.User.PhoneNumber.Contains(keyword))
+                );
+            }
+
             var totalCount = await query.CountAsync();
 
             var bookings = await query
@@ -3124,6 +3469,19 @@ public class CityAdminService(
 
             if (filter.IsVerified.HasValue)
                 query = query.Where(u => u.IsVerified == filter.IsVerified.Value);
+
+            // ADD SMART SEARCH
+            if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+            {
+                var keyword = filter.SearchKeyword.ToLower().Trim();
+                query = query.Where(u =>
+                    u.Name.ToLower().Contains(keyword) ||
+                    u.Description.ToLower().Contains(keyword) ||
+                    u.Address.ToLower().Contains(keyword) ||
+                    u.UnitType.Name.ToLower().Contains(keyword) ||
+                    u.City.Name.ToLower().Contains(keyword)
+                );
+            }
 
             var totalCount = await query.CountAsync();
 
@@ -4016,6 +4374,8 @@ public class CityAdminService(
             if (filter.MinBookings.HasValue)
                 query = query.Where(u => u.TotalBookings >= filter.MinBookings.Value);
 
+
+
             var userStats = await query
                 .OrderByDescending(u => u.TotalSpent)
                 .Skip((filter.Page - 1) * filter.PageSize)
@@ -4023,6 +4383,25 @@ public class CityAdminService(
                 .ToListAsync();
 
             var userIds = userStats.Select(u => u.UserId).ToList();
+            var usersQuery = _context.Users.Where(u => userIds.Contains(u.Id));
+
+            // ADD SMART SEARCH (apply to users after getting userIds)
+            if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+            {
+                var keyword = filter.SearchKeyword.ToLower().Trim();
+                usersQuery = usersQuery.Where(u =>
+                    (u.FullName != null && u.FullName.ToLower().Contains(keyword)) ||
+                    (u.Email != null && u.Email.ToLower().Contains(keyword)) ||
+                    (u.PhoneNumber != null && u.PhoneNumber.Contains(keyword)) ||
+                    (u.City != null && u.City.ToLower().Contains(keyword)) ||
+                    (u.Country != null && u.Country.ToLower().Contains(keyword))
+                );
+
+                // Re-filter userIds based on search
+                var filteredUserIds = await usersQuery.Select(u => u.Id).ToListAsync();
+                userStats = userStats.Where(s => filteredUserIds.Contains(s.UserId)).ToList();
+            }
+
             var users = await _context.Users
                 .Where(u => userIds.Contains(u.Id))
                 .ToDictionaryAsync(u => u.Id);
@@ -4296,7 +4675,6 @@ public class CityAdminService(
 
     #endregion
 
-
     #region REVIEWS & STATISTICS
 
     public async Task<Result<PaginatedResponse<PublicReviewResponse>>> GetUnitReviewsAsync(
@@ -4484,8 +4862,6 @@ public class CityAdminService(
     }
 
     #endregion
-
-
 
 
     private PaginatedResponse<T> CreatePaginatedResponse<T>(

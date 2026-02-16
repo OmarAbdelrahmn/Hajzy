@@ -3,7 +3,6 @@ using Application.Extensions;
 using Application.Service.Review;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace Hajzzy.Controllers;
 

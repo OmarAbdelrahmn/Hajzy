@@ -56,7 +56,7 @@ public class UnitController(IUnitService service) : ControllerBase
     {
         var UserId = User.GetUserId();
 
-        var result = await _service.GetAllByUserDepartmentAsync(UserId ,filter);
+        var result = await _service.GetAllByUserDepartmentAsync(UserId, filter);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
     [HttpPost("hotel/filter")]
@@ -64,7 +64,7 @@ public class UnitController(IUnitService service) : ControllerBase
     {
 
         var UserId = User.GetUserId();
-        var result = await _service.GetAllByHotelAdminAsync(UserId,filter);
+        var result = await _service.GetAllByHotelAdminAsync(UserId, filter);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
@@ -72,7 +72,7 @@ public class UnitController(IUnitService service) : ControllerBase
     /// Update an existing unit
     /// </summary>
     [HttpPut("{unitId}")]
- 
+
     public async Task<IActionResult> Update(int unitId, [FromBody] UpdateUnitRequest request)
     {
         var result = await _service.UpdateAsync(unitId, request);
@@ -113,7 +113,7 @@ public class UnitController(IUnitService service) : ControllerBase
     /// Toggle unit active status
     /// </summary>
     [HttpPost("{unitId}/toggle-active")]
- 
+
     public async Task<IActionResult> ToggleActive(int unitId)
     {
         var result = await _service.ToggleActiveAsync(unitId);
@@ -184,7 +184,7 @@ public class UnitController(IUnitService service) : ControllerBase
     /// Delete a specific image
     /// </summary>
     [HttpDelete("{unitId}/images/{imageId}")]
- 
+
     public async Task<IActionResult> DeleteImage(int unitId, int imageId)
     {
         var result = await _service.DeleteImageAsync(unitId, imageId);
@@ -197,7 +197,7 @@ public class UnitController(IUnitService service) : ControllerBase
     /// Set primary image for a unit
     /// </summary>
     [HttpPost("{unitId}/images/{imageId}/set-primary")]
- 
+
     public async Task<IActionResult> SetPrimaryImage(int unitId, int imageId)
     {
         var result = await _service.SetPrimaryImageAsync(unitId, imageId);
@@ -210,7 +210,7 @@ public class UnitController(IUnitService service) : ControllerBase
     /// Reorder unit images
     /// </summary>
     [HttpPut("{unitId}/images/reorder")]
- 
+
     public async Task<IActionResult> ReorderImages(int unitId, [FromBody] ReorderImagesRequests request)
     {
         var result = await _service.ReorderImagesAsync(unitId, request.ImageIds);
@@ -253,7 +253,7 @@ public class UnitController(IUnitService service) : ControllerBase
     /// Get all admins for a unit
     /// </summary>
     [HttpGet("{unitId}/admins")]
- 
+
     public async Task<IActionResult> GetUnitAdmins(int unitId)
     {
         var result = await _service.GetUnitAdminsAsync(unitId);
@@ -264,7 +264,7 @@ public class UnitController(IUnitService service) : ControllerBase
     /// Get all units managed by a specific admin
     /// </summary>
     [HttpGet("admin/{userId}/units")]
- 
+
     public async Task<IActionResult> GetAdminUnits(string userId)
     {
         var result = await _service.GetAdminUnitsAsync(userId);
@@ -279,7 +279,7 @@ public class UnitController(IUnitService service) : ControllerBase
     /// Attach a cancellation policy to a unit
     /// </summary>
     [HttpPost("{unitId}/cancellation-policy/{policyId}")]
- 
+
     public async Task<IActionResult> AttachCancellationPolicy(int unitId, int policyId)
     {
         var result = await _service.AttachCancellationPolicyAsync(unitId, policyId);
@@ -292,7 +292,7 @@ public class UnitController(IUnitService service) : ControllerBase
     /// Remove cancellation policy from a unit
     /// </summary>
     [HttpDelete("{unitId}/cancellation-policy")]
- 
+
     public async Task<IActionResult> RemoveCancellationPolicy(int unitId)
     {
         var result = await _service.RemoveCancellationPolicyAsync(unitId);
@@ -305,7 +305,7 @@ public class UnitController(IUnitService service) : ControllerBase
     /// Attach a general policy to a unit
     /// </summary>
     [HttpPost("{unitId}/general-policy/{policyId}")]
- 
+
     public async Task<IActionResult> AttachGeneralPolicy(int unitId, int policyId)
     {
         var result = await _service.AttachGeneralPolicyAsync(unitId, policyId);
@@ -318,7 +318,7 @@ public class UnitController(IUnitService service) : ControllerBase
     /// Remove a general policy from a unit
     /// </summary>
     [HttpDelete("{unitId}/general-policy/{policyId}")]
- 
+
     public async Task<IActionResult> RemoveGeneralPolicy(int unitId, int policyId)
     {
         var result = await _service.RemoveGeneralPolicyAsync(unitId, policyId);
@@ -345,7 +345,7 @@ public class UnitController(IUnitService service) : ControllerBase
     /// Get unit statistics
     /// </summary>
     [HttpGet("{unitId}/statistics")]
- 
+
     public async Task<IActionResult> GetStatistics(int unitId)
     {
         var result = await _service.GetStatisticsAsync(unitId);

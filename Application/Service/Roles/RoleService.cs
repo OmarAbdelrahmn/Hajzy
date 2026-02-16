@@ -15,7 +15,7 @@ public class RoleService(RoleManager<ApplicationRole> roleManager, ApplicationDb
     private readonly RoleManager<ApplicationRole> roleManager = roleManager;
     private readonly ApplicationDbcontext dbcontext = dbcontext;
 
-   
+
     public async Task<Result<IEnumerable<RolesResponse>>> GetRolesAsync(bool? IncludeDisable = false)
     {
         var roles = await roleManager.Roles

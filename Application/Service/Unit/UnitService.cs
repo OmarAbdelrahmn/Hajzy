@@ -2,7 +2,6 @@
 using Application.Contracts.AD;
 using Application.Contracts.Policy;
 using Application.Contracts.Unit;
-using Application.Service.S3Image;
 using Application.Service.UnitImage;
 using Domain;
 using Domain.Entities;
@@ -109,7 +108,7 @@ public class UnitService(
     public async Task<Result<UnitResponses>> GetByIdAsync(int unitId)
     {
         var unit = await _context.Units
-            .Include(c=>c.Rooms)
+            .Include(c => c.Rooms)
             .Include(u => u.City)
             .Include(u => u.UnitType)
             .Include(u => u.CancellationPolicy)
@@ -251,7 +250,7 @@ public class UnitService(
         //var skip = (filter.Page - 1) * filter.PageSize;
 
         var units = await query
-          //  .Skip(skip)
+            //  .Skip(skip)
             //.Take(filter.PageSize)
             .AsNoTracking()
             .ToListAsync();

@@ -1,7 +1,5 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.AD;
-using Application.Contracts.SubUnit;
-using Application.Contracts.Unit;
 
 namespace Application.Service.SubUnitType;
 

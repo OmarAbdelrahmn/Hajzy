@@ -1,6 +1,5 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Review;
-using Domain;
 
 namespace Application.Service.Review;
 
@@ -22,7 +21,7 @@ public interface IReviewService
         public int? NextPage { get; set; }
         public int? PrevPage { get; set; }
         public int TotalCount { get; set; }
-            }
+    }
 
 
     Task<Result<ReviewResponse>> CreateReviewAsync(CreateReviewRequest request);

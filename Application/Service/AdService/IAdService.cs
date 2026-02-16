@@ -1,7 +1,5 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.AD;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Application.Service.AdService;
 

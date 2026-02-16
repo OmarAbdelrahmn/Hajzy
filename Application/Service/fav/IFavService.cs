@@ -1,6 +1,5 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Fav;
-using Domain.Entities;
 
 namespace Application.Service.fav;
 

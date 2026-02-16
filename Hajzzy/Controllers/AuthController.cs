@@ -1,8 +1,6 @@
 ﻿using Application.Contracts.Auth;
 using Application.Contracts.Auth.RefreshTokem;
 using Application.Service.Auth;
-using Hajzzy;
-using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 
 
@@ -49,7 +47,7 @@ public class AuthController(IAuthService service) : ControllerBase
             Ok(response.Value) :
             response.ToProblem();
     }
-    
+
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] Registerrequest request)
     {
@@ -61,7 +59,7 @@ public class AuthController(IAuthService service) : ControllerBase
     }
 
     [HttpPost("email-confirmation")]
-    public async Task<IActionResult> ConfirmEmailAsync([FromBody] ConfirmEmailRequest request )
+    public async Task<IActionResult> ConfirmEmailAsync([FromBody] ConfirmEmailRequest request)
     {
         var response = await service.ConfirmEmailAsync(request);
 

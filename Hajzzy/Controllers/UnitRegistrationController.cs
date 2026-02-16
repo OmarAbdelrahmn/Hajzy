@@ -1,12 +1,8 @@
-﻿using Application.Abstraction;
-using Application.Contracts.UnitRegisteration;
+﻿using Application.Contracts.UnitRegisteration;
 using Application.Extensions;
 using Application.Service.UnitRegistration;
-using Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace Hajzzy.Controllers;
 
@@ -39,7 +35,7 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
             RequestId = result.Value
         });
     }
-    
+
     [HttpPost("submit-images")]
     [AllowAnonymous]
     [Consumes("multipart/form-data")]
@@ -47,7 +43,7 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
         int requestId,
         [FromForm] List<IFormFile> request)
     {
-        var result = await _service.UploadRegistrationImagesAsync(requestId,request);
+        var result = await _service.UploadRegistrationImagesAsync(requestId, request);
 
         if (!result.IsSuccess)
             return result.ToProblem();
@@ -91,7 +87,7 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
     /// Get all registration requests with filtering (Admin only)
     /// </summary>
     [HttpPost("admin/list")]
- 
+
     public async Task<IActionResult> GetAllRequests(
         [FromBody] UnitRegistrationListFilter filter)
     {
@@ -117,7 +113,7 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
     /// Get a specific registration request (Admin only)
     /// </summary>
     [HttpGet("admin/{requestId}")]
- 
+
     public async Task<IActionResult> GetRequestById(int requestId)
     {
         var result = await _service.GetRequestByIdAsync(requestId);
@@ -132,7 +128,7 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
     /// Creates user account and unit
     /// </summary>
     [HttpPost("admin/{requestId}/approve")]
- 
+
     public async Task<IActionResult> ApproveRequest(int requestId)
     {
         var adminUserId = User.GetUserId();
@@ -155,7 +151,7 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
     /// Reject a registration request (Admin only)
     /// </summary>
     [HttpPost("admin/{requestId}/reject")]
- 
+
     public async Task<IActionResult> RejectRequest(
         int requestId,
         [FromBody] RejectRequestDto dto)
@@ -181,7 +177,7 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
     /// Delete a registration request (Admin only)
     /// </summary>
     [HttpDelete("admin/{requestId}")]
- 
+
     public async Task<IActionResult> DeleteRequest(int requestId)
     {
         var result = await _service.DeleteRequestAsync(requestId);
@@ -195,7 +191,7 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
     /// Get registration statistics (Admin only)
     /// </summary>
     [HttpGet("admin/statistics")]
- 
+
     public async Task<IActionResult> GetStatistics()
     {
         var result = await _service.GetStatisticsAsync();
@@ -209,7 +205,7 @@ public class UnitRegistrationController(IUnitRegistrationService service) : Cont
     /// Resend credentials email to approved user (Admin only)
     /// </summary>
     [HttpPost("admin/{requestId}/resend-credentials")]
- 
+
     public async Task<IActionResult> ResendCredentials(int requestId)
     {
         var result = await _service.ResendCredentialsEmailAsync(requestId);

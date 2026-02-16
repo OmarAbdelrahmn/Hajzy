@@ -15,6 +15,45 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
 {
     private readonly ICityAdminService _cityAdminService = cityAdminService;
 
+    #region OFFERS & ADS MANAGEMENT
+
+    /// <summary>
+    /// Create a new offer for the city or specific unit
+    /// </summary>
+    [HttpPost("offers")]
+    public async Task<IActionResult> CreateCityOffer([FromForm] CreateOfferRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _cityAdminService.CreateCityOfferAsync(userId!, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Create a new ad for the city or specific unit
+    /// </summary>
+    [HttpPost("ads")]
+    public async Task<IActionResult> CreateCityAd([FromForm] CreateCityAdRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _cityAdminService.CreateCityAdAsync(userId!, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Update an existing ad
+    /// </summary>
+    [HttpPut("ads/{adId}")]
+    public async Task<IActionResult> UpdateCityAd(
+        int adId,
+        [FromForm] UpdateCityAdRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _cityAdminService.UpdateCityAdAsync(userId!, adId, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    #endregion
+
     #region DASHBOARD & OVERVIEW
 
     /// <summary>
@@ -57,7 +96,7 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
     public async Task<IActionResult> Departmentdetaisl(int departmentId)
     {
         var userId = User.GetUserId();
-        var result = await _cityAdminService.GetDepartmentDetailsByIdAsync(userId!,departmentId);
+        var result = await _cityAdminService.GetDepartmentDetailsByIdAsync(userId!, departmentId);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
@@ -487,7 +526,7 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
     {
         var userId = User.GetUserId();
         var result = await _cityAdminService.UploadDepartmentImageAsync(userId!, request);
-        return result.IsSuccess ? Ok(new {messager = "Done Successfully"}) : result.ToProblem();
+        return result.IsSuccess ? Ok(new { messager = "Done Successfully" }) : result.ToProblem();
     }
 
     #endregion
@@ -995,5 +1034,6 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
 }
 
 #endregion
+
 
 public record RefundBookingRequest(decimal RefundAmount, string Reason);

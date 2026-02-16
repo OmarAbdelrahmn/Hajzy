@@ -106,7 +106,7 @@ public class UserServices(
 
         if (user == null)
             return Result.Failure(UserErrors.UserNotFound);
-            
+
         var result = await _manager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
 
         if (result.Succeeded)

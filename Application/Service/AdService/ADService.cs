@@ -9,11 +9,6 @@ using Microsoft.Extensions.Logging;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Processing;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Application.Service.AdService;
 
@@ -134,7 +129,7 @@ public class AdService(
             if (request.Image != null)
             {
                 // Delete old images
-                var oldKeys = new List<string> { ad.S3Key}
+                var oldKeys = new List<string> { ad.S3Key }
                     .Where(k => !string.IsNullOrEmpty(k))
                     .ToList();
 

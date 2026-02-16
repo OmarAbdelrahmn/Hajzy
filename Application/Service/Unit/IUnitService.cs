@@ -3,9 +3,6 @@ using Application.Contracts.AD;
 using Application.Contracts.Policy;
 using Application.Contracts.Unit;
 using Microsoft.AspNetCore.Http;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Application.Service.Unit;
 

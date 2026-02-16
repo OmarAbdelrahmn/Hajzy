@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Text;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Domain.Entities;
 
@@ -79,12 +76,12 @@ public abstract class BaseImage
     // Navigation (common)
     public ApplicationUser UploadedBy { get; set; } = default!;
     public ApplicationUser? DeletedBy { get; set; }
- }
+}
 
-    public enum ImageProcessingStatus
-    {
-        Pending,
-        Processing,
-        Completed,
-        Failed
-    }
+public enum ImageProcessingStatus
+{
+    Pending,
+    Processing,
+    Completed,
+    Failed
+}

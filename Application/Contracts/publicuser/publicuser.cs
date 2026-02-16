@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace Application.Contracts.publicuser;
 
-namespace Application.Contracts.publicuser;
-
-  internal class publicuser
+internal class publicuser
 {
 }
 
@@ -75,7 +71,7 @@ public record PublicUnitDetailsResponses
     public string Name { get; init; } = string.Empty;
     public string Description { get; init; } = string.Empty;
     public string Address { get; init; } = string.Empty;
-    public bool IsStandaloneUnit { get; init; } 
+    public bool IsStandaloneUnit { get; init; }
 
     public decimal Latitude { get; init; }
     public decimal Longitude { get; init; }

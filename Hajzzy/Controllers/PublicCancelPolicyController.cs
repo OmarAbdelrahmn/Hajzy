@@ -1,7 +1,6 @@
 ﻿using Application.Contracts.other;
 using Domain;
 using Domain.Entities.others;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 

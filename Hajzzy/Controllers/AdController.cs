@@ -3,8 +3,6 @@ using Application.Extensions;
 using Application.Service.AdService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace Hajzzy.Controllers;
 

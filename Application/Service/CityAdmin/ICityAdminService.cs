@@ -30,9 +30,8 @@ public interface ICityAdminService
         int departmentId);
 
     /// <summary>
-    /// 
-                              /// Get comprehensive dashboard data for city admin
-                              /// </summary>
+    /// Get comprehensive dashboard data for city admin
+    /// </summary>
     Task<Result<CityAdminDashboardResponse>> GetDashboardAsync(string userId);
 
     /// <summary>
@@ -567,4 +566,19 @@ public interface ICityAdminService
     /// Get statistics for a specific unit
     /// </summary>
     Task<Result<UnitStatisticsResponse>> GetUnitStatisticsAsync(int unitId);
+
+    /// <summary>
+    /// Create a new ad for the city or specific unit
+    /// </summary>
+    Task<Result<AdResponse>> CreateCityAdAsync(
+        string userId,
+        CreateCityAdRequest request);
+
+    /// <summary>
+    /// Update an existing ad
+    /// </summary>
+    Task<Result<AdResponse>> UpdateCityAdAsync(
+        string userId,
+        int adId,
+        UpdateCityAdRequest request);
 }

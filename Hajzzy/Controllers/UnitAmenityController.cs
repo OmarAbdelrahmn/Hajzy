@@ -1,6 +1,5 @@
 ﻿using Application.Contracts.Aminety;
 using Application.Service.UnitAmenity;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hajzzy.Controllers;
@@ -31,7 +30,7 @@ public class UnitAmenityController(IUnitAmenityService service) : ControllerBase
     /// Attach a single amenity to a unit
     /// </summary>
     [HttpPost("{amenityId}")]
- 
+
     public async Task<IActionResult> AttachAmenity(int unitId, int amenityId)
     {
         var result = await _service.AttachAmenityAsync(unitId, amenityId);
@@ -44,7 +43,7 @@ public class UnitAmenityController(IUnitAmenityService service) : ControllerBase
     /// Attach multiple amenities to a unit
     /// </summary>
     [HttpPost("batch")]
- 
+
     public async Task<IActionResult> AttachAmenities(int unitId, [FromBody] AttachAmenitiesRequest request)
     {
         var result = await _service.AttachAmenitiesAsync(unitId, request.AmenityIds);
@@ -61,7 +60,7 @@ public class UnitAmenityController(IUnitAmenityService service) : ControllerBase
     /// Update unit amenities (replace all)
     /// </summary>
     [HttpPut("")]
- 
+
     public async Task<IActionResult> UpdateAmenities(int unitId, [FromBody] UpdateUnitAmenitiesRequest request)
     {
         var result = await _service.UpdateAmenitiesAsync(unitId, request);
@@ -74,7 +73,7 @@ public class UnitAmenityController(IUnitAmenityService service) : ControllerBase
     /// Toggle availability of a specific amenity in a unit
     /// </summary>
     [HttpPatch("{amenityId}/toggle")]
- 
+
     public async Task<IActionResult> ToggleAvailability(int unitId, int amenityId)
     {
         var result = await _service.ToggleAvailabilityAsync(unitId, amenityId);
@@ -91,7 +90,7 @@ public class UnitAmenityController(IUnitAmenityService service) : ControllerBase
     /// Remove a single amenity from a unit
     /// </summary>
     [HttpDelete("{amenityId}")]
- 
+
     public async Task<IActionResult> RemoveAmenity(int unitId, int amenityId)
     {
         var result = await _service.RemoveAmenityAsync(unitId, amenityId);
@@ -104,7 +103,7 @@ public class UnitAmenityController(IUnitAmenityService service) : ControllerBase
     /// Remove all amenities from a unit
     /// </summary>
     [HttpDelete("")]
- 
+
     public async Task<IActionResult> RemoveAllAmenities(int unitId)
     {
         var result = await _service.RemoveAllAmenitiesAsync(unitId);

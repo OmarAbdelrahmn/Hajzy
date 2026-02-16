@@ -1,9 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Department;
 using Microsoft.AspNetCore.Http;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Application.Service.Department;
 
@@ -13,7 +10,7 @@ public interface IDepartmanetService
     Task<Result<PaginatedResponse<DepartmentResponse>>> GetAllDepartmentsAsync(int page = 1, int pageSize = 10);
     Task<Result<PaginatedResponse<DepartmentResponse>>> GetDepartmentsByCountryAsync(
         string country, int page = 1, int pageSize = 10);
-    
+
     Task<Result<DepartmentResponse>> CreateAsync(CreateDepartmentRequest request);
     Task<Result<DepartmentResponse>> UpdateAsync(int departmentId, UpdateDepartmentRequest request);
     Task<Result> DeleteAsync(int departmentId, bool softDelete = true);
@@ -75,6 +72,6 @@ public class PaginatedResponse<T>
             NextPage = page < totalPages ? page + 1 : null,
             PrevPage = page > 1 ? page - 1 : null
         };
-    } 
+    }
 
 }

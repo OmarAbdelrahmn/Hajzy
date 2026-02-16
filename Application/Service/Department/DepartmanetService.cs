@@ -14,11 +14,6 @@ using Microsoft.Extensions.Logging;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Processing;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Application.Service.Department;
 
@@ -197,7 +192,7 @@ public class DepartmanetService(
             PrevPage = page > 1 ? page - 1 : null
         };
     }
-  
+
 
     public async Task<Result<DepartmentResponse>> CreateAsync(CreateDepartmentRequest request)
     {

@@ -1,7 +1,6 @@
 ﻿using Application.Contracts.couponcontract;
 using Application.Extensions;
 using Application.Service.PromoCode;
-using Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

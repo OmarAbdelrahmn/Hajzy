@@ -1,7 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Review;
 using Application.Notifications;
-using Azure;
 using Domain;
 using Domain.Entities;
 using Hangfire;
@@ -744,7 +743,7 @@ public class ReviewService(
     #endregion
 
     #region ADMIN METHODS
-    
+
 
     public async Task<Result> ApproveReviewAsync(int reviewId)
     {
@@ -1147,19 +1146,19 @@ public class ReviewService(
      int totalCount,
      int page,
      int pageSize)
-        {
-            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+    {
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-            return new IReviewService.PaginatedResponse<T>
-            {
-                Items = items,
-                TotalCount = totalCount,
-                TotalPages = totalPages,
-                CurrentPage = page,
-                NextPage = page < totalPages ? page + 1 : null,
-                PrevPage = page > 1 ? page - 1 : null
-            };
-        }
+        return new IReviewService.PaginatedResponse<T>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            TotalPages = totalPages,
+            CurrentPage = page,
+            NextPage = page < totalPages ? page + 1 : null,
+            PrevPage = page > 1 ? page - 1 : null
+        };
+    }
 
     public async Task<Result<IReviewService.PaginatedResponse<ReviewResponse>>> GetPendingReviewsAsync(
             int page = 1,
@@ -1261,7 +1260,7 @@ public class ReviewService(
 
             await _context.SaveChangesAsync();
 
- 
+
             return Result.Success();
         }
         catch (Exception ex)

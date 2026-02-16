@@ -1,7 +1,4 @@
-﻿using Application.Contracts.Roles;
-using Application.Service.Roles;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
+﻿using Application.Service.Roles;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hajzzy.Controllers;

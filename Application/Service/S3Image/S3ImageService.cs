@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
-using SixLabors.ImageSharp.Processing;
 using static Application.Service.S3Image.IS3ImageService;
 
 namespace Application.Service.S3Image;
@@ -197,7 +196,7 @@ public class S3ImageService : IS3ImageService
         return s3Key;
     }
 
- 
+
     private static void ConvertToWebp(Stream input, Stream output)
     {
         using var image = Image.Load(input);

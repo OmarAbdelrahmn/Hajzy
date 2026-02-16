@@ -51,6 +51,7 @@ using System.Reflection;
 using System.Text;
 
 namespace Application;
+
 public static class InfraDependencies
 {
 
@@ -71,12 +72,12 @@ public static class InfraDependencies
         Services.AddScoped<IGenerallPolicyService, GenerallPolicyService>();
         Services.AddScoped<ICancelPolicyService, CancelPolicyService>();
         Services.AddScoped<IEnumService, EnumService>();
-        Services.AddScoped<IUnitRegistrationService,UnitRegistrationService>();
-        Services.AddScoped<IS3ImageService,S3ImageService>();
-        Services.AddScoped<IUnitService,UnitService>();
-        Services.AddScoped<ISubUnitService,SubUnitService>();
-        Services.AddScoped<IUnitAmenityService,UnitAmenityService>();
-        Services.AddScoped<ISubUnitAmenityService,SubUnitAmenityService>();
+        Services.AddScoped<IUnitRegistrationService, UnitRegistrationService>();
+        Services.AddScoped<IS3ImageService, S3ImageService>();
+        Services.AddScoped<IUnitService, UnitService>();
+        Services.AddScoped<ISubUnitService, SubUnitService>();
+        Services.AddScoped<IUnitAmenityService, UnitAmenityService>();
+        Services.AddScoped<ISubUnitAmenityService, SubUnitAmenityService>();
         Services.AddScoped<IUnitImageService, UnitImageService>();
         Services.AddScoped<ISubUnitImageService, SubUnitImageService>();
         Services.AddScoped<IAvailabilityService, AvailabilityService>();
@@ -84,17 +85,17 @@ public static class InfraDependencies
         Services.AddScoped<IUnitTypeService, UnitTypeService>();
         Services.AddScoped<ISubUnitBookingServices, SubUnitBookingService>();
         Services.AddScoped<IUnitBookingServices, UnitBookingService>();
-        Services.AddScoped<IReportService,ReportService>();
-        Services.AddScoped<IPublicServise,PublicService>();
-        Services.AddScoped<IFavService,FavService>();
-        Services.AddScoped<IAdService,AdService>();
+        Services.AddScoped<IReportService, ReportService>();
+        Services.AddScoped<IPublicServise, PublicService>();
+        Services.AddScoped<IFavService, FavService>();
+        Services.AddScoped<IAdService, AdService>();
         Services.AddScoped<IOfferService, OfferService>();
         Services.AddScoped<ICouponService, CouponService>();
         Services.AddScoped<IReviewService, ReviewService>();
-        Services.AddScoped<ISubUnitTypeService,SubUnitTypeService>();
-        Services.AddScoped<IHotelAdminService,HotelAdminService>();
-        Services.AddScoped<ICityAdminService,CityAdminService>();
-        Services.AddScoped<IBookingManagementService,BookingManagementService>();
+        Services.AddScoped<ISubUnitTypeService, SubUnitTypeService>();
+        Services.AddScoped<IHotelAdminService, HotelAdminService>();
+        Services.AddScoped<ICityAdminService, CityAdminService>();
+        Services.AddScoped<IBookingManagementService, BookingManagementService>();
         Services.AddScoped<AdExpirationJob>();
         Services.AddScoped<OfferExpirationJob>();
 
@@ -159,7 +160,7 @@ public static class InfraDependencies
     {
 
 
-        Services.AddIdentity<ApplicationUser,ApplicationRole>()
+        Services.AddIdentity<ApplicationUser, ApplicationRole>()
             .AddEntityFrameworkStores<ApplicationDbcontext>()
             .AddDefaultTokenProviders();
 

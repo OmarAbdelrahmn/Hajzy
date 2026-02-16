@@ -120,19 +120,19 @@ public record UpdatePolicyRequest(
 
 public record PolicyDetailResponse
 {
-public int Id { get; init; }
-public string Title { get; init; } = string.Empty;
-public string Description { get; init; } = string.Empty;
-public string PolicyType { get; init; } = string.Empty;
-public string? PolicyCategory { get; init; }
-public string? CustomPolicyName { get; init; }
-public int? CancellationPolicyId { get; init; }
-public string? CancellationPolicyName { get; init; }
-public bool IsMandatory { get; init; }
-public bool IsHighlighted { get; init; }
-public bool IsActive { get; init; }
-public int? UnitId { get; init; }
-public int? SubUnitId { get; init; }
+    public int Id { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string PolicyType { get; init; } = string.Empty;
+    public string? PolicyCategory { get; init; }
+    public string? CustomPolicyName { get; init; }
+    public int? CancellationPolicyId { get; init; }
+    public string? CancellationPolicyName { get; init; }
+    public bool IsMandatory { get; init; }
+    public bool IsHighlighted { get; init; }
+    public bool IsActive { get; init; }
+    public int? UnitId { get; init; }
+    public int? SubUnitId { get; init; }
 }
 
 #endregion
@@ -158,15 +158,15 @@ public record CreateCancellationPolicyRequest(
 
 public record CancellationPolicyResponse
 {
-public int Id { get; init; }
-public string Name { get; init; } = string.Empty;
-public string Description { get; init; } = string.Empty;
-public int FullRefundDays { get; init; }
-public int PartialRefundDays { get; init; }
-public decimal PartialRefundPercentage { get; init; }
-public bool IsActive { get; init; }
-public bool IsDefault { get; init; }
-public DateTime CreatedAt { get; init; }
+    public int Id { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public int FullRefundDays { get; init; }
+    public int PartialRefundDays { get; init; }
+    public decimal PartialRefundPercentage { get; init; }
+    public bool IsActive { get; init; }
+    public bool IsDefault { get; init; }
+    public DateTime CreatedAt { get; init; }
 }
 
 #endregion
@@ -258,16 +258,16 @@ public record AvailabilityResponse(
 
 public record AvailabilityBlockResponse
 {
-public int Id { get; init; }
-public DateTime StartDate { get; init; }
-public DateTime EndDate { get; init; }
-public bool IsAvailable { get; init; }
-public string? Reason { get; init; }
-public decimal? SpecialPrice { get; init; }
-public decimal? WeekendPrice { get; init; }
-public DateTime CreatedAt { get; init; }
-public DateTime? UpdatedAt { get; init; }
-public string? UpdatedByUserId { get; init; }
+    public int Id { get; init; }
+    public DateTime StartDate { get; init; }
+    public DateTime EndDate { get; init; }
+    public bool IsAvailable { get; init; }
+    public string? Reason { get; init; }
+    public decimal? SpecialPrice { get; init; }
+    public decimal? WeekendPrice { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime? UpdatedAt { get; init; }
+    public string? UpdatedByUserId { get; init; }
 }
 
 public record UnitAvailabilityStatus
@@ -293,28 +293,28 @@ public record SubUnitAvailabilityStatus
 
 public record UnitDayAvailability
 {
-public DateTime Date { get; init; }
-public bool IsAvailable { get; init; }
-public bool IsBooked { get; init; }
-public bool IsManuallyBlocked { get; init; }
-public bool IsStandaloneUnit { get; init; }
-public int AvailableSubUnits { get; init; }
-public int TotalSubUnits { get; init; }
-public decimal? MinPrice { get; init; }
-public decimal? MaxPrice { get; init; }
-public UnavailabilityReason? UnavailabilityReason { get; init; }
+    public DateTime Date { get; init; }
+    public bool IsAvailable { get; init; }
+    public bool IsBooked { get; init; }
+    public bool IsManuallyBlocked { get; init; }
+    public bool IsStandaloneUnit { get; init; }
+    public int AvailableSubUnits { get; init; }
+    public int TotalSubUnits { get; init; }
+    public decimal? MinPrice { get; init; }
+    public decimal? MaxPrice { get; init; }
+    public UnavailabilityReason? UnavailabilityReason { get; init; }
 }
 
 public record SubUnitDayAvailability
 {
-public DateTime Date { get; init; }
-public bool IsAvailable { get; init; }
-public bool IsBooked { get; init; }
-public bool IsManuallyBlocked { get; init; }
-public decimal Price { get; init; }
-public bool IsWeekend { get; init; }
-public decimal? SpecialPrice { get; init; }
-public UnavailabilityReason? UnavailabilityReason { get; init; }
+    public DateTime Date { get; init; }
+    public bool IsAvailable { get; init; }
+    public bool IsBooked { get; init; }
+    public bool IsManuallyBlocked { get; init; }
+    public decimal Price { get; init; }
+    public bool IsWeekend { get; init; }
+    public decimal? SpecialPrice { get; init; }
+    public UnavailabilityReason? UnavailabilityReason { get; init; }
 }
 
 #endregion
@@ -380,27 +380,27 @@ public record ExportReportRequest(
 
 public enum TrendsPeriod
 {
-Daily,
-Weekly,
-Monthly
+    Daily,
+    Weekly,
+    Monthly
 }
 
 public enum ReportType
 {
-Financial,
-Occupancy,
-Booking,
-Revenue,
-Customer,
-Cancellation,
-Performance
+    Financial,
+    Occupancy,
+    Booking,
+    Revenue,
+    Customer,
+    Cancellation,
+    Performance
 }
 
 public enum ExportFormat
 {
-Excel,
-PDF,
-CSV
+    Excel,
+    PDF,
+    CSV
 }
 
 #endregion
@@ -409,20 +409,20 @@ CSV
 
 public record FinancialReportResponse
 {
-public DateTime StartDate { get; init; }
-public DateTime EndDate { get; init; }
-public decimal TotalRevenue { get; init; }
-public decimal TotalExpenses { get; init; }
-public decimal NetIncome { get; init; }
+    public DateTime StartDate { get; init; }
+    public DateTime EndDate { get; init; }
+    public decimal TotalRevenue { get; init; }
+    public decimal TotalExpenses { get; init; }
+    public decimal NetIncome { get; init; }
 
-public decimal AverageDailyRevenue { get; init; }
-public decimal ProjectedMonthlyRevenue { get; init; }
-public decimal YearToDateRevenue { get; init; }
-public decimal GrowthRate { get; init; }
-public List<RevenueByUnit> RevenueByUnit { get; init; } = [];
-public List<RevenueByMonth> MonthlyBreakdown { get; init; } = [];
-public List<PaymentMethodBreakdown> PaymentMethods { get; init; } = [];
-public List<RevenueSource> RevenueSources { get; init; } = [];
+    public decimal AverageDailyRevenue { get; init; }
+    public decimal ProjectedMonthlyRevenue { get; init; }
+    public decimal YearToDateRevenue { get; init; }
+    public decimal GrowthRate { get; init; }
+    public List<RevenueByUnit> RevenueByUnit { get; init; } = [];
+    public List<RevenueByMonth> MonthlyBreakdown { get; init; } = [];
+    public List<PaymentMethodBreakdown> PaymentMethods { get; init; } = [];
+    public List<RevenueSource> RevenueSources { get; init; } = [];
 }
 
 public record OccupancyStatisticsResponse
@@ -1447,6 +1447,8 @@ public class UnitFilter
     public bool? IsVerified { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
+    public string? SearchKeyword { get; set; }
+
 }
 
 public class BookingFilter
@@ -1457,6 +1459,7 @@ public class BookingFilter
     public DateTime? EndDate { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
+    public string? SearchKeyword { get; set; }
 }
 
 public class RevenueReportFilter
@@ -1480,6 +1483,7 @@ public class ReviewFilter
     public bool? HasResponse { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
+    public string? SearchKeyword { get; set; }
 }
 
 public class PaymentFilter
@@ -1490,6 +1494,7 @@ public class PaymentFilter
     public DateTime? EndDate { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
+    public string? SearchKeyword { get; set; }
 }
 
 #endregion
