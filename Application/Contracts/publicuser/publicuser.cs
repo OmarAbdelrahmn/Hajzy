@@ -35,6 +35,9 @@ public record PublicUnitResponse
     public string? PrimaryImageUrl { get; init; }
     public bool IsAvailable { get; init; }
     public bool IsFeatured { get; init; }
+    public List<string> Options { get; init; } = new();
+    public string Currency { get; init; } = "SAR";
+    public List<PublicCustomPolicyInfo> CustomPolicies { get; init; } = new();
 }
 
 public record PublicUnitDetailsResponse
@@ -95,6 +98,15 @@ public record PublicUnitDetailsResponses
 
     public PublicCancellationPolicy? CancellationPolicy { get; init; }
     public List<PublicPolicyInfo> Policies { get; init; } = new();
+    public List<string> Options { get; init; } = new();
+    public string Currency { get; init; } = "SAR";
+    public List<PublicCustomPolicyInfo> CustomPolicies { get; init; } = new();
+}
+public record PublicCustomPolicyInfo
+{
+    public string Title { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string? Category { get; init; }
 }
 
 // ============= SUBUNIT RESPONSES =============

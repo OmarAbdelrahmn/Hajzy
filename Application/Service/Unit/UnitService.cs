@@ -186,6 +186,7 @@ public class UnitService(
     public async Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetAllComprehensiveAsync(UnitFilter filter)
     {
         var query = _context.Units
+            .Include(u => u.CustomPolicies.Where(p => p.IsActive)) // ADD THIS
             .Include(u => u.City)
             .Include(u => u.UnitType)
             .Include(u => u.CancellationPolicy)
@@ -313,6 +314,7 @@ public class UnitService(
         UnitFilter filter)
     {
         var query = _context.Units
+            .Include(u => u.CustomPolicies.Where(p => p.IsActive)) // ADD THIS
             .Include(u => u.City)
             .Include(u => u.UnitType)
             .Include(u => u.CancellationPolicy)
@@ -493,6 +495,31 @@ public class UnitService(
 
         }).ToList() ?? new List<SubUnitComprehensiveDetail>();
 
+        var options = new List<string>();
+        try
+        {
+            options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(
+                unit.OptionsJson) ?? new List<string>();
+        }
+        catch
+        {
+            options = new List<string>();
+        }
+
+        var customPolicies = unit.CustomPolicies?.Where(p => p.IsActive)
+       .OrderBy(p => p.DisplayOrder)
+       .Select(p => new CustomPolicyDetail
+       {
+           Id = p.Id,
+           Title = p.Title,
+           Description = p.Description,
+           Category = p.Category,
+           DisplayOrder = p.DisplayOrder,
+           IsActive = p.IsActive
+       }).ToList() ?? new List<CustomPolicyDetail>();
+
+
+
         return new UnitComprehensiveResponse
         {
             Id = unit.Id,
@@ -534,7 +561,10 @@ public class UnitService(
             AvailableSubUnits = subUnits.Count(s => s.IsAvailable),
 
             CreatedAt = unit.CreatedAt,
-            UpdatedAt = unit.UpdatedAt
+            UpdatedAt = unit.UpdatedAt,
+            Options = options,
+            Currency = unit.PriceCurrency.ToString(),
+            CustomPolicies = customPolicies
         };
     }
 
@@ -1542,7 +1572,7 @@ public class UnitService(
     public async Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetFeaturedUnitsAsync(
         UnitFilter filter)
     {
-        var query = _context.Units
+        var query = _context.Units.Include(u => u.CustomPolicies.Where(p => p.IsActive))
             .Include(u => u.City)
             .Include(u => u.UnitType)
             .Include(u => u.CancellationPolicy)

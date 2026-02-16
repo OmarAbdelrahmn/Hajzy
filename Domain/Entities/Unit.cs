@@ -37,6 +37,12 @@ public class Unit
 
     public bool IsFeatured { get; set; } = false;
 
+    public string OptionsJson { get; set; } = "[]"; // Store as JSON array
+
+    // NEW: Price currency
+    public PriceCurrency PriceCurrency { get; set; } = PriceCurrency.SAR;
+
+    
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
@@ -56,4 +62,16 @@ public class Unit
     public ICollection<Booking> Bookings { get; set; } = [];
     public ICollection<Review> Reviews { get; set; } = [];
     public ICollection<UnitAvailability> Availabilities { get; set; } = [];
- }
+    public ICollection<UnitCustomPolicy> CustomPolicies { get; set; } = [];
+}
+
+public enum PriceCurrency
+{
+    USD = 1,  // US Dollar
+    SAR = 2,  // Saudi Riyal
+    YER = 3,  // Yemeni Rial
+    AED = 4,  // UAE Dirham
+    EGP = 5,  // Egyptian Pound
+    EUR = 6,  // Euro
+    GBP = 7   // British Pound
+}

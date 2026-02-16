@@ -67,6 +67,7 @@ public class ApplicationDbcontext(DbContextOptions<ApplicationDbcontext> options
     public DbSet<PaymentMethodd> PaymentMethods{ get; set; }
     public DbSet<Ad> Ads{ get; set; }
     public DbSet<Offer> Offers{ get; set; }
+    public DbSet<UnitCustomPolicy> UnitCustomPolicies { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

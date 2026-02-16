@@ -781,9 +781,54 @@ public record PolicyResponse
 
 // ============= BOOKING RESPONSES =============
 
-public record BookingComprehensiveResponse { public int Id { get; set; } public string BookingNumber { get; set; } = string.Empty; public int UnitId { get; set; } public string UnitName { get; set; } = string.Empty; public string UserId { get; set; } = string.Empty; public string GuestName { get; set; } = string.Empty; public string GuestEmail { get; set; } = string.Empty; public DateTime CheckInDate { get; set; } public DateTime CheckOutDate { get; set; } public int NumberOfGuests { get; set; } public int NumberOfNights { get; set; } public decimal TotalPrice { get; set; } public decimal PaidAmount { get; set; } public string Status { get; set; } = string.Empty; public string PaymentStatus { get; set; } = string.Empty; public List<BookedRoomInfo> Rooms { get; set; } = []; public DateTime CreatedAt { get; set; } }
+public record BookingComprehensiveResponse
+{
+    public List<string> SelectedOptions { get; set; } = new();
+    public int Id { get; set; } 
+    public string BookingNumber { get; set; } = string.Empty; 
+    public int UnitId { get; set; } 
+    public string UnitName { get; set; } = string.Empty; 
+    public string UserId { get; set; } = string.Empty; 
+    public string GuestName { get; set; } = string.Empty; 
+    public string GuestEmail { get; set; } = string.Empty; 
+    public DateTime CheckInDate { get; set; } 
+    public DateTime CheckOutDate { get; set; } 
+    public int NumberOfGuests { get; set; } 
+    public int NumberOfNights { get; set; } 
+    public decimal TotalPrice { get; set; } 
+    public decimal PaidAmount { get; set; } 
+    public string Status { get; set; } = string.Empty; 
+    public string PaymentStatus { get; set; } = string.Empty; 
+    public List<BookedRoomInfo> Rooms { get; set; } = []; 
+    public DateTime CreatedAt { get; set; } }
 
-public record BookingDetailsResponse { public int Id { get; set; } public string BookingNumber { get; set; } = string.Empty; public int UnitId { get; set; } public string UnitName { get; set; } = string.Empty; public string UserId { get; set; } = string.Empty; public string GuestName { get; set; } = string.Empty; public string GuestEmail { get; set; } = string.Empty; public string GuestPhone { get; set; } = string.Empty; public DateTime CheckInDate { get; set; } public DateTime CheckOutDate { get; set; } public int NumberOfGuests { get; set; } public int NumberOfNights { get; set; } public decimal TotalPrice { get; set; } public decimal PaidAmount { get; set; } public decimal RemainingBalance { get; set; } public string Status { get; set; } = string.Empty; public string PaymentStatus { get; set; } = string.Empty; public string? SpecialRequests { get; set; } public string? CancellationReason { get; set; } public DateTime? CancelledAt { get; set; } public List<BookedRoomInfo> Rooms { get; set; } = []; public List<PaymentInfo> Payments { get; set; } = []; public DateTime CreatedAt { get; set; } public DateTime? UpdatedAt { get; set; } }
+public record BookingDetailsResponse { public int Id { get; set; } 
+    public string BookingNumber { get; set; } = string.Empty;
+    public int UnitId { get; set; }
+    public string UnitName { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty; 
+    public string GuestName { get; set; } = string.Empty; 
+    public string GuestEmail { get; set; } = string.Empty;
+    public string GuestPhone { get; set; } = string.Empty;
+    public DateTime CheckInDate { get; set; } 
+    public DateTime CheckOutDate { get; set; }
+    public int NumberOfGuests { get; set; } 
+    public int NumberOfNights { get; set; } 
+    public decimal TotalPrice { get; set; } 
+    public decimal PaidAmount { get; set; } 
+    public decimal RemainingBalance { get; set; }
+    public string Status { get; set; } = string.Empty; 
+    public string PaymentStatus { get; set; } = string.Empty; 
+    public string? SpecialRequests { get; set; }  
+    public string? CancellationReason { get; set; } 
+    public DateTime? CancelledAt { get; set; } 
+    public List<BookedRoomInfo> Rooms { get; set; } = []; 
+    public List<PaymentInfo> Payments { get; set; } = []; 
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public List<string> SelectedOptions { get; set; } = new();
+
+}
 
 public record BookedRoomInfo
 {

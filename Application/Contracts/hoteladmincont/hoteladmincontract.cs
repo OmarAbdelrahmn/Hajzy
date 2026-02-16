@@ -12,6 +12,47 @@ namespace Application.Contracts.hoteladmincont;
 // POLICY MANAGEMENT CONTRACTS
 // ============================================================================
 
+
+
+public record CreateUnitCustomPolicyRequest
+{
+    public string Title { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string? Category { get; init; }
+    public int DisplayOrder { get; init; } = 0;
+}
+
+public record UpdateUnitCustomPolicyRequest
+{
+    public string? Title { get; init; }
+    public string? Description { get; init; }
+    public string? Category { get; init; }
+    public int? DisplayOrder { get; init; }
+    public bool? IsActive { get; init; }
+}
+
+public record UnitCustomPolicyResponse
+{
+    public int Id { get; init; }
+    public int UnitId { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string? Category { get; init; }
+    public int DisplayOrder { get; init; }
+    public bool IsActive { get; init; }
+    public DateTime CreatedAt { get; init; }
+}
+
+public record UpdateUnitOptionsRequest
+{
+    public List<string> Options { get; init; } = new();
+}
+
+public record UpdateUnitCurrencyRequest
+{
+    public PriceCurrency Currency { get; init; }
+}
+
 #region Policy Requests
 public record CreateOfferRequest
 {
@@ -997,6 +1038,21 @@ public class UnitComprehensiveResponse
     public List<PolicyResponse> Policies { get; set; } = [];
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public List<string> Options { get; init; } = new();
+    public string Currency { get; init; } = "SAR";
+    public List<CustomPolicyDetail> CustomPolicies { get; init; } = new();
+
+    // ... rest of existing properties ...
+}
+
+public record CustomPolicyDetail
+{
+    public int Id { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string? Category { get; init; }
+    public int DisplayOrder { get; init; }
+    public bool IsActive { get; init; }
 }
 
 public class UnitResponse

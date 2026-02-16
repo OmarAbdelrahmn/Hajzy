@@ -70,6 +70,23 @@ public class SubUnitBookingService(
                 return Result.Failure<SubUnitBookingResponse>(
                     new Abstraction.Error("InvalidSubUnits", "One or more subunits not found or don't belong to this unit", 400));
 
+            if (request.SelectedOptions?.Any() == true)
+            {
+                var optionsValidation = await ValidateSelectedOptionsAsync(new ValidateOptionsRequest
+                {
+                    UnitId = request.UnitId,
+                    SelectedOptions = request.SelectedOptions
+                });
+
+                if (!optionsValidation.IsSuccess || !optionsValidation.Value.IsValid)
+                {
+                    return Result.Failure<SubUnitBookingResponse>(
+                        new Error("InvalidOptions",
+                            optionsValidation.Value?.ErrorMessage ?? "Some selected options are invalid",
+                            400));
+                }
+            }
+
             // 4. Check availability for all requested subunits
             var availabilityCheck = await _availabilityService.CheckMultipleSubUnitsAvailabilityAsync(
                 request.SubUnitIds,
@@ -139,7 +156,9 @@ public class SubUnitBookingService(
                 Status = BookingStatus.Pending,
                 PaymentStatus = PaymentStatus.Pending,
                 SpecialRequests = request.SpecialRequests,
-                CreatedAt = DateTime.UtcNow.AddHours(3)
+                CreatedAt = DateTime.UtcNow.AddHours(3),
+                SelectedOptionsJson = System.Text.Json.JsonSerializer.Serialize(
+                request.SelectedOptions ?? new List<SelectedOptionDto>()),
             };
 
             await _context.Bookings.AddAsync(booking);
@@ -1039,4 +1058,59 @@ public class SubUnitBookingService(
     }
 
     #endregion
+
+    #region VALIDATE OPTIONS (NEW SECTION)
+
+    public async Task<Result<ValidateOptionsResponse>> ValidateSelectedOptionsAsync(
+        ValidateOptionsRequest request)
+    {
+        try
+        {
+            // Get unit's available options
+            var unit = await _context.Units
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == request.UnitId && !u.IsDeleted);
+
+            if (unit == null)
+                return Result.Failure<ValidateOptionsResponse>(
+                    new Error("UnitNotFound", "Unit not found", 404));
+
+            var availableOptions = System.Text.Json.JsonSerializer.Deserialize<List<string>>(
+                unit.OptionsJson) ?? new List<string>();
+
+            // Validate each selected option
+            var invalidOptions = new List<string>();
+            foreach (var selectedOption in request.SelectedOptions)
+            {
+                if (!availableOptions.Contains(selectedOption.OptionName))
+                {
+                    invalidOptions.Add(selectedOption.OptionName);
+                }
+            }
+
+            var isValid = !invalidOptions.Any();
+            var errorMessage = isValid
+                ? null
+                : $"Invalid options: {string.Join(", ", invalidOptions)}";
+
+            var response = new ValidateOptionsResponse
+            {
+                IsValid = isValid,
+                AvailableOptions = availableOptions,
+                InvalidOptions = invalidOptions,
+                ErrorMessage = errorMessage
+            };
+
+            return Result.Success(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error validating options for unit {UnitId}", request.UnitId);
+            return Result.Failure<ValidateOptionsResponse>(
+                new Error("ValidationFailed", "Failed to validate options", 500));
+        }
+    }
+
+    #endregion
+
 }

@@ -36,6 +36,9 @@ public class Booking
     [MaxLength(1000)]
     public string? SpecialRequests { get; set; }
 
+    public string? SelectedOptionsJson { get; set; } = "[]";
+
+
     [MaxLength(1000)]
     public string? CancellationReason { get; set; }
 

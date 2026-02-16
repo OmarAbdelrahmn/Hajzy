@@ -9,6 +9,37 @@ namespace Application.Contracts.Bookin;
 internal class Booking
 {
 }
+
+
+/// <summary>
+/// Represents a single option selected by the user
+/// </summary>
+public record SelectedOptionDto
+{
+    public string OptionName { get; init; } = string.Empty;
+    public string? Value { get; init; }
+    public string? Notes { get; init; }
+}
+
+/// <summary>
+/// Request to validate selected options
+/// </summary>
+public record ValidateOptionsRequest
+{
+    public int UnitId { get; init; }
+    public List<SelectedOptionDto> SelectedOptions { get; init; } = new();
+}
+
+/// <summary>
+/// Response for option validation
+/// </summary>
+public record ValidateOptionsResponse
+{
+    public bool IsValid { get; init; }
+    public List<string> AvailableOptions { get; init; } = new();
+    public List<string> InvalidOptions { get; init; } = new();
+    public string? ErrorMessage { get; init; }
+}
 public class BookingAdminFilter
 {
     public int Page { get; set; } = 1;

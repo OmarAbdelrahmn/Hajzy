@@ -1,5 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.hoteladmincont;
+using Domain.Entities;
 using Microsoft.AspNetCore.Http;
 
 namespace Application.Service.HotelAdmin;
@@ -671,4 +672,77 @@ public interface IHotelAdminService
     //Task<Result> CopyAvailabilitySettingsAsync(
     //    string userId,
     //    CopyAvailabilityRequest request);
+
+
+    /// <summary>
+    /// Get all custom policies for a unit
+    /// </summary>
+    Task<Result<IEnumerable<UnitCustomPolicyResponse>>> GetUnitCustomPoliciesAsync(
+        string userId,
+        int unitId);
+
+    /// <summary>
+    /// Create a new custom policy for unit
+    /// </summary>
+    Task<Result<UnitCustomPolicyResponse>> CreateUnitCustomPolicyAsync(
+        string userId,
+        int unitId,
+        CreateUnitCustomPolicyRequest request);
+
+    /// <summary>
+    /// Update custom policy
+    /// </summary>
+    Task<Result<UnitCustomPolicyResponse>> UpdateUnitCustomPolicyAsync(
+        string userId,
+        int policyId,
+        UpdateUnitCustomPolicyRequest request);
+
+    /// <summary>
+    /// Delete custom policy
+    /// </summary>
+    Task<Result> DeleteUnitCustomPolicyAsync(
+        string userId,
+        int policyId);
+
+    /// <summary>
+    /// Reorder custom policies
+    /// </summary>
+    Task<Result> ReorderUnitCustomPoliciesAsync(
+        string userId,
+        int unitId,
+        List<int> policyIds);
+
+    // ============= UNIT OPTIONS MANAGEMENT =============
+
+    /// <summary>
+    /// Get unit options
+    /// </summary>
+    Task<Result<List<string>>> GetUnitOptionsAsync(
+        string userId,
+        int unitId);
+
+    /// <summary>
+    /// Update unit options
+    /// </summary>
+    Task<Result> UpdateUnitOptionsAsync(
+        string userId,
+        int unitId,
+        UpdateUnitOptionsRequest request);
+
+    // ============= UNIT CURRENCY MANAGEMENT =============
+
+    /// <summary>
+    /// Get unit price currency
+    /// </summary>
+    Task<Result<PriceCurrency>> GetUnitCurrencyAsync(
+        string userId,
+        int unitId);
+
+    /// <summary>
+    /// Update unit price currency
+    /// </summary>
+    Task<Result> UpdateUnitCurrencyAsync(
+        string userId,
+        int unitId,
+        UpdateUnitCurrencyRequest request);
 }

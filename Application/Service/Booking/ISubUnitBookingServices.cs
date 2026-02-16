@@ -14,6 +14,8 @@ namespace Application.Service.Booking;
 
 public interface ISubUnitBookingServices
 {
+    Task<Result<ValidateOptionsResponse>> ValidateSelectedOptionsAsync(
+        ValidateOptionsRequest request);
     /// <summary>
     /// Create a booking for one or more subunits
     /// </summary>

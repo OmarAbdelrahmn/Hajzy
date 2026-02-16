@@ -2499,7 +2499,11 @@ public class CityAdminService(
                     RoomNumber = br.Room.RoomNumber,
                     PricePerNight = br.PricePerNight
                 }).ToList(),
-                CreatedAt = b.CreatedAt
+                CreatedAt = b.CreatedAt,
+                SelectedOptions = string.IsNullOrEmpty(b.SelectedOptionsJson)
+                ? new List<string>()
+                : JsonSerializer.Deserialize<List<string>>(b.SelectedOptionsJson) ?? new List<string>()
+
             }).ToList();
 
             var paginatedResult = CreatePaginatedResponse(responses, totalCount, filter.Page, filter.PageSize);
@@ -2573,7 +2577,10 @@ public class CityAdminService(
                     PaymentDate = p.PaymentDate
                 }).ToList(),
                 CreatedAt = booking.CreatedAt,
-                UpdatedAt = booking.UpdatedAt
+                UpdatedAt = booking.UpdatedAt,
+                SelectedOptions = string.IsNullOrEmpty(booking.SelectedOptionsJson)
+                ? new List<string>()
+                : JsonSerializer.Deserialize<List<string>>(booking.SelectedOptionsJson) ?? new List<string>()
             };
 
             return Result.Success(response);
@@ -3899,7 +3906,10 @@ public class CityAdminService(
                     RoomNumber = br.Room.RoomNumber,
                     PricePerNight = br.PricePerNight
                 }).ToList(),
-                CreatedAt = b.CreatedAt
+                CreatedAt = b.CreatedAt,
+                SelectedOptions = string.IsNullOrEmpty(b.SelectedOptionsJson)
+                ? new List<string>()
+                : JsonSerializer.Deserialize<List<string>>(b.SelectedOptionsJson) ?? new List<string>()
             }).ToList();
 
             return Result.Success<IEnumerable<BookingComprehensiveResponse>>(responses);

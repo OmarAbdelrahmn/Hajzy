@@ -1437,6 +1437,30 @@ public class HotelAdminService(
         Domain.Entities.Unit unit,
         List<GeneralPolicy> policies)
     {
+        var options = new List<string>();
+        try
+        {
+            options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(
+                unit.OptionsJson) ?? new List<string>();
+        }
+        catch
+        {
+            options = new List<string>();
+        }
+
+        var customPolicies = unit.CustomPolicies?.Where(p => p.IsActive)
+       .OrderBy(p => p.DisplayOrder)
+       .Select(p => new CustomPolicyDetail
+       {
+           Id = p.Id,
+           Title = p.Title,
+           Description = p.Description,
+           Category = p.Category,
+           DisplayOrder = p.DisplayOrder,
+           IsActive = p.IsActive
+       }).ToList() ?? new List<CustomPolicyDetail>();
+
+
         return new UnitComprehensiveResponse
         {
             Id = unit.Id,
@@ -1482,7 +1506,10 @@ public class HotelAdminService(
                 PolicyType = p.PolicyType.ToString()
             }).ToList(),
             CreatedAt = unit.CreatedAt,
-            UpdatedAt = unit.UpdatedAt
+            UpdatedAt = unit.UpdatedAt,
+            Options = options,
+            Currency = unit.PriceCurrency.ToString(),
+            CustomPolicies = customPolicies
         };
     }
 
@@ -2049,7 +2076,7 @@ public class HotelAdminService(
     }
     private async Task<List<Domain.Entities.Unit>> GetUserAdminUnitsAsync(string userId)
     {
-        return await _context.Units
+        return await _context.Units.Include(u => u.CustomPolicies.Where(p => p.IsActive))
             .Include(u => u.City)
             .Include(u => u.UnitType)
             .Include(u => u.CancellationPolicy)
@@ -4281,6 +4308,370 @@ public class HotelAdminService(
 
     #endregion
 
+    // Application/Service/HotelAdmin/HotelAdminService.cs
+    // ADD THESE METHODS:
+
+    #region CUSTOM POLICIES MANAGEMENT
+
+    public async Task<Result<IEnumerable<UnitCustomPolicyResponse>>> GetUnitCustomPoliciesAsync(
+        string userId,
+        int unitId)
+    {
+        try
+        {
+            var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
+            if (!hasAccess.Value)
+                return Result.Failure<IEnumerable<UnitCustomPolicyResponse>>(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            var policies = await _context.Set<UnitCustomPolicy>()
+                .Where(p => p.UnitId == unitId && p.IsActive)
+                .OrderBy(p => p.DisplayOrder)
+                .ThenBy(p => p.CreatedAt)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var responses = policies.Select(p => new UnitCustomPolicyResponse
+            {
+                Id = p.Id,
+                UnitId = p.UnitId,
+                Title = p.Title,
+                Description = p.Description,
+                Category = p.Category,
+                DisplayOrder = p.DisplayOrder,
+                IsActive = p.IsActive,
+                CreatedAt = p.CreatedAt
+            });
+
+            return Result.Success(responses);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting custom policies for unit {UnitId}", unitId);
+            return Result.Failure<IEnumerable<UnitCustomPolicyResponse>>(
+                new Error("GetPoliciesFailed", "Failed to retrieve custom policies", 500));
+        }
+    }
+
+    public async Task<Result<UnitCustomPolicyResponse>> CreateUnitCustomPolicyAsync(
+        string userId,
+        int unitId,
+        CreateUnitCustomPolicyRequest request)
+    {
+        try
+        {
+            var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
+            if (!hasAccess.Value)
+                return Result.Failure<UnitCustomPolicyResponse>(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            var policy = new UnitCustomPolicy
+            {
+                UnitId = unitId,
+                Title = request.Title,
+                Description = request.Description,
+                Category = request.Category,
+                DisplayOrder = request.DisplayOrder,
+                IsActive = true,
+                CreatedByUserId = userId,
+                CreatedAt = DateTime.UtcNow.AddHours(3)
+            };
+
+            await _context.Set<UnitCustomPolicy>().AddAsync(policy);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Custom policy {PolicyId} created for unit {UnitId} by user {UserId}",
+                policy.Id, unitId, userId);
+
+            return Result.Success(new UnitCustomPolicyResponse
+            {
+                Id = policy.Id,
+                UnitId = policy.UnitId,
+                Title = policy.Title,
+                Description = policy.Description,
+                Category = policy.Category,
+                DisplayOrder = policy.DisplayOrder,
+                IsActive = policy.IsActive,
+                CreatedAt = policy.CreatedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating custom policy for unit {UnitId}", unitId);
+            return Result.Failure<UnitCustomPolicyResponse>(
+                new Error("CreatePolicyFailed", "Failed to create custom policy", 500));
+        }
+    }
+
+    public async Task<Result<UnitCustomPolicyResponse>> UpdateUnitCustomPolicyAsync(
+        string userId,
+        int policyId,
+        UpdateUnitCustomPolicyRequest request)
+    {
+        try
+        {
+            var policy = await _context.Set<UnitCustomPolicy>()
+                .FirstOrDefaultAsync(p => p.Id == policyId);
+
+            if (policy == null)
+                return Result.Failure<UnitCustomPolicyResponse>(
+                    new Error("NotFound", "Custom policy not found", 404));
+
+            var hasAccess = await IsAdminOfUnitAsync(userId, policy.UnitId);
+            if (!hasAccess.Value)
+                return Result.Failure<UnitCustomPolicyResponse>(
+                    new Error("NoAccess", "You do not have access to this policy", 403));
+
+            // Update fields
+            if (request.Title != null) policy.Title = request.Title;
+            if (request.Description != null) policy.Description = request.Description;
+            if (request.Category != null) policy.Category = request.Category;
+            if (request.DisplayOrder.HasValue) policy.DisplayOrder = request.DisplayOrder.Value;
+            if (request.IsActive.HasValue) policy.IsActive = request.IsActive.Value;
+
+            policy.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Custom policy {PolicyId} updated by user {UserId}",
+                policyId, userId);
+
+            return Result.Success(new UnitCustomPolicyResponse
+            {
+                Id = policy.Id,
+                UnitId = policy.UnitId,
+                Title = policy.Title,
+                Description = policy.Description,
+                Category = policy.Category,
+                DisplayOrder = policy.DisplayOrder,
+                IsActive = policy.IsActive,
+                CreatedAt = policy.CreatedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating custom policy {PolicyId}", policyId);
+            return Result.Failure<UnitCustomPolicyResponse>(
+                new Error("UpdatePolicyFailed", "Failed to update custom policy", 500));
+        }
+    }
+
+    public async Task<Result> DeleteUnitCustomPolicyAsync(string userId, int policyId)
+    {
+        try
+        {
+            var policy = await _context.Set<UnitCustomPolicy>()
+                .FirstOrDefaultAsync(p => p.Id == policyId);
+
+            if (policy == null)
+                return Result.Failure(new Error("NotFound", "Custom policy not found", 404));
+
+            var hasAccess = await IsAdminOfUnitAsync(userId, policy.UnitId);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this policy", 403));
+
+            _context.Set<UnitCustomPolicy>().Remove(policy);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Custom policy {PolicyId} deleted by user {UserId}",
+                policyId, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting custom policy {PolicyId}", policyId);
+            return Result.Failure(
+                new Error("DeletePolicyFailed", "Failed to delete custom policy", 500));
+        }
+    }
+
+    public async Task<Result> ReorderUnitCustomPoliciesAsync(
+        string userId,
+        int unitId,
+        List<int> policyIds)
+    {
+        try
+        {
+            var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            var policies = await _context.Set<UnitCustomPolicy>()
+                .Where(p => p.UnitId == unitId && policyIds.Contains(p.Id))
+                .ToListAsync();
+
+            foreach (var (policyId, index) in policyIds.Select((id, idx) => (id, idx)))
+            {
+                var policy = policies.FirstOrDefault(p => p.Id == policyId);
+                if (policy != null)
+                {
+                    policy.DisplayOrder = index;
+                    policy.UpdatedAt = DateTime.UtcNow.AddHours(3);
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Custom policies reordered for unit {UnitId} by user {UserId}",
+                unitId, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reordering custom policies for unit {UnitId}", unitId);
+            return Result.Failure(
+                new Error("ReorderFailed", "Failed to reorder custom policies", 500));
+        }
+    }
+
+    #endregion
+
+    #region UNIT OPTIONS MANAGEMENT
+
+    public async Task<Result<List<string>>> GetUnitOptionsAsync(string userId, int unitId)
+    {
+        try
+        {
+            var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
+            if (!hasAccess.Value)
+                return Result.Failure<List<string>>(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            var unit = await _context.Units
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+
+            if (unit == null)
+                return Result.Failure<List<string>>(
+                    new Error("NotFound", "Unit not found", 404));
+
+            var options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(
+                unit.OptionsJson) ?? new List<string>();
+
+            return Result.Success(options);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting options for unit {UnitId}", unitId);
+            return Result.Failure<List<string>>(
+                new Error("GetOptionsFailed", "Failed to retrieve unit options", 500));
+        }
+    }
+
+    public async Task<Result> UpdateUnitOptionsAsync(
+        string userId,
+        int unitId,
+        UpdateUnitOptionsRequest request)
+    {
+        try
+        {
+            var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            var unit = await _context.Units
+                .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+
+            if (unit == null)
+                return Result.Failure(new Error("NotFound", "Unit not found", 404));
+
+            unit.OptionsJson = System.Text.Json.JsonSerializer.Serialize(request.Options);
+            unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Options updated for unit {UnitId} by user {UserId}",
+                unitId, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating options for unit {UnitId}", unitId);
+            return Result.Failure(
+                new Error("UpdateOptionsFailed", "Failed to update unit options", 500));
+        }
+    }
+
+    #endregion
+
+    #region UNIT CURRENCY MANAGEMENT
+
+    public async Task<Result<PriceCurrency>> GetUnitCurrencyAsync(string userId, int unitId)
+    {
+        try
+        {
+            var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
+            if (!hasAccess.Value)
+                return Result.Failure<PriceCurrency>(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            var unit = await _context.Units
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+
+            if (unit == null)
+                return Result.Failure<PriceCurrency>(
+                    new Error("NotFound", "Unit not found", 404));
+
+            return Result.Success(unit.PriceCurrency);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting currency for unit {UnitId}", unitId);
+            return Result.Failure<PriceCurrency>(
+                new Error("GetCurrencyFailed", "Failed to retrieve unit currency", 500));
+        }
+    }
+
+    public async Task<Result> UpdateUnitCurrencyAsync(
+        string userId,
+        int unitId,
+        UpdateUnitCurrencyRequest request)
+    {
+        try
+        {
+            var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            var unit = await _context.Units
+                .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+
+            if (unit == null)
+                return Result.Failure(new Error("NotFound", "Unit not found", 404));
+
+            unit.PriceCurrency = request.Currency;
+            unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Currency updated to {Currency} for unit {UnitId} by user {UserId}",
+                request.Currency, unitId, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating currency for unit {UnitId}", unitId);
+            return Result.Failure(
+                new Error("UpdateCurrencyFailed", "Failed to update unit currency", 500));
+        }
+    }
+
+    #endregion
     public async Task<Result<ImageDetailResponse>> UploadUnitImageAsync(
         string userId,
         IFormFile image,

@@ -70,6 +70,21 @@ public class UnitComprehensiveResponse
     // Timestamps
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public List<string> Options { get; init; } = new();
+    public string Currency { get; init; } = "SAR";
+    public List<CustomPolicyDetail> CustomPolicies { get; init; } = new();
+
+    // ... rest of existing properties ...
+}
+
+public record CustomPolicyDetail
+{
+    public int Id { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string? Category { get; init; }
+    public int DisplayOrder { get; init; }
+    public bool IsActive { get; init; }
 }
 
 /// <summary>

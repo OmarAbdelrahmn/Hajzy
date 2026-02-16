@@ -7,6 +7,7 @@ using Application.Contracts.Unit;
 using Application.Service.publicuser;
 using Domain;
 using Domain.Entities;
+using Domain.Migrations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -24,6 +25,7 @@ public class PublicService(
         try
         {
             var query = _context.Units
+                .Include(u => u.CustomPolicies.Where(p => p.IsActive)) // ADD THIS
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
                 .Include(u => u.Images.Where(i => !i.IsDeleted))
@@ -65,6 +67,8 @@ public class PublicService(
                 }
             }
 
+
+
             // Availability filter
             if (filter.CheckIn.HasValue && filter.CheckOut.HasValue)
             {
@@ -93,6 +97,7 @@ public class PublicService(
                 .AsNoTracking()
                 .ToListAsync();
 
+
             var responses = units.Select(MapToPublicResponse).ToList();
 
             var paginatedResult = CreatePaginatedResponse(responses, totalCount, filter.Page, filter.PageSize);
@@ -111,6 +116,7 @@ public class PublicService(
         {
 
             var unit = await _context.Units
+                .Include(u => u.CustomPolicies.Where(p => p.IsActive)) // ADD THIS
                 .Include(c=>c.Rooms)
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
@@ -130,6 +136,9 @@ public class PublicService(
             if (unit == null)
                 return Result.Failure<PublicUnitDetailsResponses>(
                     new Error("NotFound", "Unit not found or not available", 404));
+
+            var options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(
+            unit.OptionsJson) ?? new List<string>();
 
             // Get general policies
             var policies = await _context.GeneralPolicies
@@ -223,7 +232,17 @@ public class PublicService(
                     p.Description,
                     p.PolicyType.ToString(),
                     p.IsMandatory
-                )).ToList()
+                )).ToList(),
+                Options = options,
+                Currency = unit.PriceCurrency.ToString(),
+                CustomPolicies = unit.CustomPolicies
+                .OrderBy(p => p.DisplayOrder)
+                .Select(p => new PublicCustomPolicyInfo
+                {
+                    Title = p.Title,
+                    Description = p.Description,
+                    Category = p.Category
+                }).ToList()
             };
 
             // Cache for 5 minutes
@@ -247,6 +266,7 @@ public class PublicService(
             var keyword = request.Keyword.ToLower();
 
             var query = _context.Units
+                 .Include(u => u.CustomPolicies.Where(p => p.IsActive)) // ADD THIS
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
                 .Include(u => u.Images.Where(i => !i.IsDeleted))
@@ -299,6 +319,7 @@ public class PublicService(
         {
             // Get top rated units
             var topRated = await _context.Units
+                .Include(u => u.CustomPolicies.Where(p => p.IsActive)) // ADD THIS
                 //.Where(u => u.IsFeatured)
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
@@ -576,6 +597,7 @@ public class PublicService(
         try
         {
             var units = await _context.Units
+                .Include(u => u.CustomPolicies.Where(p => p.IsActive)) // ADD THIS
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
                 .Include(u => u.Images.Where(i => !i.IsDeleted && i.IsPrimary))
@@ -608,6 +630,18 @@ public class PublicService(
 
     private static PublicUnitResponse MapToPublicResponse(Domain.Entities.Unit unit)
     {
+        var options = new List<string>();
+        try
+        {
+            options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(
+                unit.OptionsJson) ?? new List<string>();
+        }
+        catch
+        {
+            // If JSON parsing fails, return empty list
+            options = new List<string>();
+        }
+
         return new PublicUnitResponse
         {
             Id = unit.Id,
@@ -627,7 +661,17 @@ public class PublicService(
             TotalReviews = unit.TotalReviews,
             PrimaryImageUrl = unit.Images?.FirstOrDefault()?.ImageUrl,
             IsAvailable = unit.IsActive && unit.IsVerified,
-            IsFeatured = unit.AverageRating >= 4.5m && unit.TotalReviews >= 10
+            IsFeatured = unit.AverageRating >= 4.5m && unit.TotalReviews >= 10  ,
+            Options = options,
+            Currency = unit.PriceCurrency.ToString(),
+            CustomPolicies = unit.CustomPolicies
+                .OrderBy(p => p.DisplayOrder)
+                .Select(p => new PublicCustomPolicyInfo
+                {
+                    Title = p.Title,
+                    Description = p.Description,
+                    Category = p.Category
+                }).ToList()
         };
     }
 

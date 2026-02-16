@@ -1,5 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.Availability;
+using Application.Contracts.Bookin;
 using Application.Contracts.SubUnit;
 using Domain;
 using Domain.Entities;
@@ -150,6 +151,7 @@ public record CreateUnitBookingRequest(
     DateTime CheckInDate,
     DateTime CheckOutDate,
     int NumberOfGuests,
+    List<SelectedOptionDto>? SelectedOptions,
     string? CouponCode,  // ADDED: Optional coupon code
     string? SpecialRequests = null
 );
@@ -191,6 +193,8 @@ public record UnitBookingResponse
     public BookingStatus Status { get; init; }
     public PaymentStatus PaymentStatus { get; init; }
     public DateTime CreatedAt { get; init; }
+    public List<SelectedOptionDto> SelectedOptions { get; init; } = new();
+
 }
 
 public record UnitBookingDetailsResponse : UnitBookingResponse
@@ -237,6 +241,7 @@ public record CreateSubUnitBookingRequest(
     DateTime CheckInDate,
     DateTime CheckOutDate,
     int NumberOfGuests,
+    List<SelectedOptionDto>? SelectedOptions,
     string? CouponCode,  // ADDED: Optional coupon code
     string? SpecialRequests = null
 );
@@ -280,6 +285,7 @@ public record SubUnitBookingResponse
     public BookingStatus Status { get; init; }
     public PaymentStatus PaymentStatus { get; init; }
     public DateTime CreatedAt { get; init; }
+    public List<SelectedOptionDto> SelectedOptions { get; init; } = new();
 }
 
 public record SubUnitBookingDetailsResponse : SubUnitBookingResponse

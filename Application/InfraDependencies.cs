@@ -94,6 +94,7 @@ public static class InfraDependencies
         Services.AddScoped<ISubUnitTypeService,SubUnitTypeService>();
         Services.AddScoped<IHotelAdminService,HotelAdminService>();
         Services.AddScoped<ICityAdminService,CityAdminService>();
+        Services.AddScoped<IBookingManagementService,BookingManagementService>();
         Services.AddScoped<AdExpirationJob>();
         Services.AddScoped<OfferExpirationJob>();
 
