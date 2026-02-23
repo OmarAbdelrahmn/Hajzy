@@ -1,5 +1,6 @@
 ﻿using Application.Abstraction.Consts;
 using Application.Contracts.hoteladmincont;
+using Application.Contracts.Options;
 using Application.Extensions;
 using Application.Service.HotelAdmin;
 using Microsoft.AspNetCore.Authorization;
@@ -1323,6 +1324,146 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
         var result = await _hotelAdminService.UpdateUnitCurrencyAsync(userId!, unitId, request);
         return result.IsSuccess
             ? Ok(new { message = "Unit currency updated successfully" })
+            : result.ToProblem();
+    }
+
+    #endregion
+
+    #region Unit Options
+
+    /// <summary>
+    /// List all options for a unit.
+    /// </summary>
+    [HttpGet("units/{unitId}/options-list")]
+    public async Task<IActionResult> GetUnitOptionsList(int unitId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.GetUnitOptionsListAsync(userId!, unitId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Get a single unit option by id.
+    /// </summary>
+    [HttpGet("unit-options/{optionId}")]
+    public async Task<IActionResult> GetUnitOptionById(int optionId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.GetUnitOptionByIdAsync(userId!, optionId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Create a new option for a unit.
+    /// For InputType Select / MultiSelect you must supply at least one selection.
+    /// For all other input types, Selections must be omitted or null.
+    /// </summary>
+    [HttpPost("units/{unitId}/options-list")]
+    public async Task<IActionResult> CreateUnitOption(
+        int unitId,
+        [FromBody] CreateUnitOptionRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.CreateUnitOptionAsync(userId!, unitId, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Update a unit option.
+    /// When Selections is provided, the entire list is replaced atomically.
+    /// </summary>
+    [HttpPut("unit-options/{optionId}")]
+    public async Task<IActionResult> UpdateUnitOption(
+        int optionId,
+        [FromBody] UpdateUnitOptionRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.UpdateUnitOptionAsync(userId!, optionId, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Delete a unit option and all its selections.
+    /// </summary>
+    [HttpDelete("unit-options/{optionId}")]
+    public async Task<IActionResult> DeleteUnitOption(int optionId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.DeleteUnitOptionAsync(userId!, optionId);
+        return result.IsSuccess
+            ? Ok(new { message = "Unit option deleted successfully" })
+            : result.ToProblem();
+    }
+
+    #endregion
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SUBUNIT OPTIONS
+    // ══════════════════════════════════════════════════════════════════════════
+
+    #region SubUnit Options
+
+    /// <summary>
+    /// List all options for a subunit.
+    /// </summary>
+    [HttpGet("subunits/{subUnitId}/options-list")]
+    public async Task<IActionResult> GetSubUnitOptionsList(int subUnitId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.GetSubUnitOptionsListAsync(userId!, subUnitId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Get a single subunit option by id.
+    /// </summary>
+    [HttpGet("subunit-options/{optionId}")]
+    public async Task<IActionResult> GetSubUnitOptionById(int optionId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.GetSubUnitOptionByIdAsync(userId!, optionId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Create a new option for a subunit.
+    /// For InputType Select / MultiSelect you must supply at least one selection.
+    /// For all other input types, Selections must be omitted or null.
+    /// </summary>
+    [HttpPost("subunits/{subUnitId}/options-list")]
+    public async Task<IActionResult> CreateSubUnitOption(
+        int subUnitId,
+        [FromBody] CreateSubUnitOptionRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.CreateSubUnitOptionAsync(userId!, subUnitId, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Update a subunit option.
+    /// When Selections is provided, the entire list is replaced atomically.
+    /// </summary>
+    [HttpPut("subunit-options/{optionId}")]
+    public async Task<IActionResult> UpdateSubUnitOption(
+        int optionId,
+        [FromBody] UpdateSubUnitOptionRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.UpdateSubUnitOptionAsync(userId!, optionId, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Delete a subunit option and all its selections.
+    /// </summary>
+    [HttpDelete("subunit-options/{optionId}")]
+    public async Task<IActionResult> DeleteSubUnitOption(int optionId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.DeleteSubUnitOptionAsync(userId!, optionId);
+        return result.IsSuccess
+            ? Ok(new { message = "SubUnit option deleted successfully" })
             : result.ToProblem();
     }
 

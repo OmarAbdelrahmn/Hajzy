@@ -1,5 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.hoteladmincont;
+using Application.Contracts.Options;
 using Domain.Entities;
 using Microsoft.AspNetCore.Http;
 
@@ -768,4 +769,75 @@ public interface IHotelAdminService
         string userId,
         int unitId,
         UpdateUnitCurrencyRequest request);
+
+
+    // ============= UNIT OPTIONS =============
+
+    /// <summary>Get all active options for a unit, ordered by DisplayOrder.</summary>
+    Task<Result<IEnumerable<UnitOptionResponse>>> GetUnitOptionsListAsync(
+        string userId,
+        int unitId);
+
+    /// <summary>Get a single unit option (with its selections) by id.</summary>
+    Task<Result<UnitOptionResponse>> GetUnitOptionByIdAsync(
+        string userId,
+        int optionId);
+
+    /// <summary>
+    /// Create a new option for a unit.
+    /// Selections are required when InputType is Select or MultiSelect.
+    /// </summary>
+    Task<Result<UnitOptionResponse>> CreateUnitOptionAsync(
+        string userId,
+        int unitId,
+        CreateUnitOptionRequest request);
+
+    /// <summary>
+    /// Update a unit option.
+    /// When Selections is supplied the entire list is replaced atomically.
+    /// </summary>
+    Task<Result<UnitOptionResponse>> UpdateUnitOptionAsync(
+        string userId,
+        int optionId,
+        UpdateUnitOptionRequest request);
+
+    /// <summary>Permanently delete a unit option and all its selections.</summary>
+    Task<Result> DeleteUnitOptionAsync(
+        string userId,
+        int optionId);
+
+    // ============= SUBUNIT OPTIONS =============
+
+    /// <summary>Get all active options for a subunit, ordered by DisplayOrder.</summary>
+    Task<Result<IEnumerable<SubUnitOptionResponse>>> GetSubUnitOptionsListAsync(
+        string userId,
+        int subUnitId);
+
+    /// <summary>Get a single subunit option (with its selections) by id.</summary>
+    Task<Result<SubUnitOptionResponse>> GetSubUnitOptionByIdAsync(
+        string userId,
+        int optionId);
+
+    /// <summary>
+    /// Create a new option for a subunit.
+    /// Selections are required when InputType is Select or MultiSelect.
+    /// </summary>
+    Task<Result<SubUnitOptionResponse>> CreateSubUnitOptionAsync(
+        string userId,
+        int subUnitId,
+        CreateSubUnitOptionRequest request);
+
+    /// <summary>
+    /// Update a subunit option.
+    /// When Selections is supplied the entire list is replaced atomically.
+    /// </summary>
+    Task<Result<SubUnitOptionResponse>> UpdateSubUnitOptionAsync(
+        string userId,
+        int optionId,
+        UpdateSubUnitOptionRequest request);
+
+    /// <summary>Permanently delete a subunit option and all its selections.</summary>
+    Task<Result> DeleteSubUnitOptionAsync(
+        string userId,
+        int optionId);
 }

@@ -1,5 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.CityAdminContracts;
+using Application.Contracts.Options;
 using Application.Service.Avilabilaties;
 using static Application.Service.CityAdmin.CityAdminService;
 
@@ -581,4 +582,36 @@ public interface ICityAdminService
         string userId,
         int adId,
         UpdateCityAdRequest request);
+
+
+    /// <summary>
+    /// Get all options configured for a unit in this city.
+    /// City admin can view but not modify — management is done by the unit's HotelAdmin.
+    /// </summary>
+    Task<Result<IEnumerable<UnitOptionResponse>>> GetUnitOptionsAsync(
+        string userId,
+        int unitId);
+
+    /// <summary>
+    /// Get a single unit option by ID.
+    /// </summary>
+    Task<Result<UnitOptionResponse>> GetUnitOptionByIdAsync(
+        string userId,
+        int optionId);
+
+    // ============= SUBUNIT OPTIONS (Read-Only for City Admin) =============
+
+    /// <summary>
+    /// Get all options configured for a subunit.
+    /// </summary>
+    Task<Result<IEnumerable<SubUnitOptionResponse>>> GetSubUnitOptionsAsync(
+        string userId,
+        int subUnitId);
+
+    /// <summary>
+    /// Get a single subunit option by ID.
+    /// </summary>
+    Task<Result<SubUnitOptionResponse>> GetSubUnitOptionByIdAsync(
+        string userId,
+        int optionId);
 }

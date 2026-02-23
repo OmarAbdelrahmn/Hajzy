@@ -54,6 +54,7 @@ public class Booking
     public ICollection<BookingRoom> BookingRooms { get; set; } = [];
     public ICollection<Payment> Payments { get; set; } = [];
     public Review? Review { get; set; }
+    public ICollection<BookingCoupon> BookingCoupons { get; set; } = [];
 }
 
 public enum BookingType

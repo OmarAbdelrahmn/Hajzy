@@ -3,6 +3,7 @@ using Amazon.S3.Transfer;
 using Application.Abstraction;
 using Application.Abstraction.Consts;
 using Application.Contracts.CityAdminContracts;
+using Application.Contracts.Options;
 using Application.Helpers;
 using Application.Notifications;
 using Application.Service.Avilabilaties;
@@ -4863,6 +4864,190 @@ public class CityAdminService(
 
     #endregion
 
+
+    #region options
+    public async Task<Result<IEnumerable<UnitOptionResponse>>> GetUnitOptionsAsync(
+        string userId,
+        int unitId)
+    {
+        try
+        {
+            // Verify this unit belongs to the city admin's department
+            var hasAccess = await IsUnitInMyCityAsync(userId, unitId);
+            if (!hasAccess.IsSuccess || !hasAccess.Value)
+                return Result.Failure<IEnumerable<UnitOptionResponse>>(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            var options = await _context.UnitOptions
+                .Include(o => o.Selections)
+                .Where(o => o.UnitId == unitId && o.IsActive)
+                .OrderBy(o => o.DisplayOrder)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var response = options.Select(MapToUnitOptionResponse);
+            return Result.Success(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting unit options for unit {UnitId}", unitId);
+            return Result.Failure<IEnumerable<UnitOptionResponse>>(
+                new Error("GetOptionsFailed", "Failed to retrieve unit options", 500));
+        }
+    }
+
+    public async Task<Result<UnitOptionResponse>> GetUnitOptionByIdAsync(
+        string userId,
+        int optionId)
+    {
+        try
+        {
+            var option = await _context.UnitOptions
+                .Include(o => o.Selections)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(o => o.Id == optionId && o.IsActive);
+
+            if (option == null)
+                return Result.Failure<UnitOptionResponse>(
+                    new Error("NotFound", "Unit option not found", 404));
+
+            // Verify access via the unit
+            var hasAccess = await IsUnitInMyCityAsync(userId, option.UnitId);
+            if (!hasAccess.IsSuccess || !hasAccess.Value)
+                return Result.Failure<UnitOptionResponse>(
+                    new Error("NoAccess", "You do not have access to this option", 403));
+
+            return Result.Success(MapToUnitOptionResponse(option));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting unit option {OptionId}", optionId);
+            return Result.Failure<UnitOptionResponse>(
+                new Error("GetOptionFailed", "Failed to retrieve unit option", 500));
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // SUBUNIT OPTIONS — read-only view for city admin
+    // ----------------------------------------------------------------
+
+    public async Task<Result<IEnumerable<SubUnitOptionResponse>>> GetSubUnitOptionsAsync(
+        string userId,
+        int subUnitId)
+    {
+        try
+        {
+            // Resolve the parent unit so we can run the normal city-access check
+            var subUnit = await _context.SubUnits
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
+
+            if (subUnit == null)
+                return Result.Failure<IEnumerable<SubUnitOptionResponse>>(
+                    new Error("NotFound", "SubUnit not found", 404));
+
+            var hasAccess = await IsUnitInMyCityAsync(userId, subUnit.UnitId);
+            if (!hasAccess.IsSuccess || !hasAccess.Value)
+                return Result.Failure<IEnumerable<SubUnitOptionResponse>>(
+                    new Error("NoAccess", "You do not have access to this subunit", 403));
+
+            var options = await _context.SubUnitOptions
+                .Include(o => o.Selections)
+                .Where(o => o.SubUnitId == subUnitId && o.IsActive)
+                .OrderBy(o => o.DisplayOrder)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var response = options.Select(MapToSubUnitOptionResponse);
+            return Result.Success(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting subunit options for subunit {SubUnitId}", subUnitId);
+            return Result.Failure<IEnumerable<SubUnitOptionResponse>>(
+                new Error("GetOptionsFailed", "Failed to retrieve subunit options", 500));
+        }
+    }
+
+    public async Task<Result<SubUnitOptionResponse>> GetSubUnitOptionByIdAsync(
+        string userId,
+        int optionId)
+    {
+        try
+        {
+            var option = await _context.SubUnitOptions
+                .Include(o => o.Selections)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(o => o.Id == optionId && o.IsActive);
+
+            if (option == null)
+                return Result.Failure<SubUnitOptionResponse>(
+                    new Error("NotFound", "SubUnit option not found", 404));
+
+            // Resolve parent unit for access check
+            var subUnit = await _context.SubUnits
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == option.SubUnitId && !s.IsDeleted);
+
+            if (subUnit == null)
+                return Result.Failure<SubUnitOptionResponse>(
+                    new Error("NotFound", "SubUnit not found", 404));
+
+            var hasAccess = await IsUnitInMyCityAsync(userId, subUnit.UnitId);
+            if (!hasAccess.IsSuccess || !hasAccess.Value)
+                return Result.Failure<SubUnitOptionResponse>(
+                    new Error("NoAccess", "You do not have access to this option", 403));
+
+            return Result.Success(MapToSubUnitOptionResponse(option));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting subunit option {OptionId}", optionId);
+            return Result.Failure<SubUnitOptionResponse>(
+                new Error("GetOptionFailed", "Failed to retrieve subunit option", 500));
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // Private mappers (shared with HotelAdminService.Options pattern)
+    // ----------------------------------------------------------------
+
+    private static UnitOptionResponse MapToUnitOptionResponse(UnitOption o) =>
+        new()
+        {
+            Id = o.Id,
+            UnitId = o.UnitId,
+            Name = o.Name,
+            InputType = o.InputType.ToString(),
+            IsRequired = o.IsRequired,
+            DisplayOrder = o.DisplayOrder,
+            IsActive = o.IsActive,
+            CreatedAt = o.CreatedAt,
+            UpdatedAt = o.UpdatedAt,
+            Selections = o.Selections
+                .OrderBy(s => s.DisplayOrder)
+                .Select(s => new OptionSelectionResponse { Id = s.Id, Value = s.Value, DisplayOrder = s.DisplayOrder })
+                .ToList()
+        };
+
+    private static SubUnitOptionResponse MapToSubUnitOptionResponse(SubUnitOption o) =>
+        new()
+        {
+            Id = o.Id,
+            SubUnitId = o.SubUnitId,
+            Name = o.Name,
+            InputType = o.InputType.ToString(),
+            IsRequired = o.IsRequired,
+            DisplayOrder = o.DisplayOrder,
+            IsActive = o.IsActive,
+            CreatedAt = o.CreatedAt,
+            UpdatedAt = o.UpdatedAt,
+            Selections = o.Selections
+                .OrderBy(s => s.DisplayOrder)
+                .Select(s => new OptionSelectionResponse { Id = s.Id, Value = s.Value, DisplayOrder = s.DisplayOrder })
+                .ToList()
+        };
+    #endregion
 
     private PaginatedResponse<T> CreatePaginatedResponse<T>(
         IEnumerable<T> items,

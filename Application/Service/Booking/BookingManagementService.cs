@@ -74,6 +74,8 @@ public class BookingManagementService(
                 .Include(b => b.User)
                 .Include(b => b.BookingRooms)
                     .ThenInclude(br => br.Room)
+                .Include(b=>b.BookingCoupons)
+                .ThenInclude(c=>c.Coupon)
                 .Where(b => b.UserId == userId)
                 .AsQueryable();
 
@@ -97,7 +99,7 @@ public class BookingManagementService(
         {
             _logger.LogError(ex, "Error getting user bookings for user {UserId}", userId);
             return Result.Failure<IBookingManagementService.PaginatedResponse<UnifiedBookingResponse>>(
-                new Error("GetUserBookingsFailed", "Failed to retrieve user bookings", 500));
+                new Error(ex.InnerException?.Message!,ex.Message, 500));
         }
     }
 
@@ -1577,15 +1579,12 @@ public class BookingManagementService(
         return query;
     }
 
-    private async Task<UnifiedBookingResponse> MapToUnifiedResponseAsync(Domain.Entities.Booking booking)
+    private Task<UnifiedBookingResponse> MapToUnifiedResponseAsync(Domain.Entities.Booking booking)
     {
-        // Get coupon information if applied
-        var bookingCoupon = await _context.Set<BookingCoupon>()
-            .Include(bc => bc.Coupon)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(bc => bc.BookingId == booking.Id);
+        // ✅ Use already-loaded navigation data — no extra DB call
+        var bookingCoupon = booking.BookingCoupons?.FirstOrDefault();
 
-        return new UnifiedBookingResponse
+        return Task.FromResult(new UnifiedBookingResponse
         {
             Id = booking.Id,
             BookingNumber = booking.BookingNumber,
@@ -1605,19 +1604,15 @@ public class BookingManagementService(
             Status = booking.Status.ToString(),
             PaymentStatus = booking.PaymentStatus.ToString(),
             CreatedAt = booking.CreatedAt,
-
-            // Rooms (for SubUnit bookings)
             Rooms = booking.BookingRooms?.Select(br => new BookedRoomInfo
             {
                 RoomId = br.RoomId,
                 RoomNumber = br.Room.RoomNumber,
                 PricePerNight = br.PricePerNight
             }).ToList() ?? new List<BookedRoomInfo>(),
-
-            // Coupon information
             AppliedCouponCode = bookingCoupon?.Coupon?.Code,
             CouponDiscount = bookingCoupon?.DiscountApplied
-        };
+        });
     }
 
     private async Task<UnifiedBookingDetailsResponse> MapToUnifiedDetailsResponseAsync(Domain.Entities.Booking booking)

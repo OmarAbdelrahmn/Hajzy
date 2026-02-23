@@ -5,6 +5,7 @@ using Application.Service.Avilabilaties;
 using Application.Service.CityAdmin;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Hajzzy.Controllers;
 
@@ -987,6 +988,65 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
         var userId = User.GetUserId();
         var result = await _cityAdminService.GetAdminDepartmentIdAsync(userId!);
         return result.IsSuccess ? Ok(new { departmentId = result.Value }) : result.ToProblem();
+    }
+
+    #endregion
+
+    #region options
+    /// <summary>
+    /// GET /api/city-admin/units/{unitId}/options
+    /// Returns all active options for the given unit.
+    /// </summary>
+    [HttpGet("units/{unitId:int}/options")]
+    [Authorize(Roles = "CityAdmin")]
+    public async Task<IActionResult> GetUnitOptions(int unitId)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var result = await _cityAdminService.GetUnitOptionsAsync(userId, unitId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// GET /api/city-admin/unit-options/{optionId}
+    /// Returns a single unit option by ID.
+    /// </summary>
+    [HttpGet("unit-options/{optionId:int}")]
+    [Authorize(Roles = "CityAdmin")]
+    public async Task<IActionResult> GetUnitOptionById(int optionId)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var result = await _cityAdminService.GetUnitOptionByIdAsync(userId, optionId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    // ----------------------------------------------------------------
+    // SUBUNIT OPTIONS
+    // ----------------------------------------------------------------
+
+    /// <summary>
+    /// GET /api/city-admin/subunits/{subUnitId}/options
+    /// Returns all active options for the given subunit.
+    /// </summary>
+    [HttpGet("subunits/{subUnitId:int}/options")]
+    [Authorize(Roles = "CityAdmin")]
+    public async Task<IActionResult> GetSubUnitOptions(int subUnitId)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var result = await _cityAdminService.GetSubUnitOptionsAsync(userId, subUnitId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// GET /api/city-admin/subunit-options/{optionId}
+    /// Returns a single subunit option by ID.
+    /// </summary>
+    [HttpGet("subunit-options/{optionId:int}")]
+    [Authorize(Roles = "CityAdmin")]
+    public async Task<IActionResult> GetSubUnitOptionById(int optionId)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var result = await _cityAdminService.GetSubUnitOptionByIdAsync(userId, optionId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
     #endregion

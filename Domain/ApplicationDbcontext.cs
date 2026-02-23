@@ -65,6 +65,11 @@ public class ApplicationDbcontext(DbContextOptions<ApplicationDbcontext> options
     public DbSet<Offer> Offers { get; set; }
     public DbSet<UnitCustomPolicy> UnitCustomPolicies { get; set; }
 
+    public DbSet<UnitOption> UnitOptions { get; set; }
+    public DbSet<UnitOptionSelection> UnitOptionSelections { get; set; }
+    public DbSet<SubUnitOption> SubUnitOptions { get; set; }
+    public DbSet<SubUnitOptionSelection> SubUnitOptionSelections { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());

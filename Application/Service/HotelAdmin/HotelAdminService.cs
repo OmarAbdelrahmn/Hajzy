@@ -2,6 +2,7 @@
 using Amazon.S3.Transfer;
 using Application.Abstraction;
 using Application.Contracts.hoteladmincont;
+using Application.Contracts.Options;
 using Application.Service.Avilabilaties;
 using Application.Service.S3Image;
 using Domain;
@@ -4959,6 +4960,537 @@ public class HotelAdminService(
     }
 
     #endregion
+
+    #region options
+    private static UnitOptionResponse MapToUnitOptionResponse(UnitOption opt) =>
+        new()
+        {
+            Id = opt.Id,
+            UnitId = opt.UnitId,
+            Name = opt.Name,
+            InputType = opt.InputType.ToString(),
+            IsRequired = opt.IsRequired,
+            DisplayOrder = opt.DisplayOrder,
+            IsActive = opt.IsActive,
+            CreatedAt = opt.CreatedAt,
+            UpdatedAt = opt.UpdatedAt,
+            Selections = opt.InputType is OptionInputType.Select or OptionInputType.MultiSelect
+                ? opt.Selections
+                      .OrderBy(s => s.DisplayOrder)
+                      .Select(s => new OptionSelectionResponse { Id = s.Id, Value = s.Value, DisplayOrder = s.DisplayOrder })
+                      .ToList()
+                : null
+        };
+
+    private static SubUnitOptionResponse MapToSubUnitOptionResponse(SubUnitOption opt) =>
+        new()
+        {
+            Id = opt.Id,
+            SubUnitId = opt.SubUnitId,
+            Name = opt.Name,
+            InputType = opt.InputType.ToString(),
+            IsRequired = opt.IsRequired,
+            DisplayOrder = opt.DisplayOrder,
+            IsActive = opt.IsActive,
+            CreatedAt = opt.CreatedAt,
+            UpdatedAt = opt.UpdatedAt,
+            Selections = opt.InputType is OptionInputType.Select or OptionInputType.MultiSelect
+                ? opt.Selections
+                      .OrderBy(s => s.DisplayOrder)
+                      .Select(s => new OptionSelectionResponse { Id = s.Id, Value = s.Value, DisplayOrder = s.DisplayOrder })
+                      .ToList()
+                : null
+        };
+
+    private static bool RequiresSelections(OptionInputType inputType) =>
+        inputType is OptionInputType.Select or OptionInputType.MultiSelect;
+
+    // ─────────────────────────────────────────────
+    // UNIT OPTIONS
+    // ─────────────────────────────────────────────
+
+    #region Unit Options
+
+    public async Task<Result<IEnumerable<UnitOptionResponse>>> GetUnitOptionsListAsync(
+        string userId, int unitId)
+    {
+        try
+        {
+            var access = await IsAdminOfUnitAsync(userId, unitId);
+            if (!access.Value)
+                return Result.Failure<IEnumerable<UnitOptionResponse>>(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            var options = await _context.Set<UnitOption>()
+                .Include(o => o.Selections.OrderBy(s => s.DisplayOrder))
+                .Where(o => o.UnitId == unitId && o.IsActive)
+                .OrderBy(o => o.DisplayOrder)
+                .ThenBy(o => o.CreatedAt)
+                .AsNoTracking()
+                .ToListAsync();
+
+            return Result.Success(options.Select(MapToUnitOptionResponse));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting unit options for unit {UnitId}", unitId);
+            return Result.Failure<IEnumerable<UnitOptionResponse>>(
+                new Error("GetUnitOptionsFailed", "Failed to retrieve unit options", 500));
+        }
+    }
+
+    public async Task<Result<UnitOptionResponse>> GetUnitOptionByIdAsync(
+        string userId, int optionId)
+    {
+        try
+        {
+            var option = await _context.Set<UnitOption>()
+                .Include(o => o.Selections.OrderBy(s => s.DisplayOrder))
+                .FirstOrDefaultAsync(o => o.Id == optionId);
+
+            if (option is null)
+                return Result.Failure<UnitOptionResponse>(
+                    new Error("NotFound", "Unit option not found", 404));
+
+            var access = await IsAdminOfUnitAsync(userId, option.UnitId);
+            if (!access.Value)
+                return Result.Failure<UnitOptionResponse>(
+                    new Error("NoAccess", "You do not have access to this option", 403));
+
+            return Result.Success(MapToUnitOptionResponse(option));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting unit option {OptionId}", optionId);
+            return Result.Failure<UnitOptionResponse>(
+                new Error("GetUnitOptionFailed", "Failed to retrieve unit option", 500));
+        }
+    }
+
+    public async Task<Result<UnitOptionResponse>> CreateUnitOptionAsync(
+        string userId, int unitId, CreateUnitOptionRequest request)
+    {
+        try
+        {
+            var access = await IsAdminOfUnitAsync(userId, unitId);
+            if (!access.Value)
+                return Result.Failure<UnitOptionResponse>(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            // Validate: selections required only for Select / MultiSelect
+            if (RequiresSelections(request.InputType) &&
+                (request.Selections is null || request.Selections.Count == 0))
+                return Result.Failure<UnitOptionResponse>(
+                    new Error("SelectionsRequired",
+                        "Selections are required for Select and MultiSelect input types", 400));
+
+            if (!RequiresSelections(request.InputType) && request.Selections?.Count > 0)
+                return Result.Failure<UnitOptionResponse>(
+                    new Error("SelectionsNotAllowed",
+                        "Selections are only allowed for Select and MultiSelect input types", 400));
+
+            var option = new UnitOption
+            {
+                UnitId = unitId,
+                Name = request.Name,
+                InputType = request.InputType,
+                IsRequired = request.IsRequired,
+                DisplayOrder = request.DisplayOrder,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow.AddHours(3)
+            };
+
+            if (RequiresSelections(request.InputType) && request.Selections is not null)
+            {
+                option.Selections = request.Selections
+                    .Select((s, idx) => new UnitOptionSelection
+                    {
+                        Value = s.Value,
+                        DisplayOrder = s.DisplayOrder == 0 ? idx : s.DisplayOrder
+                    }).ToList();
+            }
+
+            _context.Set<UnitOption>().Add(option);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "UnitOption {OptionId} created for unit {UnitId} by user {UserId}",
+                option.Id, unitId, userId);
+
+            // Reload with selections
+            await _context.Entry(option)
+                .Collection(o => o.Selections)
+                .LoadAsync();
+
+            return Result.Success(MapToUnitOptionResponse(option));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating unit option for unit {UnitId}", unitId);
+            return Result.Failure<UnitOptionResponse>(
+                new Error("CreateUnitOptionFailed", "Failed to create unit option", 500));
+        }
+    }
+
+    public async Task<Result<UnitOptionResponse>> UpdateUnitOptionAsync(
+        string userId, int optionId, UpdateUnitOptionRequest request)
+    {
+        try
+        {
+            var option = await _context.Set<UnitOption>()
+                .Include(o => o.Selections)
+                .FirstOrDefaultAsync(o => o.Id == optionId);
+
+            if (option is null)
+                return Result.Failure<UnitOptionResponse>(
+                    new Error("NotFound", "Unit option not found", 404));
+
+            var access = await IsAdminOfUnitAsync(userId, option.UnitId);
+            if (!access.Value)
+                return Result.Failure<UnitOptionResponse>(
+                    new Error("NoAccess", "You do not have access to this option", 403));
+
+            if (request.Name is not null) option.Name = request.Name;
+            if (request.IsRequired.HasValue) option.IsRequired = request.IsRequired.Value;
+            if (request.DisplayOrder.HasValue) option.DisplayOrder = request.DisplayOrder.Value;
+            if (request.IsActive.HasValue) option.IsActive = request.IsActive.Value;
+
+            // InputType change
+            var effectiveInputType = request.InputType ?? option.InputType;
+            if (request.InputType.HasValue)
+                option.InputType = request.InputType.Value;
+
+            // Selections replacement
+            if (request.Selections is not null)
+            {
+                if (RequiresSelections(effectiveInputType) && request.Selections.Count == 0)
+                    return Result.Failure<UnitOptionResponse>(
+                        new Error("SelectionsRequired",
+                            "Selections cannot be empty for Select/MultiSelect types", 400));
+
+                if (!RequiresSelections(effectiveInputType) && request.Selections.Count > 0)
+                    return Result.Failure<UnitOptionResponse>(
+                        new Error("SelectionsNotAllowed",
+                            "Selections are only allowed for Select and MultiSelect types", 400));
+
+                // Remove old, add new
+                _context.Set<UnitOptionSelection>().RemoveRange(option.Selections);
+                option.Selections = request.Selections
+                    .Select((s, idx) => new UnitOptionSelection
+                    {
+                        Value = s.Value,
+                        DisplayOrder = s.DisplayOrder == 0 ? idx : s.DisplayOrder
+                    }).ToList();
+            }
+            else if (!RequiresSelections(effectiveInputType) && option.Selections.Count > 0)
+            {
+                // Input type changed away from Select/MultiSelect — purge selections
+                _context.Set<UnitOptionSelection>().RemoveRange(option.Selections);
+                option.Selections.Clear();
+            }
+
+            option.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "UnitOption {OptionId} updated by user {UserId}", optionId, userId);
+
+            return Result.Success(MapToUnitOptionResponse(option));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating unit option {OptionId}", optionId);
+            return Result.Failure<UnitOptionResponse>(
+                new Error("UpdateUnitOptionFailed", "Failed to update unit option", 500));
+        }
+    }
+
+    public async Task<Result> DeleteUnitOptionAsync(string userId, int optionId)
+    {
+        try
+        {
+            var option = await _context.Set<UnitOption>()
+                .Include(o => o.Selections)
+                .FirstOrDefaultAsync(o => o.Id == optionId);
+
+            if (option is null)
+                return Result.Failure(new Error("NotFound", "Unit option not found", 404));
+
+            var access = await IsAdminOfUnitAsync(userId, option.UnitId);
+            if (!access.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this option", 403));
+
+            _context.Set<UnitOptionSelection>().RemoveRange(option.Selections);
+            _context.Set<UnitOption>().Remove(option);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "UnitOption {OptionId} deleted by user {UserId}", optionId, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting unit option {OptionId}", optionId);
+            return Result.Failure(
+                new Error("DeleteUnitOptionFailed", "Failed to delete unit option", 500));
+        }
+    }
+
+    #endregion
+
+    // ─────────────────────────────────────────────
+    // SUBUNIT OPTIONS
+    // ─────────────────────────────────────────────
+
+    #region SubUnit Options
+
+    public async Task<Result<IEnumerable<SubUnitOptionResponse>>> GetSubUnitOptionsListAsync(
+        string userId, int subUnitId)
+    {
+        try
+        {
+            var subUnit = await _context.SubUnits
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
+
+            if (subUnit is null)
+                return Result.Failure<IEnumerable<SubUnitOptionResponse>>(
+                    new Error("NotFound", "SubUnit not found", 404));
+
+            var access = await IsAdminOfUnitAsync(userId, subUnit.UnitId);
+            if (!access.Value)
+                return Result.Failure<IEnumerable<SubUnitOptionResponse>>(
+                    new Error("NoAccess", "You do not have access to this subunit", 403));
+
+            var options = await _context.Set<SubUnitOption>()
+                .Include(o => o.Selections.OrderBy(s => s.DisplayOrder))
+                .Where(o => o.SubUnitId == subUnitId && o.IsActive)
+                .OrderBy(o => o.DisplayOrder)
+                .ThenBy(o => o.CreatedAt)
+                .AsNoTracking()
+                .ToListAsync();
+
+            return Result.Success(options.Select(MapToSubUnitOptionResponse));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting subunit options for subunit {SubUnitId}", subUnitId);
+            return Result.Failure<IEnumerable<SubUnitOptionResponse>>(
+                new Error("GetSubUnitOptionsFailed", "Failed to retrieve subunit options", 500));
+        }
+    }
+
+    public async Task<Result<SubUnitOptionResponse>> GetSubUnitOptionByIdAsync(
+        string userId, int optionId)
+    {
+        try
+        {
+            var option = await _context.Set<SubUnitOption>()
+                .Include(o => o.SubUnit)
+                .Include(o => o.Selections.OrderBy(s => s.DisplayOrder))
+                .FirstOrDefaultAsync(o => o.Id == optionId);
+
+            if (option is null)
+                return Result.Failure<SubUnitOptionResponse>(
+                    new Error("NotFound", "SubUnit option not found", 404));
+
+            var access = await IsAdminOfUnitAsync(userId, option.SubUnit.UnitId);
+            if (!access.Value)
+                return Result.Failure<SubUnitOptionResponse>(
+                    new Error("NoAccess", "You do not have access to this option", 403));
+
+            return Result.Success(MapToSubUnitOptionResponse(option));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting subunit option {OptionId}", optionId);
+            return Result.Failure<SubUnitOptionResponse>(
+                new Error("GetSubUnitOptionFailed", "Failed to retrieve subunit option", 500));
+        }
+    }
+
+    public async Task<Result<SubUnitOptionResponse>> CreateSubUnitOptionAsync(
+        string userId, int subUnitId, CreateSubUnitOptionRequest request)
+    {
+        try
+        {
+            var subUnit = await _context.SubUnits
+                .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
+
+            if (subUnit is null)
+                return Result.Failure<SubUnitOptionResponse>(
+                    new Error("NotFound", "SubUnit not found", 404));
+
+            var access = await IsAdminOfUnitAsync(userId, subUnit.UnitId);
+            if (!access.Value)
+                return Result.Failure<SubUnitOptionResponse>(
+                    new Error("NoAccess", "You do not have access to this subunit", 403));
+
+            if (RequiresSelections(request.InputType) &&
+                (request.Selections is null || request.Selections.Count == 0))
+                return Result.Failure<SubUnitOptionResponse>(
+                    new Error("SelectionsRequired",
+                        "Selections are required for Select and MultiSelect input types", 400));
+
+            if (!RequiresSelections(request.InputType) && request.Selections?.Count > 0)
+                return Result.Failure<SubUnitOptionResponse>(
+                    new Error("SelectionsNotAllowed",
+                        "Selections are only allowed for Select and MultiSelect input types", 400));
+
+            var option = new SubUnitOption
+            {
+                SubUnitId = subUnitId,
+                Name = request.Name,
+                InputType = request.InputType,
+                IsRequired = request.IsRequired,
+                DisplayOrder = request.DisplayOrder,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow.AddHours(3)
+            };
+
+            if (RequiresSelections(request.InputType) && request.Selections is not null)
+            {
+                option.Selections = request.Selections
+                    .Select((s, idx) => new SubUnitOptionSelection
+                    {
+                        Value = s.Value,
+                        DisplayOrder = s.DisplayOrder == 0 ? idx : s.DisplayOrder
+                    }).ToList();
+            }
+
+            _context.Set<SubUnitOption>().Add(option);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "SubUnitOption {OptionId} created for subunit {SubUnitId} by user {UserId}",
+                option.Id, subUnitId, userId);
+
+            await _context.Entry(option)
+                .Collection(o => o.Selections)
+                .LoadAsync();
+
+            return Result.Success(MapToSubUnitOptionResponse(option));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating subunit option for subunit {SubUnitId}", subUnitId);
+            return Result.Failure<SubUnitOptionResponse>(
+                new Error("CreateSubUnitOptionFailed", "Failed to create subunit option", 500));
+        }
+    }
+
+    public async Task<Result<SubUnitOptionResponse>> UpdateSubUnitOptionAsync(
+        string userId, int optionId, UpdateSubUnitOptionRequest request)
+    {
+        try
+        {
+            var option = await _context.Set<SubUnitOption>()
+                .Include(o => o.SubUnit)
+                .Include(o => o.Selections)
+                .FirstOrDefaultAsync(o => o.Id == optionId);
+
+            if (option is null)
+                return Result.Failure<SubUnitOptionResponse>(
+                    new Error("NotFound", "SubUnit option not found", 404));
+
+            var access = await IsAdminOfUnitAsync(userId, option.SubUnit.UnitId);
+            if (!access.Value)
+                return Result.Failure<SubUnitOptionResponse>(
+                    new Error("NoAccess", "You do not have access to this option", 403));
+
+            if (request.Name is not null) option.Name = request.Name;
+            if (request.IsRequired.HasValue) option.IsRequired = request.IsRequired.Value;
+            if (request.DisplayOrder.HasValue) option.DisplayOrder = request.DisplayOrder.Value;
+            if (request.IsActive.HasValue) option.IsActive = request.IsActive.Value;
+
+            var effectiveInputType = request.InputType ?? option.InputType;
+            if (request.InputType.HasValue)
+                option.InputType = request.InputType.Value;
+
+            if (request.Selections is not null)
+            {
+                if (RequiresSelections(effectiveInputType) && request.Selections.Count == 0)
+                    return Result.Failure<SubUnitOptionResponse>(
+                        new Error("SelectionsRequired",
+                            "Selections cannot be empty for Select/MultiSelect types", 400));
+
+                if (!RequiresSelections(effectiveInputType) && request.Selections.Count > 0)
+                    return Result.Failure<SubUnitOptionResponse>(
+                        new Error("SelectionsNotAllowed",
+                            "Selections are only allowed for Select and MultiSelect types", 400));
+
+                _context.Set<SubUnitOptionSelection>().RemoveRange(option.Selections);
+                option.Selections = request.Selections
+                    .Select((s, idx) => new SubUnitOptionSelection
+                    {
+                        Value = s.Value,
+                        DisplayOrder = s.DisplayOrder == 0 ? idx : s.DisplayOrder
+                    }).ToList();
+            }
+            else if (!RequiresSelections(effectiveInputType) && option.Selections.Count > 0)
+            {
+                _context.Set<SubUnitOptionSelection>().RemoveRange(option.Selections);
+                option.Selections.Clear();
+            }
+
+            option.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "SubUnitOption {OptionId} updated by user {UserId}", optionId, userId);
+
+            return Result.Success(MapToSubUnitOptionResponse(option));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating subunit option {OptionId}", optionId);
+            return Result.Failure<SubUnitOptionResponse>(
+                new Error("UpdateSubUnitOptionFailed", "Failed to update subunit option", 500));
+        }
+    }
+
+    public async Task<Result> DeleteSubUnitOptionAsync(string userId, int optionId)
+    {
+        try
+        {
+            var option = await _context.Set<SubUnitOption>()
+                .Include(o => o.SubUnit)
+                .Include(o => o.Selections)
+                .FirstOrDefaultAsync(o => o.Id == optionId);
+
+            if (option is null)
+                return Result.Failure(new Error("NotFound", "SubUnit option not found", 404));
+
+            var access = await IsAdminOfUnitAsync(userId, option.SubUnit.UnitId);
+            if (!access.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this option", 403));
+
+            _context.Set<SubUnitOptionSelection>().RemoveRange(option.Selections);
+            _context.Set<SubUnitOption>().Remove(option);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "SubUnitOption {OptionId} deleted by user {UserId}", optionId, userId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting subunit option {OptionId}", optionId);
+            return Result.Failure(
+                new Error("DeleteSubUnitOptionFailed", "Failed to delete subunit option", 500));
+        }
+    }
+
+    #endregion
+
+    #endregion
+
     public async Task<Result<ImageDetailResponse>> UploadUnitImageAsync(
         string userId,
         IFormFile image,
