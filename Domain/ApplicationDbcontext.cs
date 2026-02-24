@@ -65,10 +65,12 @@ public class ApplicationDbcontext(DbContextOptions<ApplicationDbcontext> options
     public DbSet<Offer> Offers { get; set; }
     public DbSet<UnitCustomPolicy> UnitCustomPolicies { get; set; }
 
-    public DbSet<UnitOption> UnitOptions { get; set; }
-    public DbSet<UnitOptionSelection> UnitOptionSelections { get; set; }
-    public DbSet<SubUnitOption> SubUnitOptions { get; set; }
-    public DbSet<SubUnitOptionSelection> SubUnitOptionSelections { get; set; }
+    public DbSet<UnitTypeOption> UnitTypeOptions { get; set; }
+    public DbSet<UnitTypeOptionSelection> UnitTypeOptionSelections { get; set; }
+    public DbSet<UnitOptionValue> UnitOptionValues { get; set; }
+    public DbSet<SubUnitTypeOption> SubUnitTypeOptions { get; set; }
+    public DbSet<SubUnitTypeOptionSelection> SubUnitTypeOptionSelections { get; set; }
+    public DbSet<SubUnitOptionValue> SubUnitOptionValues { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

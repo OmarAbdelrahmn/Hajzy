@@ -17,6 +17,9 @@ public class UnitType
 
     // Navigation
     //public ICollection<Unit> Units { get; set; } = [];
+
+    public ICollection<UnitTypeOption> Options { get; set; } = [];
+
 }
 
 public class SubUnitTypee
@@ -32,5 +35,6 @@ public class SubUnitTypee
 
     public bool IsActive { get; set; } = true;
 
+    public ICollection<SubUnitTypeOption> Options { get; set; } = [];
 
 }

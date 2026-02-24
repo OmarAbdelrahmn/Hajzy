@@ -62,7 +62,7 @@ public class Unit
     public ICollection<Review> Reviews { get; set; } = [];
     public ICollection<UnitAvailability> Availabilities { get; set; } = [];
     public ICollection<UnitCustomPolicy> CustomPolicies { get; set; } = [];
-    public ICollection<UnitOption> Options { get; set; } = [];
+    public ICollection<UnitOptionValue> OptionValues { get; set; } = [];
 
 }
 

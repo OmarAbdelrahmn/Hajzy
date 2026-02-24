@@ -126,8 +126,6 @@ public class PublicService(
                 .Where(r => r.IsVisible) // ADD IsVisible filter
                 .OrderByDescending(r => r.CreatedAt).Take(10))
                     .ThenInclude(r => r.Images)
-                .Include(u => u.Options.Where(o => o.IsActive))        // ADD THIS
-                    .ThenInclude(o => o.Selections) 
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted && u.IsActive && u.IsVerified);
 
@@ -241,20 +239,7 @@ public class PublicService(
                     Description = p.Description,
                     Category = p.Category
                 }).ToList(),
-                UnitOptions = unit.Options                    // ADD THIS BLOCK
-                .Where(o => o.IsActive)
-                .OrderBy(o => o.DisplayOrder)
-                .Select(o => new PublicUnitOptionInfo
-                {
-                    Id = o.Id,
-                    Name = o.Name,
-                    InputType = o.InputType.ToString(),
-                    IsRequired = o.IsRequired,
-                    Selections = o.Selections
-                        .OrderBy(s => s.DisplayOrder)
-                        .Select(s => s.Value)
-                        .ToList()
-                }).ToList()
+                
             };
 
             // Cache for 5 minutes

@@ -97,16 +97,8 @@ public record PublicUnitDetailsResponses
     public List<string> Options { get; init; } = new();
     public string Currency { get; init; } = "SAR";
     public List<PublicCustomPolicyInfo> CustomPolicies { get; init; } = new();
-    public List<PublicUnitOptionInfo> UnitOptions { get; init; } = new();
 }
-public record PublicUnitOptionInfo
-{
-    public int Id { get; init; }
-    public string Name { get; init; } = string.Empty;
-    public string InputType { get; init; } = string.Empty;
-    public bool IsRequired { get; init; }
-    public List<string> Selections { get; init; } = new();
-}
+
 public record PublicCustomPolicyInfo
 {
     public string Title { get; init; } = string.Empty;

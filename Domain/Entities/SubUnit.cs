@@ -37,7 +37,8 @@ public class SubUnit
     public ICollection<SubUniteAmenity> SubUnitAmenities { get; set; } = [];
     public ICollection<SubUnitImage> SubUnitImages { get; set; } = [];
     public ICollection<SubUnitAvailability> SubUnitAvailabilities { get; set; } = [];
-    public ICollection<SubUnitOption> Options { get; set; } = [];
+
+    public ICollection<SubUnitOptionValue> OptionValues { get; set; } = [];
 
 
 }

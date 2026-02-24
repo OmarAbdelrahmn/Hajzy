@@ -1,4 +1,5 @@
-﻿using Application.Service.SubUnitType;
+﻿using Application.Contracts.Options;
+using Application.Service.SubUnitType;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -6,6 +7,7 @@ namespace Hajzzy.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize(Roles = "SuperAdmin,CityAdmin")]
 public class SubUnitTypeController(ISubUnitTypeService service) : ControllerBase
 {
     private readonly ISubUnitTypeService _service = service;
@@ -174,5 +176,47 @@ public class SubUnitTypeController(ISubUnitTypeService service) : ControllerBase
             : result.ToProblem();
     }
 
+    #endregion
+
+    #region options
+    [HttpGet("{unitTypeId}/options")]
+    public async Task<IActionResult> GetOptions(int unitTypeId)
+    {
+        var result = await _service.GetOptionsAsync(unitTypeId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    [HttpGet("options/{optionId}")]
+    public async Task<IActionResult> GetOptionById(int optionId)
+    {
+        var result = await _service.GetOptionByIdAsync(optionId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    [HttpPost("{unitTypeId}/options")]
+    [Authorize]
+    public async Task<IActionResult> CreateOption(int unitTypeId, [FromBody] CreateSubUnitTypeOptionRequest request)
+    {
+        var result = await _service.CreateOptionAsync(unitTypeId, request);
+        return result.IsSuccess
+            ? CreatedAtAction(nameof(GetOptionById), new { optionId = result.Value.Id }, result.Value)
+            : result.ToProblem();
+    }
+
+    [HttpPut("options/{optionId}")]
+    [Authorize]
+    public async Task<IActionResult> UpdateOption(int optionId, [FromBody] UpdateSubUnitTypeOptionRequest request)
+    {
+        var result = await _service.UpdateOptionAsync(optionId, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    [HttpDelete("options/{optionId}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteOptionById(int optionId)
+    {
+        var result = await _service.DeleteOptionAsync(optionId);
+        return result.IsSuccess ? Ok() : result.ToProblem();
+    }
     #endregion
 }

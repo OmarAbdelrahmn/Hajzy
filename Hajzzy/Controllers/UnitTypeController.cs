@@ -1,4 +1,5 @@
-﻿using Application.Contracts.Unit;
+﻿using Application.Contracts.Options;
+using Application.Contracts.Unit;
 using Application.Service.UnitType;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -175,5 +176,46 @@ public class UnitTypeController(IUnitTypeService service) : ControllerBase
             : result.ToProblem();
     }
 
+    #endregion
+
+    #region options
+    [HttpGet("{unitTypeId}/options")]
+    public async Task<IActionResult> GetOptions(int unitTypeId)
+    {
+        var result = await _service.GetOptionsAsync(unitTypeId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    [HttpGet("options/{optionId}")]
+    public async Task<IActionResult> GetOptionById(int optionId)
+    {
+        var result = await _service.GetOptionByIdAsync(optionId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    [HttpPost("{unitTypeId}/options")]
+    [Authorize]
+    public async Task<IActionResult> CreateOption(int unitTypeId, [FromBody] CreateUnitTypeOptionRequest request)
+    {
+        var result = await _service.CreateOptionAsync(unitTypeId, request);
+        return result.IsSuccess
+            ? CreatedAtAction(nameof(GetOptionById), new { optionId = result.Value.Id }, result.Value)
+            : result.ToProblem();
+    }
+
+    [HttpPut("options/{optionId}")]
+    [Authorize]
+    public async Task<IActionResult> UpdateOption(int optionId, [FromBody] UpdateUnitTypeOptionRequest request)
+    {
+        var result = await _service.UpdateOptionAsync(optionId, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    [HttpDelete("options/{optionId}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteOptionById(int optionId) {
+        var result = await _service.DeleteOptionAsync(optionId);
+        return result.IsSuccess ? Ok() : result.ToProblem();
+    }
     #endregion
 }

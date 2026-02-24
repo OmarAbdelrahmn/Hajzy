@@ -1,5 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.AD;
+using Application.Contracts.Options;
 using Application.Contracts.Unit;
 
 namespace Application.Service.UnitType;
@@ -29,4 +30,10 @@ public interface IUnitTypeService
     // ============= VALIDATION =============
     Task<Result<bool>> IsNameUniqueAsync(string name, int? excludeId = null);
     Task<Result<bool>> CanDeleteAsync(int unitTypeId);
+
+    Task<Result<IEnumerable<UnitTypeOptionResponse>>> GetOptionsAsync(int unitTypeId);
+    Task<Result<UnitTypeOptionResponse>> GetOptionByIdAsync(int optionId);
+    Task<Result<UnitTypeOptionResponse>> CreateOptionAsync(int unitTypeId, CreateUnitTypeOptionRequest request);
+    Task<Result<UnitTypeOptionResponse>> UpdateOptionAsync(int optionId, UpdateUnitTypeOptionRequest request);
+    Task<Result> DeleteOptionAsync(int optionId);
 }

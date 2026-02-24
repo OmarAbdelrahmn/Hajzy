@@ -1,5 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.AD;
+using Application.Contracts.Options;
 using Domain;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,9 @@ public class SubUnitTypeService(
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly ILogger<SubUnitTypeService> _logger = logger;
+    private static bool SUTOptionRequiresSelections(OptionInputType t) =>
+      t is OptionInputType.Select or OptionInputType.MultiSelect;
+
 
     #region CRUD Operations
 
@@ -454,6 +458,231 @@ public class SubUnitTypeService(
                 : query.OrderBy(st => st.Name),
             _ => query.OrderBy(st => st.Name)
         };
+    }
+
+    #endregion
+
+    #region Options
+    private static SubUnitTypeOptionResponse MapSUTOption(SubUnitTypeOption opt) => new()
+    {
+        Id = opt.Id,
+        SubUnitTypeId = opt.SubUnitTypeId,
+        Name = opt.Name,
+        InputType = opt.InputType.ToString(),
+        IsRequired = opt.IsRequired,
+        DisplayOrder = opt.DisplayOrder,
+        IsActive = opt.IsActive,
+        CreatedAt = opt.CreatedAt,
+        UpdatedAt = opt.UpdatedAt,
+        Selections = SUTOptionRequiresSelections(opt.InputType)
+            ? opt.Selections.OrderBy(s => s.DisplayOrder)
+                  .Select(s => new TypeOptionSelectionDto
+                  { Id = s.Id, Value = s.Value, DisplayOrder = s.DisplayOrder }).ToList()
+            : null
+    };
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GET ALL OPTIONS FOR A SUBUNIT TYPE
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public async Task<Result<IEnumerable<SubUnitTypeOptionResponse>>> GetOptionsAsync(int subUnitTypeId)
+    {
+        try
+        {
+            var opts = await _context.Set<SubUnitTypeOption>()
+                .Include(o => o.Selections.OrderBy(s => s.DisplayOrder))
+                .Where(o => o.SubUnitTypeId == subUnitTypeId && o.IsActive)
+                .OrderBy(o => o.DisplayOrder).ThenBy(o => o.CreatedAt)
+                .AsNoTracking().ToListAsync();
+
+            return Result.Success(opts.Select(MapSUTOption));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting options for subunit type {Id}", subUnitTypeId);
+            return Result.Failure<IEnumerable<SubUnitTypeOptionResponse>>(
+                new Error("GetOptionsFailed", "Failed to retrieve subunit type options", 500));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GET SINGLE OPTION
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public async Task<Result<SubUnitTypeOptionResponse>> GetOptionByIdAsync(int optionId)
+    {
+        try
+        {
+            var opt = await _context.Set<SubUnitTypeOption>()
+                .Include(o => o.Selections.OrderBy(s => s.DisplayOrder))
+                .FirstOrDefaultAsync(o => o.Id == optionId);
+
+            if (opt is null)
+                return Result.Failure<SubUnitTypeOptionResponse>(
+                    new Error("NotFound", "SubUnit type option not found", 404));
+
+            return Result.Success(MapSUTOption(opt));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting subunit type option {Id}", optionId);
+            return Result.Failure<SubUnitTypeOptionResponse>(
+                new Error("GetOptionFailed", "Failed to retrieve subunit type option", 500));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CREATE OPTION
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public async Task<Result<SubUnitTypeOptionResponse>> CreateOptionAsync(
+        int subUnitTypeId, CreateSubUnitTypeOptionRequest request)
+    {
+        try
+        {
+            if (!await _context.SubUnitTypees.AnyAsync(t => t.Id == subUnitTypeId))
+                return Result.Failure<SubUnitTypeOptionResponse>(
+                    new Error("NotFound", "SubUnit type not found", 404));
+
+            if (SUTOptionRequiresSelections(request.InputType) &&
+                (request.Selections is null || request.Selections.Count == 0))
+                return Result.Failure<SubUnitTypeOptionResponse>(
+                    new Error("SelectionsRequired",
+                        "Selections are required for Select and MultiSelect input types", 400));
+
+            if (!SUTOptionRequiresSelections(request.InputType) && request.Selections?.Count > 0)
+                return Result.Failure<SubUnitTypeOptionResponse>(
+                    new Error("SelectionsNotAllowed",
+                        "Selections are only allowed for Select and MultiSelect input types", 400));
+
+            var opt = new SubUnitTypeOption
+            {
+                SubUnitTypeId = subUnitTypeId,
+                Name = request.Name,
+                InputType = request.InputType,
+                IsRequired = request.IsRequired,
+                DisplayOrder = request.DisplayOrder,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow.AddHours(3)
+            };
+
+            if (SUTOptionRequiresSelections(request.InputType) && request.Selections is not null)
+                opt.Selections = request.Selections
+                    .Select((s, i) => new SubUnitTypeOptionSelection
+                    { Value = s.Value, DisplayOrder = s.DisplayOrder == 0 ? i : s.DisplayOrder })
+                    .ToList();
+
+            _context.Set<SubUnitTypeOption>().Add(opt);
+            await _context.SaveChangesAsync();
+            await _context.Entry(opt).Collection(o => o.Selections).LoadAsync();
+
+            _logger.LogInformation(
+                "SubUnitTypeOption {Id} created for subunit type {TypeId}", opt.Id, subUnitTypeId);
+
+            return Result.Success(MapSUTOption(opt));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating option for subunit type {Id}", subUnitTypeId);
+            return Result.Failure<SubUnitTypeOptionResponse>(
+                new Error("CreateOptionFailed", "Failed to create subunit type option", 500));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // UPDATE OPTION
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public async Task<Result<SubUnitTypeOptionResponse>> UpdateOptionAsync(
+        int optionId, UpdateSubUnitTypeOptionRequest request)
+    {
+        try
+        {
+            var opt = await _context.Set<SubUnitTypeOption>()
+                .Include(o => o.Selections)
+                .FirstOrDefaultAsync(o => o.Id == optionId);
+
+            if (opt is null)
+                return Result.Failure<SubUnitTypeOptionResponse>(
+                    new Error("NotFound", "SubUnit type option not found", 404));
+
+            if (request.Name is not null) opt.Name = request.Name;
+            if (request.IsRequired is not null) opt.IsRequired = request.IsRequired.Value;
+            if (request.DisplayOrder is not null) opt.DisplayOrder = request.DisplayOrder.Value;
+            if (request.IsActive is not null) opt.IsActive = request.IsActive.Value;
+
+            var effectiveType = request.InputType ?? opt.InputType;
+            if (request.InputType.HasValue) opt.InputType = request.InputType.Value;
+
+            if (request.Selections is not null)
+            {
+                if (SUTOptionRequiresSelections(effectiveType) && request.Selections.Count == 0)
+                    return Result.Failure<SubUnitTypeOptionResponse>(
+                        new Error("SelectionsRequired",
+                            "Selections cannot be empty for Select/MultiSelect types", 400));
+
+                if (!SUTOptionRequiresSelections(effectiveType) && request.Selections.Count > 0)
+                    return Result.Failure<SubUnitTypeOptionResponse>(
+                        new Error("SelectionsNotAllowed",
+                            "Selections are only allowed for Select and MultiSelect types", 400));
+
+                // Atomically replace selections
+                _context.Set<SubUnitTypeOptionSelection>().RemoveRange(opt.Selections);
+                opt.Selections = request.Selections
+                    .Select((s, i) => new SubUnitTypeOptionSelection
+                    { Value = s.Value, DisplayOrder = s.DisplayOrder == 0 ? i : s.DisplayOrder })
+                    .ToList();
+            }
+            else if (!SUTOptionRequiresSelections(effectiveType) && opt.Selections.Count > 0)
+            {
+                // InputType changed away from Select/MultiSelect — purge stale selections
+                _context.Set<SubUnitTypeOptionSelection>().RemoveRange(opt.Selections);
+                opt.Selections.Clear();
+            }
+
+            opt.UpdatedAt = DateTime.UtcNow.AddHours(3);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("SubUnitTypeOption {Id} updated", optionId);
+            return Result.Success(MapSUTOption(opt));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating subunit type option {Id}", optionId);
+            return Result.Failure<SubUnitTypeOptionResponse>(
+                new Error("UpdateOptionFailed", "Failed to update subunit type option", 500));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // DELETE OPTION  (cascades to SubUnitOptionValues via DB constraint)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public async Task<Result> DeleteOptionAsync(int optionId)
+    {
+        try
+        {
+            var opt = await _context.Set<SubUnitTypeOption>()
+                .Include(o => o.Selections)
+                .FirstOrDefaultAsync(o => o.Id == optionId);
+
+            if (opt is null)
+                return Result.Failure(new Error("NotFound", "SubUnit type option not found", 404));
+
+            // Remove selections first, then the option itself
+            _context.Set<SubUnitTypeOptionSelection>().RemoveRange(opt.Selections);
+            _context.Set<SubUnitTypeOption>().Remove(opt);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("SubUnitTypeOption {Id} deleted", optionId);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting subunit type option {Id}", optionId);
+            return Result.Failure(
+                new Error("DeleteOptionFailed", "Failed to delete subunit type option", 500));
+        }
     }
 
     #endregion

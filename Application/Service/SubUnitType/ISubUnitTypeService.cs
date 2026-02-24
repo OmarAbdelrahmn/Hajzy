@@ -1,5 +1,6 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.AD;
+using Application.Contracts.Options;
 
 namespace Application.Service.SubUnitType;
 
@@ -26,6 +27,13 @@ public interface ISubUnitTypeService
     // ============= VALIDATION =============
     Task<Result<bool>> IsNameUniqueAsync(string name, int? excludeId = null);
     Task<Result<bool>> CanDeleteAsync(int subUnitTypeId);
+
+    // ===== SUBUNIT TYPE OPTIONS =====
+    Task<Result<IEnumerable<SubUnitTypeOptionResponse>>> GetOptionsAsync(int subUnitTypeId);
+    Task<Result<SubUnitTypeOptionResponse>> GetOptionByIdAsync(int optionId);
+    Task<Result<SubUnitTypeOptionResponse>> CreateOptionAsync(int subUnitTypeId, CreateSubUnitTypeOptionRequest request);
+    Task<Result<SubUnitTypeOptionResponse>> UpdateOptionAsync(int optionId, UpdateSubUnitTypeOptionRequest request);
+    Task<Result> DeleteOptionAsync(int optionId);
 }
 
 

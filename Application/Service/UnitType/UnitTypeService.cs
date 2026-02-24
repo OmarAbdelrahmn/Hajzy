@@ -1,7 +1,9 @@
 ﻿using Application.Abstraction;
 using Application.Contracts.AD;
+using Application.Contracts.Options;
 using Application.Contracts.Unit;
 using Domain;
+using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -13,6 +15,8 @@ public class UnitTypeService(
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly ILogger<UnitTypeService> _logger = logger;
+    private static bool UTOptionRequiresSelections(OptionInputType t) =>
+    t is OptionInputType.Select or OptionInputType.MultiSelect;
 
     #region CRUD Operations
 
@@ -455,5 +459,196 @@ public class UnitTypeService(
         };
     }
 
+    #endregion
+
+    #region options
+
+    private static UnitTypeOptionResponse MapUTOption(UnitTypeOption opt) => new()
+    {
+        Id = opt.Id,
+        UnitTypeId = opt.UnitTypeId,
+        Name = opt.Name,
+        InputType = opt.InputType.ToString(),
+        IsRequired = opt.IsRequired,
+        DisplayOrder = opt.DisplayOrder,
+        IsActive = opt.IsActive,
+        CreatedAt = opt.CreatedAt,
+        UpdatedAt = opt.UpdatedAt,
+        Selections = UTOptionRequiresSelections(opt.InputType)
+        ? opt.Selections.OrderBy(s => s.DisplayOrder)
+              .Select(s => new TypeOptionSelectionDto
+              { Id = s.Id, Value = s.Value, DisplayOrder = s.DisplayOrder }).ToList()
+        : null
+    };
+
+    public async Task<Result<IEnumerable<UnitTypeOptionResponse>>> GetOptionsAsync(int unitTypeId)
+    {
+        try
+        {
+            var opts = await _context.Set<UnitTypeOption>()
+                .Include(o => o.Selections.OrderBy(s => s.DisplayOrder))
+                .Where(o => o.UnitTypeId == unitTypeId && o.IsActive)
+                .OrderBy(o => o.DisplayOrder).ThenBy(o => o.CreatedAt)
+                .AsNoTracking().ToListAsync();
+            return Result.Success(opts.Select(MapUTOption));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting options for unit type {Id}", unitTypeId);
+            return Result.Failure<IEnumerable<UnitTypeOptionResponse>>(
+                new Error("GetOptionsFailed", "Failed to retrieve unit type options", 500));
+        }
+    }
+
+    public async Task<Result<UnitTypeOptionResponse>> GetOptionByIdAsync(int optionId)
+    {
+        try
+        {
+            var opt = await _context.Set<UnitTypeOption>()
+                .Include(o => o.Selections.OrderBy(s => s.DisplayOrder))
+                .FirstOrDefaultAsync(o => o.Id == optionId);
+            if (opt is null)
+                return Result.Failure<UnitTypeOptionResponse>(
+                    new Error("NotFound", "Unit type option not found", 404));
+            return Result.Success(MapUTOption(opt));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting unit type option {Id}", optionId);
+            return Result.Failure<UnitTypeOptionResponse>(
+                new Error("GetOptionFailed", "Failed to retrieve unit type option", 500));
+        }
+    }
+
+    public async Task<Result<UnitTypeOptionResponse>> CreateOptionAsync(
+        int unitTypeId, CreateUnitTypeOptionRequest request)
+    {
+        try
+        {
+            if (!await _context.UnitTypes.AnyAsync(t => t.Id == unitTypeId))
+                return Result.Failure<UnitTypeOptionResponse>(
+                    new Error("NotFound", "Unit type not found", 404));
+
+            if (UTOptionRequiresSelections(request.InputType) &&
+                (request.Selections is null || request.Selections.Count == 0))
+                return Result.Failure<UnitTypeOptionResponse>(
+                    new Error("SelectionsRequired",
+                        "Selections are required for Select and MultiSelect input types", 400));
+
+            if (!UTOptionRequiresSelections(request.InputType) && request.Selections?.Count > 0)
+                return Result.Failure<UnitTypeOptionResponse>(
+                    new Error("SelectionsNotAllowed",
+                        "Selections are only allowed for Select and MultiSelect input types", 400));
+
+            var opt = new UnitTypeOption
+            {
+                UnitTypeId = unitTypeId,
+                Name = request.Name,
+                InputType = request.InputType,
+                IsRequired = request.IsRequired,
+                DisplayOrder = request.DisplayOrder,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow.AddHours(3)
+            };
+
+            if (UTOptionRequiresSelections(request.InputType) && request.Selections is not null)
+                opt.Selections = request.Selections
+                    .Select((s, i) => new UnitTypeOptionSelection
+                    { Value = s.Value, DisplayOrder = s.DisplayOrder == 0 ? i : s.DisplayOrder })
+                    .ToList();
+
+            _context.Set<UnitTypeOption>().Add(opt);
+            await _context.SaveChangesAsync();
+            await _context.Entry(opt).Collection(o => o.Selections).LoadAsync();
+
+            _logger.LogInformation("UnitTypeOption {Id} created for unit type {TypeId}", opt.Id, unitTypeId);
+            return Result.Success(MapUTOption(opt));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating option for unit type {Id}", unitTypeId);
+            return Result.Failure<UnitTypeOptionResponse>(
+                new Error("CreateOptionFailed", "Failed to create unit type option", 500));
+        }
+    }
+
+    public async Task<Result<UnitTypeOptionResponse>> UpdateOptionAsync(
+        int optionId, UpdateUnitTypeOptionRequest request)
+    {
+        try
+        {
+            var opt = await _context.Set<UnitTypeOption>()
+                .Include(o => o.Selections)
+                .FirstOrDefaultAsync(o => o.Id == optionId);
+
+            if (opt is null)
+                return Result.Failure<UnitTypeOptionResponse>(
+                    new Error("NotFound", "Unit type option not found", 404));
+
+            if (request.Name is not null) opt.Name = request.Name;
+            if (request.IsRequired is not null) opt.IsRequired = request.IsRequired.Value;
+            if (request.DisplayOrder is not null) opt.DisplayOrder = request.DisplayOrder.Value;
+            if (request.IsActive is not null) opt.IsActive = request.IsActive.Value;
+
+            var effectiveType = request.InputType ?? opt.InputType;
+            if (request.InputType.HasValue) opt.InputType = request.InputType.Value;
+
+            if (request.Selections is not null)
+            {
+                if (UTOptionRequiresSelections(effectiveType) && request.Selections.Count == 0)
+                    return Result.Failure<UnitTypeOptionResponse>(new Error("SelectionsRequired",
+                        "Selections cannot be empty for Select/MultiSelect types", 400));
+
+                if (!UTOptionRequiresSelections(effectiveType) && request.Selections.Count > 0)
+                    return Result.Failure<UnitTypeOptionResponse>(new Error("SelectionsNotAllowed",
+                        "Selections are only allowed for Select and MultiSelect types", 400));
+
+                _context.Set<UnitTypeOptionSelection>().RemoveRange(opt.Selections);
+                opt.Selections = request.Selections
+                    .Select((s, i) => new UnitTypeOptionSelection
+                    { Value = s.Value, DisplayOrder = s.DisplayOrder == 0 ? i : s.DisplayOrder })
+                    .ToList();
+            }
+            else if (!UTOptionRequiresSelections(effectiveType) && opt.Selections.Count > 0)
+            {
+                _context.Set<UnitTypeOptionSelection>().RemoveRange(opt.Selections);
+                opt.Selections.Clear();
+            }
+
+            opt.UpdatedAt = DateTime.UtcNow.AddHours(3);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("UnitTypeOption {Id} updated", optionId);
+            return Result.Success(MapUTOption(opt));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating unit type option {Id}", optionId);
+            return Result.Failure<UnitTypeOptionResponse>(
+                new Error("UpdateOptionFailed", "Failed to update unit type option", 500));
+        }
+    }
+
+    public async Task<Result> DeleteOptionAsync(int optionId)
+    {
+        try
+        {
+            var opt = await _context.Set<UnitTypeOption>()
+                .Include(o => o.Selections).FirstOrDefaultAsync(o => o.Id == optionId);
+
+            if (opt is null)
+                return Result.Failure(new Error("NotFound", "Unit type option not found", 404));
+
+            _context.Set<UnitTypeOptionSelection>().RemoveRange(opt.Selections);
+            _context.Set<UnitTypeOption>().Remove(opt);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("UnitTypeOption {Id} deleted", optionId);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting unit type option {Id}", optionId);
+            return Result.Failure(new Error("DeleteOptionFailed", "Failed to delete unit type option", 500));
+        }
+    }
     #endregion
 }
