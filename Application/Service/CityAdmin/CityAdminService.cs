@@ -3043,8 +3043,12 @@ public class CityAdminService(
                 CreatedAt = b.CreatedAt,
                 SelectedOptions = string.IsNullOrEmpty(b.SelectedOptionsJson)
                 ? new List<string>()
-                : JsonSerializer.Deserialize<List<string>>(b.SelectedOptionsJson) ?? new List<string>()
-
+                : JsonSerializer.Deserialize<List<string>>(b.SelectedOptionsJson) ?? new List<string>(),
+                GuestFirstName = b.GuestFirstName,
+                GuestLastName = b.GuestLastName,
+                GuestEmail2 = b.GuestEmail,
+                GuestPhone = b.GuestPhone,
+                GuestSpecialRequirements = b.SpecialRequests
             }).ToList();
 
             var paginatedResult = CreatePaginatedResponse(responses, totalCount, filter.Page, filter.PageSize);
@@ -3121,7 +3125,11 @@ public class CityAdminService(
                 UpdatedAt = booking.UpdatedAt,
                 SelectedOptions = string.IsNullOrEmpty(booking.SelectedOptionsJson)
                 ? new List<string>()
-                : JsonSerializer.Deserialize<List<string>>(booking.SelectedOptionsJson) ?? new List<string>()
+                : JsonSerializer.Deserialize<List<string>>(booking.SelectedOptionsJson) ?? new List<string>(),
+                GuestFirstName = booking.GuestFirstName,
+                GuestLastName = booking.GuestLastName,
+                GuestEmail2 = booking.GuestEmail,
+                GuestPhone2 = booking.GuestPhone
             };
 
             return Result.Success(response);
@@ -4486,7 +4494,12 @@ public class CityAdminService(
                 CreatedAt = b.CreatedAt,
                 SelectedOptions = string.IsNullOrEmpty(b.SelectedOptionsJson)
                 ? new List<string>()
-                : JsonSerializer.Deserialize<List<string>>(b.SelectedOptionsJson) ?? new List<string>()
+                : JsonSerializer.Deserialize<List<string>>(b.SelectedOptionsJson) ?? new List<string>(),
+                GuestFirstName = b.GuestFirstName,
+                GuestLastName = b.GuestLastName,
+                GuestEmail2 = b.GuestEmail,
+                GuestPhone = b.GuestPhone,
+                GuestSpecialRequirements = b.SpecialRequests
             }).ToList();
 
             return Result.Success<IEnumerable<BookingComprehensiveResponse>>(responses);

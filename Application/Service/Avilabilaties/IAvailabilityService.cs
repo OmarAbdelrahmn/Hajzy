@@ -151,6 +151,11 @@ public record CreateUnitBookingRequest(
     DateTime CheckOutDate,
     int NumberOfGuests,
     List<SelectedOptionDto>? SelectedOptions,
+     string? GuestFirstName,
+     string? GuestLastName,
+     string? GuestEmail,
+     string? GuestPhone,
+     string? GuestSpecialRequirements,
     string? CouponCode,  // ADDED: Optional coupon code
     string? SpecialRequests = null
 );
@@ -193,6 +198,11 @@ public record UnitBookingResponse
     public PaymentStatus PaymentStatus { get; init; }
     public DateTime CreatedAt { get; init; }
     public List<SelectedOptionDto> SelectedOptions { get; init; } = new();
+    public string? GuestFirstName { get; set; }
+    public string? GuestLastName { get; set; }
+    public string? GuestEmail { get; set; }
+    public string? GuestPhone { get; set; }
+    public string? SpecialRequests { get; set; }
 
 }
 
@@ -240,9 +250,15 @@ public record CreateSubUnitBookingRequest(
     DateTime CheckInDate,
     DateTime CheckOutDate,
     int NumberOfGuests,
+    string? SpecialRequests,
+     string? GuestFirstName,
+     string? GuestLastName,
+     string? GuestEmail,
+     string? GuestPhone,
+     string? GuestSpecialRequirements,
     List<SelectedOptionDto>? SelectedOptions,
-    string? CouponCode,  // ADDED: Optional coupon code
-    string? SpecialRequests = null
+    string? CouponCode  // ADDED: Optional coupon code
+    
 );
 
 public record CalculateSubUnitBookingPriceRequest(
@@ -285,6 +301,11 @@ public record SubUnitBookingResponse
     public PaymentStatus PaymentStatus { get; init; }
     public DateTime CreatedAt { get; init; }
     public List<SelectedOptionDto> SelectedOptions { get; init; } = new();
+    public string? GuestFirstName { get; set; }
+    public string? GuestLastName { get; set; }
+    public string? GuestEmail { get; set; }
+    public string? GuestPhone { get; set; }
+    public string? GuestSpecialRequirements { get; set; }
 }
 
 public record SubUnitBookingDetailsResponse : SubUnitBookingResponse

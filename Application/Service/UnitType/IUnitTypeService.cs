@@ -36,4 +36,18 @@ public interface IUnitTypeService
     Task<Result<UnitTypeOptionResponse>> CreateOptionAsync(int unitTypeId, CreateUnitTypeOptionRequest request);
     Task<Result<UnitTypeOptionResponse>> UpdateOptionAsync(int optionId, UpdateUnitTypeOptionRequest request);
     Task<Result> DeleteOptionAsync(int optionId);
+
+    /// <summary>
+    /// Returns every active option defined on the unit's UnitType, together with
+    /// the values already saved for that specific unit.
+    /// No user-access gate — intended for platform admins.
+    /// </summary>
+    Task<Result<IEnumerable<UnitOptionValueResponse>>> GetUnitOptionValuesAsync(int unitId);
+
+    /// <summary>
+    /// Saves (upserts) option values for a unit.
+    /// Each entry atomically replaces all existing values for that option on this unit.
+    /// No user-access gate — intended for platform admins.
+    /// </summary>
+    Task<Result> SaveUnitOptionValuesAsync(int unitId, SaveUnitOptionValuesRequest request);
 }

@@ -194,7 +194,7 @@ public class SubUnitTypeController(ISubUnitTypeService service) : ControllerBase
     }
 
     [HttpPost("{unitTypeId}/options")]
-    [Authorize]
+    //[Authorize]
     public async Task<IActionResult> CreateOption(int unitTypeId, [FromBody] CreateSubUnitTypeOptionRequest request)
     {
         var result = await _service.CreateOptionAsync(unitTypeId, request);
@@ -204,7 +204,7 @@ public class SubUnitTypeController(ISubUnitTypeService service) : ControllerBase
     }
 
     [HttpPut("options/{optionId}")]
-    [Authorize]
+    //[Authorize]
     public async Task<IActionResult> UpdateOption(int optionId, [FromBody] UpdateSubUnitTypeOptionRequest request)
     {
         var result = await _service.UpdateOptionAsync(optionId, request);
@@ -212,11 +212,44 @@ public class SubUnitTypeController(ISubUnitTypeService service) : ControllerBase
     }
 
     [HttpDelete("options/{optionId}")]
-    [Authorize]
+    //[Authorize]
     public async Task<IActionResult> DeleteOptionById(int optionId)
     {
         var result = await _service.DeleteOptionAsync(optionId);
         return result.IsSuccess ? Ok() : result.ToProblem();
     }
+    #endregion
+
+    #region SubUnit Option Values (platform-admin scope)
+
+    /// <summary>
+    /// Get every active option defined on the subunit's SubUnitTypee together with
+    /// the values already saved for that specific subunit.
+    /// </summary>
+    [HttpGet("subunits/{subUnitId}/option-values")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin")]
+    public async Task<IActionResult> GetSubUnitOptionValues(int subUnitId)
+    {
+        var result = await _service.GetSubUnitOptionValuesAsync(subUnitId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Save (upsert) option values for a specific subunit.
+    /// Each entry atomically replaces all existing values for that option on this subunit.
+    /// Required options must be included with at least one non-blank value.
+    /// </summary>
+    [HttpPost("subunits/{subUnitId}/option-values")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin")]
+    public async Task<IActionResult> SaveSubUnitOptionValues(
+        int subUnitId,
+        [FromBody] SaveSubUnitOptionValuesRequest request)
+    {
+        var result = await _service.SaveSubUnitOptionValuesAsync(subUnitId, request);
+        return result.IsSuccess
+            ? Ok(new { message = "SubUnit option values saved successfully" })
+            : result.ToProblem();
+    }
+
     #endregion
 }

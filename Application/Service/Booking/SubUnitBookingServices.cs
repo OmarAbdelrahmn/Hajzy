@@ -156,6 +156,10 @@ public class SubUnitBookingService(
                 CreatedAt = DateTime.UtcNow.AddHours(3),
                 SelectedOptionsJson = System.Text.Json.JsonSerializer.Serialize(
                 request.SelectedOptions ?? new List<SelectedOptionDto>()),
+                GuestFirstName = request.GuestFirstName,
+                GuestLastName = request.GuestLastName,
+                GuestEmail = request.GuestEmail,
+                GuestPhone = request.GuestPhone,
             };
 
             await _context.Bookings.AddAsync(booking);
@@ -887,7 +891,12 @@ public class SubUnitBookingService(
 
             // Coupon information
             AppliedCouponCode = bookingCoupon?.Coupon?.Code ?? "non",
-            CouponDiscount = bookingCoupon?.DiscountApplied.ToString() ?? "non"
+            CouponDiscount = bookingCoupon?.DiscountApplied.ToString() ?? "non",
+            GuestFirstName = booking.GuestFirstName,
+            GuestLastName = booking.GuestLastName,
+            GuestEmail = booking.GuestEmail,
+            GuestPhone = booking.GuestPhone,
+            GuestSpecialRequirements = booking.SpecialRequests
         };
     }
 
@@ -942,8 +951,12 @@ public class SubUnitBookingService(
             UpdatedAt = booking.UpdatedAt,
 
             // Coupon information
-            AppliedCouponCode = bookingCoupon?.Coupon?.Code,
-            CouponDiscount = bookingCoupon?.DiscountApplied.ToString()
+            AppliedCouponCode = bookingCoupon?.Coupon?.Code ?? "",
+            CouponDiscount = bookingCoupon?.DiscountApplied.ToString() ?? "",
+            GuestFirstName = booking.GuestFirstName,
+            GuestLastName = booking.GuestLastName,
+            GuestEmail = booking.GuestEmail,
+            GuestPhone = booking.GuestPhone,
         };
     }
 

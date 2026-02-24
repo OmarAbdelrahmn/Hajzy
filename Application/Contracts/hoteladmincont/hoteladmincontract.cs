@@ -1202,6 +1202,11 @@ public class BookingComprehensiveResponse
     public DateTime CreatedAt { get; set; }
     public string? UserCity { get; set; }
     public string? UserCountry { get; set; }
+    public string? GuestFirstName { get; set; }
+    public string? GuestLastName { get; set; }
+    public string? GuestEmail2 { get; set; }
+    public string? GuestPhone { get; set; }
+    public string? GuestSpecialRequirements { get; set; }
 }
 
 public class BookingDetailsResponse
@@ -1230,6 +1235,11 @@ public class BookingDetailsResponse
     public List<PaymentInfo> Payments { get; set; } = [];
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public string? GuestFirstName { get; set; }
+    public string? GuestLastName { get; set; }
+    public string? GuestEmail2 { get; set; }
+    public string? GuestPhone2 { get; set; }
+    public string? GuestSpecialRequirements { get; set; }
 }
 
 public class BookedRoomInfo

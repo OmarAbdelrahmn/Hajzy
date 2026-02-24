@@ -1611,7 +1611,12 @@ public class BookingManagementService(
                 PricePerNight = br.PricePerNight
             }).ToList() ?? new List<BookedRoomInfo>(),
             AppliedCouponCode = bookingCoupon?.Coupon?.Code,
-            CouponDiscount = bookingCoupon?.DiscountApplied
+            CouponDiscount = bookingCoupon?.DiscountApplied,
+            GuestFirstName = booking.GuestFirstName,
+            GuestLastName = booking.GuestLastName,
+            GuestEmail = booking.GuestEmail,
+            GuestPhone = booking.GuestPhone,
+            GuestSpecialRequirements = booking.SpecialRequests
         });
     }
 
@@ -1694,7 +1699,12 @@ public class BookingManagementService(
 
             // Timestamps
             CreatedAt = booking.CreatedAt,
-            UpdatedAt = booking.UpdatedAt
+            UpdatedAt = booking.UpdatedAt,
+            GuestFirstName = booking.GuestFirstName,
+            GuestLastName = booking.GuestLastName,
+            GuestEmail = booking.GuestEmail,
+            GuestPhone = booking.GuestPhone,
+            GuestSpecialRequirements = booking.SpecialRequests
         };
     }
 

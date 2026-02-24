@@ -150,6 +150,11 @@ public class UnifiedBookingResponse
 
     // Timestamps
     public DateTime CreatedAt { get; set; }
+    public string? GuestFirstName { get; set; }
+    public string? GuestLastName { get; set; }
+    public string? GuestEmail { get; set; }
+    public string? GuestPhone { get; set; }
+    public string? GuestSpecialRequirements { get; set; }
 }
 
 public class UnifiedBookingDetailsResponse : UnifiedBookingResponse

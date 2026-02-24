@@ -657,4 +657,154 @@ public class UnitTypeService(
         }
     }
     #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // ADD this entire #region block at the BOTTOM of UnitTypeService.cs
+    // (inside the class, after the existing #region options block)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    #region Unit Option Values (platform-admin scope)
+
+    /// <summary>
+    /// Returns every active option defined on the unit's UnitType, together with
+    /// whatever values have already been saved for that specific unit.
+    /// No user-access gate — intended for platform admins.
+    /// </summary>
+    public async Task<Result<IEnumerable<UnitOptionValueResponse>>> GetUnitOptionValuesAsync(int unitId)
+    {
+        try
+        {
+            var unit = await _context.Units
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+
+            if (unit is null)
+                return Result.Failure<IEnumerable<UnitOptionValueResponse>>(
+                    new Error("NotFound", "Unit not found", 404));
+
+            // Load option definitions from the UnitType
+            var typeOptions = await _context.Set<UnitTypeOption>()
+                .Include(o => o.Selections.OrderBy(s => s.DisplayOrder))
+                .Where(o => o.UnitTypeId == unit.UnitTypeId && o.IsActive)
+                .OrderBy(o => o.DisplayOrder).ThenBy(o => o.CreatedAt)
+                .AsNoTracking()
+                .ToListAsync();
+
+            // Load values already saved for this unit
+            var savedValues = await _context.Set<UnitOptionValue>()
+                .Where(v => v.UnitId == unitId)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var responses = typeOptions.Select(opt =>
+            {
+                var vals = savedValues
+                    .Where(v => v.UnitTypeOptionId == opt.Id)
+                    .Select(v => v.Value)
+                    .ToList();
+
+                return new UnitOptionValueResponse
+                {
+                    UnitTypeOptionId = opt.Id,
+                    OptionName = opt.Name,
+                    InputType = opt.InputType.ToString(),
+                    IsRequired = opt.IsRequired,
+                    Values = vals,
+                    AvailableSelections = opt.InputType is OptionInputType.Select
+                                              or OptionInputType.MultiSelect
+                        ? opt.Selections.Select(s => new TypeOptionSelectionDto
+                        { Id = s.Id, Value = s.Value, DisplayOrder = s.DisplayOrder }).ToList()
+                        : null
+                };
+            });
+
+            return Result.Success(responses);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting unit option values for unit {UnitId}", unitId);
+            return Result.Failure<IEnumerable<UnitOptionValueResponse>>(
+                new Error("GetValuesFailed", "Failed to retrieve unit option values", 500));
+        }
+    }
+
+    /// <summary>
+    /// Saves (upserts) option values for a unit.
+    /// Each entry atomically replaces all existing values for that option on this unit.
+    /// No user-access gate — intended for platform admins.
+    /// </summary>
+    public async Task<Result> SaveUnitOptionValuesAsync(int unitId, SaveUnitOptionValuesRequest request)
+    {
+        try
+        {
+            var unit = await _context.Units
+                .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+
+            if (unit is null)
+                return Result.Failure(new Error("NotFound", "Unit not found", 404));
+
+            // Validate that all option IDs belong to this unit's type
+            var optionIds = request.Options.Select(o => o.UnitTypeOptionId).Distinct().ToList();
+
+            var validOptions = await _context.Set<UnitTypeOption>()
+                .Where(o => optionIds.Contains(o.Id) &&
+                            o.UnitTypeId == unit.UnitTypeId &&
+                            o.IsActive)
+                .ToListAsync();
+
+            if (validOptions.Count != optionIds.Count)
+                return Result.Failure(
+                    new Error("InvalidOptions",
+                        "One or more option IDs are invalid or do not belong to this unit's type", 400));
+
+            // Validate required options are provided
+            foreach (var opt in validOptions.Where(o => o.IsRequired))
+            {
+                var input = request.Options.FirstOrDefault(i => i.UnitTypeOptionId == opt.Id);
+                if (input is null || input.Values.Count == 0 || input.Values.All(string.IsNullOrWhiteSpace))
+                    return Result.Failure(
+                        new Error("RequiredOptionMissing",
+                            $"Option '{opt.Name}' is required and must have a value", 400));
+            }
+
+            // For each submitted option, atomically replace its values
+            foreach (var input in request.Options)
+            {
+                var existing = await _context.Set<UnitOptionValue>()
+                    .Where(v => v.UnitId == unitId && v.UnitTypeOptionId == input.UnitTypeOptionId)
+                    .ToListAsync();
+
+                _context.Set<UnitOptionValue>().RemoveRange(existing);
+
+                var newValues = input.Values
+                    .Where(v => !string.IsNullOrWhiteSpace(v))
+                    .Select(v => new UnitOptionValue
+                    {
+                        UnitId = unitId,
+                        UnitTypeOptionId = input.UnitTypeOptionId,
+                        Value = v,
+                        CreatedAt = DateTime.UtcNow.AddHours(3)
+                    })
+                    .ToList();
+
+                if (newValues.Count > 0)
+                    _context.Set<UnitOptionValue>().AddRange(newValues);
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Option values saved for unit {UnitId} by platform admin", unitId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error saving unit option values for unit {UnitId}", unitId);
+            return Result.Failure(
+                new Error("SaveValuesFailed", "Failed to save unit option values", 500));
+        }
+    }
+
+    #endregion
 }

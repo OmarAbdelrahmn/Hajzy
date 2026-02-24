@@ -464,7 +464,12 @@ public class HotelAdminService(
                     }).ToList(),
                     CreatedAt = b.CreatedAt,
                     UserCity = b.User.City,
-                    UserCountry = b.User.Country
+                    UserCountry = b.User.Country,
+                    GuestFirstName = b.GuestFirstName,
+                    GuestLastName = b.GuestLastName,
+                    GuestEmail2 = b.GuestEmail,
+                    GuestPhone = b.GuestPhone,
+                    GuestSpecialRequirements = b.SpecialRequests
                 })
                 .ToListAsync();
 
@@ -1616,7 +1621,12 @@ public class HotelAdminService(
                 RoomNumber = br.Room.RoomNumber,
                 PricePerNight = br.PricePerNight
             }).ToList(),
-            CreatedAt = booking.CreatedAt
+            CreatedAt = booking.CreatedAt,
+            GuestFirstName = booking.GuestFirstName,
+            GuestLastName = booking.GuestLastName,
+            GuestEmail2 = booking.GuestEmail,
+            GuestPhone = booking.GuestPhone,
+            GuestSpecialRequirements = booking.SpecialRequests
         };
     }
 
@@ -1660,7 +1670,12 @@ public class HotelAdminService(
                 PaymentDate = p.PaymentDate
             }).ToList(),
             CreatedAt = booking.CreatedAt,
-            UpdatedAt = booking.UpdatedAt
+            UpdatedAt = booking.UpdatedAt,
+            GuestFirstName = booking.GuestFirstName,
+            GuestLastName = booking.GuestLastName,
+            GuestEmail2 = booking.GuestEmail,
+            GuestPhone2 = booking.GuestPhone,
+            GuestSpecialRequirements = booking.SpecialRequests
         };
     }
 

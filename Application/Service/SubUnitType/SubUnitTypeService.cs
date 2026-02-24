@@ -686,4 +686,155 @@ public class SubUnitTypeService(
     }
 
     #endregion
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // ADD this entire #region block at the BOTTOM of SubUnitTypeService.cs
+    // (inside the class, after the existing #region Options block)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    #region SubUnit Option Values (platform-admin scope)
+
+    /// <summary>
+    /// Returns every active option defined on the subunit's SubUnitTypee, together
+    /// with whatever values have already been saved for that specific subunit.
+    /// No user-access gate — intended for platform admins.
+    /// </summary>
+    public async Task<Result<IEnumerable<SubUnitOptionValueResponse>>> GetSubUnitOptionValuesAsync(int subUnitId)
+    {
+        try
+        {
+            var subUnit = await _context.SubUnits
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
+
+            if (subUnit is null)
+                return Result.Failure<IEnumerable<SubUnitOptionValueResponse>>(
+                    new Error("NotFound", "SubUnit not found", 404));
+
+            // Load option definitions from the SubUnitTypee
+            var typeOptions = await _context.Set<SubUnitTypeOption>()
+                .Include(o => o.Selections.OrderBy(s => s.DisplayOrder))
+                .Where(o => o.SubUnitTypeId == subUnit.SubUnitTypeId && o.IsActive)
+                .OrderBy(o => o.DisplayOrder).ThenBy(o => o.CreatedAt)
+                .AsNoTracking()
+                .ToListAsync();
+
+            // Load values already saved for this subunit
+            var savedValues = await _context.Set<SubUnitOptionValue>()
+                .Where(v => v.SubUnitId == subUnitId)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var responses = typeOptions.Select(opt =>
+            {
+                var vals = savedValues
+                    .Where(v => v.SubUnitTypeOptionId == opt.Id)
+                    .Select(v => v.Value)
+                    .ToList();
+
+                return new SubUnitOptionValueResponse
+                {
+                    SubUnitTypeOptionId = opt.Id,
+                    OptionName = opt.Name,
+                    InputType = opt.InputType.ToString(),
+                    IsRequired = opt.IsRequired,
+                    Values = vals,
+                    AvailableSelections = opt.InputType is OptionInputType.Select
+                                              or OptionInputType.MultiSelect
+                        ? opt.Selections.Select(s => new TypeOptionSelectionDto
+                        { Id = s.Id, Value = s.Value, DisplayOrder = s.DisplayOrder }).ToList()
+                        : null
+                };
+            });
+
+            return Result.Success(responses);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting subunit option values for subunit {SubUnitId}", subUnitId);
+            return Result.Failure<IEnumerable<SubUnitOptionValueResponse>>(
+                new Error("GetValuesFailed", "Failed to retrieve subunit option values", 500));
+        }
+    }
+
+    /// <summary>
+    /// Saves (upserts) option values for a subunit.
+    /// Each entry atomically replaces all existing values for that option on this subunit.
+    /// No user-access gate — intended for platform admins.
+    /// </summary>
+    public async Task<Result> SaveSubUnitOptionValuesAsync(int subUnitId, SaveSubUnitOptionValuesRequest request)
+    {
+        try
+        {
+            var subUnit = await _context.SubUnits
+                .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
+
+            if (subUnit is null)
+                return Result.Failure(new Error("NotFound", "SubUnit not found", 404));
+
+            // Validate that all option IDs belong to this subunit's type
+            var optionIds = request.Options.Select(o => o.SubUnitTypeOptionId).Distinct().ToList();
+
+            var validOptions = await _context.Set<SubUnitTypeOption>()
+                .Where(o => optionIds.Contains(o.Id) &&
+                            o.SubUnitTypeId == subUnit.SubUnitTypeId &&
+                            o.IsActive)
+                .ToListAsync();
+
+            if (validOptions.Count != optionIds.Count)
+                return Result.Failure(
+                    new Error("InvalidOptions",
+                        "One or more option IDs are invalid or do not belong to this subunit's type", 400));
+
+            // Validate required options are provided
+            foreach (var opt in validOptions.Where(o => o.IsRequired))
+            {
+                var input = request.Options.FirstOrDefault(i => i.SubUnitTypeOptionId == opt.Id);
+                if (input is null || input.Values.Count == 0 || input.Values.All(string.IsNullOrWhiteSpace))
+                    return Result.Failure(
+                        new Error("RequiredOptionMissing",
+                            $"Option '{opt.Name}' is required and must have a value", 400));
+            }
+
+            // For each submitted option, atomically replace its values
+            foreach (var input in request.Options)
+            {
+                var existing = await _context.Set<SubUnitOptionValue>()
+                    .Where(v => v.SubUnitId == subUnitId &&
+                                v.SubUnitTypeOptionId == input.SubUnitTypeOptionId)
+                    .ToListAsync();
+
+                _context.Set<SubUnitOptionValue>().RemoveRange(existing);
+
+                var newValues = input.Values
+                    .Where(v => !string.IsNullOrWhiteSpace(v))
+                    .Select(v => new SubUnitOptionValue
+                    {
+                        SubUnitId = subUnitId,
+                        SubUnitTypeOptionId = input.SubUnitTypeOptionId,
+                        Value = v,
+                        CreatedAt = DateTime.UtcNow.AddHours(3)
+                    })
+                    .ToList();
+
+                if (newValues.Count > 0)
+                    _context.Set<SubUnitOptionValue>().AddRange(newValues);
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Option values saved for subunit {SubUnitId} by platform admin", subUnitId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error saving subunit option values for subunit {SubUnitId}", subUnitId);
+            return Result.Failure(
+                new Error("SaveValuesFailed", "Failed to save subunit option values", 500));
+        }
+    }
+
+    #endregion
 }

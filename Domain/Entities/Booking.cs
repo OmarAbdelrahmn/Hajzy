@@ -32,6 +32,17 @@ public class Booking
 
     [MaxLength(1000)]
     public string? SpecialRequests { get; set; }
+    [MaxLength(100)]
+    public string? GuestFirstName { get; set; }
+
+    [MaxLength(100)]
+    public string? GuestLastName { get; set; }
+
+    [MaxLength(256)]
+    public string? GuestEmail { get; set; }
+
+    [MaxLength(20)]
+    public string? GuestPhone { get; set; }
 
     public string? SelectedOptionsJson { get; set; } = "[]";
 

@@ -194,7 +194,7 @@ public class UnitTypeController(IUnitTypeService service) : ControllerBase
     }
 
     [HttpPost("{unitTypeId}/options")]
-    [Authorize]
+    //[Authorize]
     public async Task<IActionResult> CreateOption(int unitTypeId, [FromBody] CreateUnitTypeOptionRequest request)
     {
         var result = await _service.CreateOptionAsync(unitTypeId, request);
@@ -204,7 +204,7 @@ public class UnitTypeController(IUnitTypeService service) : ControllerBase
     }
 
     [HttpPut("options/{optionId}")]
-    [Authorize]
+    //[Authorize]
     public async Task<IActionResult> UpdateOption(int optionId, [FromBody] UpdateUnitTypeOptionRequest request)
     {
         var result = await _service.UpdateOptionAsync(optionId, request);
@@ -212,10 +212,44 @@ public class UnitTypeController(IUnitTypeService service) : ControllerBase
     }
 
     [HttpDelete("options/{optionId}")]
-    [Authorize]
+    //[Authorize]
     public async Task<IActionResult> DeleteOptionById(int optionId) {
         var result = await _service.DeleteOptionAsync(optionId);
         return result.IsSuccess ? Ok() : result.ToProblem();
     }
+    #endregion
+
+
+    #region Unit Option Values (platform-admin scope)
+
+    /// <summary>
+    /// Get every active option defined on the unit's UnitType together with
+    /// the values already saved for that specific unit.
+    /// </summary>
+    [HttpGet("units/{unitId}/option-values")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin")]
+    public async Task<IActionResult> GetUnitOptionValues(int unitId)
+    {
+        var result = await _service.GetUnitOptionValuesAsync(unitId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Save (upsert) option values for a specific unit.
+    /// Each entry atomically replaces all existing values for that option on this unit.
+    /// Required options must be included with at least one non-blank value.
+    /// </summary>
+    [HttpPost("units/{unitId}/option-values")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin")]
+    public async Task<IActionResult> SaveUnitOptionValues(
+        int unitId,
+        [FromBody] SaveUnitOptionValuesRequest request)
+    {
+        var result = await _service.SaveUnitOptionValuesAsync(unitId, request);
+        return result.IsSuccess
+            ? Ok(new { message = "Unit option values saved successfully" })
+            : result.ToProblem();
+    }
+
     #endregion
 }

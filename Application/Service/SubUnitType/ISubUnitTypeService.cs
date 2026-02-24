@@ -34,6 +34,21 @@ public interface ISubUnitTypeService
     Task<Result<SubUnitTypeOptionResponse>> CreateOptionAsync(int subUnitTypeId, CreateSubUnitTypeOptionRequest request);
     Task<Result<SubUnitTypeOptionResponse>> UpdateOptionAsync(int optionId, UpdateSubUnitTypeOptionRequest request);
     Task<Result> DeleteOptionAsync(int optionId);
+
+
+    /// <summary>
+    /// Returns every active option defined on the subunit's SubUnitTypee, together
+    /// with the values already saved for that specific subunit.
+    /// No user-access gate — intended for platform admins.
+    /// </summary>
+    Task<Result<IEnumerable<SubUnitOptionValueResponse>>> GetSubUnitOptionValuesAsync(int subUnitId);
+
+    /// <summary>
+    /// Saves (upserts) option values for a subunit.
+    /// Each entry atomically replaces all existing values for that option on this subunit.
+    /// No user-access gate — intended for platform admins.
+    /// </summary>
+    Task<Result> SaveSubUnitOptionValuesAsync(int subUnitId, SaveSubUnitOptionValuesRequest request);
 }
 
 

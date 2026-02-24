@@ -892,6 +892,11 @@ public record BookingComprehensiveResponse
     public string PaymentStatus { get; set; } = string.Empty;
     public List<BookedRoomInfo> Rooms { get; set; } = [];
     public DateTime CreatedAt { get; set; }
+    public string? GuestFirstName { get; set; }
+    public string? GuestLastName { get; set; }
+    public string? GuestEmail2 { get; set; }
+    public string? GuestPhone { get; set; }
+    public string? GuestSpecialRequirements { get; set; }
 }
 
 public record BookingDetailsResponse
@@ -921,6 +926,10 @@ public record BookingDetailsResponse
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public List<string> SelectedOptions { get; set; } = new();
+    public string? GuestFirstName { get; set; }
+    public string? GuestLastName { get; set; }
+    public string? GuestEmail2 { get; set; }
+    public string? GuestPhone2 { get; set; }
 
 }
 

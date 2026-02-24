@@ -170,6 +170,11 @@ public class UnitBookingService(
                 // NEW: Store selected options
                 SelectedOptionsJson = System.Text.Json.JsonSerializer.Serialize(
                     request.SelectedOptions ?? new List<SelectedOptionDto>()),
+
+                GuestFirstName = request.GuestFirstName,
+                GuestLastName = request.GuestLastName,
+                GuestEmail = request.GuestEmail,
+                GuestPhone = request.GuestPhone,
             };
 
             await _context.Bookings.AddAsync(booking);
@@ -828,7 +833,12 @@ public class UnitBookingService(
             CreatedAt = booking.CreatedAt,
             AppliedCouponCode = bookingCoupon?.Coupon?.Code ?? "non",
             CouponDiscount = bookingCoupon?.DiscountApplied.ToString() ?? "non",
-            SelectedOptions = selectedOptions
+            SelectedOptions = selectedOptions,
+            GuestFirstName = booking.GuestFirstName,
+            GuestLastName = booking.GuestLastName,
+            GuestEmail = booking.GuestEmail,
+            GuestPhone = booking.GuestPhone,
+            SpecialRequests = booking.SpecialRequests
         };
     }
 
@@ -877,8 +887,11 @@ public class UnitBookingService(
             UpdatedAt = booking.UpdatedAt,
             AppliedCouponCode = bookingCoupon?.Coupon?.Code,
             CouponDiscount = bookingCoupon?.DiscountApplied.ToString(),
-            SelectedOptions = selectedOptions
-
+            SelectedOptions = selectedOptions,
+            GuestFirstName = booking.GuestFirstName,
+            GuestLastName = booking.GuestLastName,
+            GuestEmail = booking.GuestEmail,
+            GuestPhone = booking.GuestPhone,
         };
     }
 
