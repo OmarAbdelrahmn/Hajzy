@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Application.Contracts.SubUnit;
+using System.ComponentModel.DataAnnotations;
 
 namespace Application.Contracts.Unit;
 
@@ -71,6 +72,9 @@ public class UnitComprehensiveResponse
     public List<string> Options { get; init; } = new();
     public string Currency { get; init; } = "SAR";
     public List<CustomPolicyDetail> CustomPolicies { get; init; } = new();
+
+    public List<OptionValueResponse> OptionValues { get; init; } = new();
+
 
     // ... rest of existing properties ...
 }
@@ -169,6 +173,8 @@ public class SubUnitComprehensiveDetail
 
     // Current Availability Status
     public AvailabilityInfo? CurrentAvailability { get; set; }
+    public List<OptionValueResponse> OptionValues { get; init; } = new();
+
 }
 
 /// <summary>
@@ -312,6 +318,8 @@ public class UnitResponses
     public int AdminCount { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
+    public List<OptionValueResponse> OptionValues { get; init; } = new();
+
 }
 
 public class UnitDetailsResponse
@@ -343,6 +351,8 @@ public class UnitDetailsResponse
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
     public int? Rank { get; set; }
+    public List<OptionValueResponse> OptionValues { get; init; } = new();
+
 
 }
 

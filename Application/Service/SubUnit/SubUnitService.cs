@@ -22,6 +22,7 @@ public class SubUnitService(
     private readonly ILogger<SubUnitService> _logger = logger;
     private readonly IAvailabilityService service = service;
 
+
     #region CRUD
 
     public async Task<Result<SubUnitResponse>> GetByIdAsync(int subUnitId)
@@ -29,6 +30,10 @@ public class SubUnitService(
         var subUnit = await _context.SubUnits
             .Include(s => s.Unit)
             .Include(s => s.SubUnitImages.Where(i => !i.IsDeleted))
+            // ── NEW: option values ──────────────────────────────────────
+            .Include(s => s.OptionValues)
+                .ThenInclude(ov => ov.SubUnitTypeOption)
+            // ────────────────────────────────────────────────────────────
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
 
@@ -47,6 +52,10 @@ public class SubUnitService(
             .Include(s => s.SubUnitAmenities)
                 .ThenInclude(sa => sa.Amenity)
             .Include(s => s.SubUnitAvailabilities)
+            // ── NEW: option values ──────────────────────────────────────
+            .Include(s => s.OptionValues)
+                .ThenInclude(ov => ov.SubUnitTypeOption)
+            // ────────────────────────────────────────────────────────────
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
 
@@ -62,6 +71,10 @@ public class SubUnitService(
         var subUnits = await _context.SubUnits
             .Include(s => s.Unit)
             .Include(s => s.SubUnitImages.Where(i => !i.IsDeleted && i.IsPrimary))
+            // ── NEW: option values ──────────────────────────────────────
+            .Include(s => s.OptionValues)
+                .ThenInclude(ov => ov.SubUnitTypeOption)
+            // ────────────────────────────────────────────────────────────
             .Where(s => s.UnitId == unitId && !s.IsDeleted)
             .AsNoTracking()
             .ToListAsync();
@@ -76,7 +89,6 @@ public class SubUnitService(
 
         try
         {
-            // Validate unit exists
             var unitExists = await _context.Units
                 .AnyAsync(u => u.Id == request.UnitId && !u.IsDeleted);
 
@@ -84,11 +96,10 @@ public class SubUnitService(
                 return Result.Failure<SubUnitResponse>(
                     new Error("UnitNotFound", "Unit not found", 404));
 
-            // Check for duplicate room number in same unit
             var duplicate = await _context.SubUnits
                 .AnyAsync(s => s.UnitId == request.UnitId &&
-                              s.RoomNumber == request.RoomNumber &&
-                              !s.IsDeleted);
+                               s.RoomNumber == request.RoomNumber &&
+                               !s.IsDeleted);
 
             if (duplicate)
                 return Result.Failure<SubUnitResponse>(
@@ -110,12 +121,11 @@ public class SubUnitService(
             };
 
             await _context.SubUnits.AddAsync(subUnit);
-            var availabilityInit = await service.InitializeSubUnitAvailabilityAsync(subUnit.Id, 365);
+            await service.InitializeSubUnitAvailabilityAsync(subUnit.Id, 365);
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            // Reload with navigation properties
             await _context.Entry(subUnit)
                 .Reference(s => s.Unit)
                 .LoadAsync();
@@ -137,13 +147,16 @@ public class SubUnitService(
     {
         var subUnit = await _context.SubUnits
             .Include(s => s.Unit)
+            // ── NEW: option values ──────────────────────────────────────
+            .Include(s => s.OptionValues)
+                .ThenInclude(ov => ov.SubUnitTypeOption)
+            // ────────────────────────────────────────────────────────────
             .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
 
         if (subUnit == null)
             return Result.Failure<SubUnitResponse>(
                 new Error("NotFound", "SubUnit not found", 404));
 
-        // Update properties
         if (request.RoomNumber != null) subUnit.RoomNumber = request.RoomNumber;
         if (request.TypeId.HasValue) subUnit.SubUnitTypeId = request.TypeId.Value;
         if (request.PricePerNight.HasValue) subUnit.PricePerNight = request.PricePerNight.Value;
@@ -166,10 +179,8 @@ public class SubUnitService(
             .FirstOrDefaultAsync(s => s.Id == subUnitId);
 
         if (subUnit == null)
-            return Result.Failure(
-                new Error("NotFound", "SubUnit not found", 404));
+            return Result.Failure(new Error("NotFound", "SubUnit not found", 404));
 
-        // Check for active bookings
         var hasActiveBookings = subUnit.BookingRooms.Any(br =>
             br.Booking.Status == BookingStatus.Confirmed ||
             br.Booking.Status == BookingStatus.CheckedIn);
@@ -200,8 +211,7 @@ public class SubUnitService(
             .FirstOrDefaultAsync(s => s.Id == subUnitId && s.IsDeleted);
 
         if (subUnit == null)
-            return Result.Failure(
-                new Error("NotFound", "Deleted subunit not found", 404));
+            return Result.Failure(new Error("NotFound", "Deleted subunit not found", 404));
 
         subUnit.IsDeleted = false;
         subUnit.DeletedAt = null;
@@ -215,26 +225,21 @@ public class SubUnitService(
 
     #region AVAILABILITY
 
-    public async Task<Result> SetAvailabilityAsync(
-        int subUnitId,
-        SetAvailabilityRequest request)
+    public async Task<Result> SetAvailabilityAsync(int subUnitId, SetAvailabilityRequest request)
     {
         var subUnit = await _context.SubUnits
             .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
 
         if (subUnit == null)
-            return Result.Failure(
-                new Error("NotFound", "SubUnit not found", 404));
+            return Result.Failure(new Error("NotFound", "SubUnit not found", 404));
 
-        // Check for existing availability record
         var existing = await _context.Set<SubUnitAvailability>()
             .FirstOrDefaultAsync(a => a.SubUnitId == subUnitId &&
-                                     a.StartDate == request.StartDate &&
-                                     a.EndDate == request.EndDate);
+                                      a.StartDate == request.StartDate &&
+                                      a.EndDate == request.EndDate);
 
         if (existing != null)
         {
-            // Update existing
             existing.IsAvailable = request.IsAvailable;
             existing.Reason = request.Reason;
             existing.SpecialPrice = request.SpecialPrice;
@@ -244,8 +249,7 @@ public class SubUnitService(
         }
         else
         {
-            // Create new
-            var availability = new SubUnitAvailability
+            await _context.Set<SubUnitAvailability>().AddAsync(new SubUnitAvailability
             {
                 SubUnitId = subUnitId,
                 StartDate = request.StartDate,
@@ -256,9 +260,7 @@ public class SubUnitService(
                 WeekendPrice = request.WeekendPrice,
                 UpdatedByUserId = request.UpdatedByUserId,
                 CreatedAt = DateTime.UtcNow.AddHours(3)
-            };
-
-            await _context.Set<SubUnitAvailability>().AddAsync(availability);
+            });
         }
 
         await _context.SaveChangesAsync();
@@ -271,66 +273,55 @@ public class SubUnitService(
             .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
 
         if (subUnit == null)
-            return Result.Failure(
-                new Error("NotFound", "SubUnit not found", 404));
+            return Result.Failure(new Error("NotFound", "SubUnit not found", 404));
 
         subUnit.IsAvailable = !subUnit.IsAvailable;
         await _context.SaveChangesAsync();
-
         return Result.Success();
     }
 
     public async Task<Result<IEnumerable<AvailabilityResponse>>> GetAvailabilityAsync(
-        int subUnitId,
-        DateTime startDate,
-        DateTime endDate)
+        int subUnitId, DateTime startDate, DateTime endDate)
     {
         var availabilities = await _context.Set<SubUnitAvailability>()
             .Where(a => a.SubUnitId == subUnitId &&
-                       a.StartDate >= startDate &&
-                       a.EndDate <= endDate)
+                        a.StartDate >= startDate &&
+                        a.EndDate <= endDate)
             .AsNoTracking()
             .ToListAsync();
 
         var responses = availabilities.Select(a => new AvailabilityResponse(
-            a.Id,
-            a.StartDate,
-            a.EndDate,
-            a.IsAvailable,
-            a.Reason?.ToString(),
-            a.SpecialPrice,
-            a.WeekendPrice
-        )).ToList();
+            a.Id, a.StartDate, a.EndDate, a.IsAvailable,
+            a.Reason?.ToString(), a.SpecialPrice, a.WeekendPrice)).ToList();
 
         return Result.Success<IEnumerable<AvailabilityResponse>>(responses);
     }
 
     public async Task<Result<List<SubUnitResponse>>> GetAvailableSubUnitsAsync(
-        int unitId,
-        DateTime checkIn,
-        DateTime checkOut)
+        int unitId, DateTime checkIn, DateTime checkOut)
     {
         var subUnits = await _context.SubUnits
             .Include(s => s.Unit)
             .Include(s => s.SubUnitImages.Where(i => !i.IsDeleted && i.IsPrimary))
-            .Where(s => s.UnitId == unitId &&
-                       !s.IsDeleted &&
-                       s.IsAvailable)
+            // ── NEW: option values ──────────────────────────────────────
+            .Include(s => s.OptionValues)
+                .ThenInclude(ov => ov.SubUnitTypeOption)
+            // ────────────────────────────────────────────────────────────
+            .Where(s => s.UnitId == unitId && !s.IsDeleted && s.IsAvailable)
             .AsNoTracking()
             .ToListAsync();
 
-        // Filter out rooms with bookings during the requested dates
-        var availableRoomIds = await _context.BookingRooms
+        var bookedRoomIds = await _context.BookingRooms
             .Include(br => br.Booking)
             .Where(br => br.Room.UnitId == unitId &&
-                        br.Booking.CheckInDate < checkOut &&
-                        br.Booking.CheckOutDate > checkIn &&
-                        br.Booking.Status != BookingStatus.Cancelled)
+                         br.Booking.CheckInDate < checkOut &&
+                         br.Booking.CheckOutDate > checkIn &&
+                         br.Booking.Status != BookingStatus.Cancelled)
             .Select(br => br.RoomId)
             .ToListAsync();
 
         var available = subUnits
-            .Where(s => !availableRoomIds.Contains(s.Id))
+            .Where(s => !bookedRoomIds.Contains(s.Id))
             .Select(MapToResponse)
             .ToList();
 
@@ -341,11 +332,8 @@ public class SubUnitService(
 
     #region IMAGE MANAGEMENT
 
-
     public async Task<Result<List<SubUnitImageResponses>>> UploadImagesAsync(
-     int subUnitId,
-     List<IFormFile> images,
-     string userId)
+        int subUnitId, List<IFormFile> images, string userId)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
@@ -358,15 +346,12 @@ public class SubUnitService(
                 return Result.Failure<List<SubUnitImageResponses>>(
                     new Error("NotFound", "SubUnit not found", 404));
 
-            // Calculate max order before upload
             var maxOrder = subUnit.SubUnitImages.Any()
-                ? subUnit.SubUnitImages.Max(i => i.DisplayOrder)
-                : 0;
+                ? subUnit.SubUnitImages.Max(i => i.DisplayOrder) : 0;
 
             _logger.LogInformation("Starting upload of {Count} images for SubUnit {SubUnitId}",
                 images.Count, subUnitId);
 
-            // Upload to S3 (creates original + thumbnail + medium)
             var uploadResult = await _s3Service.UploadSubUnitImagesAsync(images, subUnitId, userId);
             if (!uploadResult.IsSuccess)
             {
@@ -378,51 +363,35 @@ public class SubUnitService(
             var s3Keys = uploadResult.Value;
             var subUnitImages = new List<Domain.Entities.SubUnitImage>();
 
-            // Create all entities first
             foreach (var (s3Key, index) in s3Keys.Select((k, i) => (k, i)))
             {
-                var subUnitImage = new Domain.Entities.SubUnitImage
+                subUnitImages.Add(new Domain.Entities.SubUnitImage
                 {
                     SubUnitId = subUnitId,
-                    // ORIGINAL (Full Size)
                     ImageUrl = _s3Service.GetCloudFrontUrl(s3Key),
                     S3Key = s3Key,
                     S3Bucket = GetBucketNameFromConfig(),
-                    // Display Properties
                     DisplayOrder = maxOrder + index + 1,
                     IsPrimary = !subUnit.SubUnitImages.Any() && index == 0,
-                    // Tracking
                     UploadedByUserId = userId,
                     UploadedAt = DateTime.UtcNow.AddHours(3),
                     ProcessingStatus = ImageProcessingStatus.Completed
-                };
-
-                subUnitImages.Add(subUnitImage);
+                });
             }
 
-            // Add all entities to context at once
             await _context.Set<Domain.Entities.SubUnitImage>().AddRangeAsync(subUnitImages);
-
-            // Save once
             await _context.SaveChangesAsync();
-
-            // Commit transaction
             await transaction.CommitAsync();
 
-            _logger.LogInformation(
-                "Successfully uploaded {Count} images for SubUnit {SubUnitId}",
+            _logger.LogInformation("Successfully uploaded {Count} images for SubUnit {SubUnitId}",
                 images.Count, subUnitId);
 
-            // Map to response AFTER successful commit
-            var imageResponses = subUnitImages.Select(MapToImageResponse).ToList();
-
-            return Result.Success(imageResponses);
+            return Result.Success(subUnitImages.Select(MapToImageResponse).ToList());
         }
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Error uploading images for SubUnit {SubUnitId}", subUnitId);
-
             return Result.Failure<List<SubUnitImageResponses>>(
                 new Error("UploadFailed", $"Failed to upload images: {ex.Message}", 500));
         }
@@ -431,56 +400,41 @@ public class SubUnitService(
     public async Task<Result> DeleteImageAsync(int subUnitId, int imageId)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
-
         try
         {
             var image = await _context.Set<Domain.Entities.SubUnitImage>()
                 .FirstOrDefaultAsync(i => i.Id == imageId &&
-                                         i.SubUnitId == subUnitId &&
-                                         !i.IsDeleted);
+                                          i.SubUnitId == subUnitId &&
+                                          !i.IsDeleted);
 
             if (image == null)
-                return Result.Failure(
-                    new Error("NotFound", "Image not found", 404));
+                return Result.Failure(new Error("NotFound", "Image not found", 404));
 
-            // Mark as soft deleted in database
             image.IsDeleted = true;
             image.DeletedAt = DateTime.UtcNow.AddHours(3);
 
-            // If it was primary, set another image as primary
             if (image.IsPrimary)
             {
                 var nextPrimary = await _context.Set<Domain.Entities.SubUnitImage>()
-                    .Where(i => i.SubUnitId == subUnitId &&
-                               i.Id != imageId &&
-                               !i.IsDeleted)
+                    .Where(i => i.SubUnitId == subUnitId && i.Id != imageId && !i.IsDeleted)
                     .OrderBy(i => i.DisplayOrder)
                     .FirstOrDefaultAsync();
 
-                if (nextPrimary != null)
-                {
-                    nextPrimary.IsPrimary = true;
-                }
+                if (nextPrimary != null) nextPrimary.IsPrimary = true;
             }
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            // ACTUALLY DELETE from S3 (all three sizes: original + thumbnail + medium)
             var deleteResult = await _s3Service.DeleteImagesAsync(new List<string> { image.S3Key });
-
             if (!deleteResult.IsSuccess)
-            {
                 _logger.LogWarning(
                     "Image {ImageId} marked as deleted in DB but failed to delete from S3: {Error}",
                     imageId, deleteResult.Error.Description);
-            }
             else
-            {
                 _logger.LogInformation(
                     "Successfully deleted image {ImageId} from SubUnit {SubUnitId} (DB + S3)",
                     imageId, subUnitId);
-            }
 
             return Result.Success();
         }
@@ -488,37 +442,29 @@ public class SubUnitService(
         {
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Error deleting image {ImageId}", imageId);
-            return Result.Failure(
-                new Error("DeleteFailed", "Failed to delete image", 500));
+            return Result.Failure(new Error("DeleteFailed", "Failed to delete image", 500));
         }
     }
 
     public async Task<Result> SetPrimaryImageAsync(int subUnitId, int imageId)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
-
         try
         {
             var images = await _context.Set<Domain.Entities.SubUnitImage>()
                 .Where(i => i.SubUnitId == subUnitId && !i.IsDeleted)
                 .ToListAsync();
 
-            var targetImage = images.FirstOrDefault(i => i.Id == imageId);
-            if (targetImage == null)
-                return Result.Failure(
-                    new Error("NotFound", "Image not found", 404));
+            if (images.All(i => i.Id != imageId))
+                return Result.Failure(new Error("NotFound", "Image not found", 404));
 
-            // Remove primary flag from all images
             foreach (var img in images)
-            {
                 img.IsPrimary = img.Id == imageId;
-            }
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            _logger.LogInformation(
-                "Set image {ImageId} as primary for SubUnit {SubUnitId}",
+            _logger.LogInformation("Set image {ImageId} as primary for SubUnit {SubUnitId}",
                 imageId, subUnitId);
 
             return Result.Success();
@@ -527,78 +473,24 @@ public class SubUnitService(
         {
             await transaction.RollbackAsync();
             _logger.LogError(ex, "Error setting primary image");
-            return Result.Failure(
-                new Error("UpdateFailed", "Failed to set primary image", 500));
+            return Result.Failure(new Error("UpdateFailed", "Failed to set primary image", 500));
         }
     }
 
     #endregion
 
-    #region HELPER METHODS
-
-    private static SubUnitImageResponses MapToImageResponse(Domain.Entities.SubUnitImage image)
-    {
-        return new SubUnitImageResponses
-        {
-            Id = image.Id,
-            ImageUrl = image.ImageUrl,              // Original (full size)
-            ThumbnailUrl = image.ThumbnailUrl,      // 150x150
-            MediumUrl = image.MediumUrl,            // 800x800
-            IsPrimary = image.IsPrimary,
-            DisplayOrder = image.DisplayOrder,
-            Caption = image.Caption ?? "no caption"
-        };
-    }
-
-    /// <summary>
-    /// Get the S3 key for the thumbnail version of an image
-    /// </summary>
-    private static string GetThumbnailKey(string originalKey)
-    {
-        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
-        var filename = Path.GetFileNameWithoutExtension(originalKey);
-        var extension = Path.GetExtension(originalKey);
-        return $"{directory}/{filename}_thumbnail{extension}";
-    }
-
-    /// <summary>
-    /// Get the S3 key for the medium version of an image
-    /// </summary>
-    private static string GetMediumKey(string originalKey)
-    {
-        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
-        var filename = Path.GetFileNameWithoutExtension(originalKey);
-        var extension = Path.GetExtension(originalKey);
-        return $"{directory}/{filename}_medium{extension}";
-    }
-
-    /// <summary>
-    /// Get bucket name from configuration (helper method)
-    /// </summary>
-    private string GetBucketNameFromConfig()
-    {
-        // You can inject IConfiguration if needed, or return a constant
-        return "your-bucket-name"; // Replace with actual bucket name from config
-    }
-
-    #endregion
-
-
     #region PRICING
 
-    public async Task<Result> SetSpecialPricingAsync(
-        int subUnitId,
-        SetSpecialPricingRequestsss request)
+    public async Task<Result> SetSpecialPricingAsync(int subUnitId, SetSpecialPricingRequestsss request)
     {
         var availability = await _context.Set<SubUnitAvailability>()
             .FirstOrDefaultAsync(a => a.SubUnitId == subUnitId &&
-                                     a.StartDate == request.StartDate &&
-                                     a.EndDate == request.EndDate);
+                                      a.StartDate == request.StartDate &&
+                                      a.EndDate == request.EndDate);
 
         if (availability == null)
         {
-            // Create new availability record with special pricing
-            availability = new SubUnitAvailability
+            await _context.Set<SubUnitAvailability>().AddAsync(new SubUnitAvailability
             {
                 SubUnitId = subUnitId,
                 StartDate = request.StartDate,
@@ -608,9 +500,7 @@ public class SubUnitService(
                 WeekendPrice = request.WeekendPrice,
                 UpdatedByUserId = request.UpdatedByUserId,
                 CreatedAt = DateTime.UtcNow.AddHours(3)
-            };
-
-            await _context.Set<SubUnitAvailability>().AddAsync(availability);
+            });
         }
         else
         {
@@ -625,26 +515,20 @@ public class SubUnitService(
     }
 
     public async Task<Result<decimal>> CalculatePriceAsync(
-        int subUnitId,
-        DateTime checkIn,
-        DateTime checkOut)
+        int subUnitId, DateTime checkIn, DateTime checkOut)
     {
         var subUnit = await _context.SubUnits
             .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
 
         if (subUnit == null)
-            return Result.Failure<decimal>(
-                new Error("NotFound", "SubUnit not found", 404));
+            return Result.Failure<decimal>(new Error("NotFound", "SubUnit not found", 404));
 
-        // Get availability with pricing info
         var availability = await _context.Set<SubUnitAvailability>()
             .FirstOrDefaultAsync(a => a.SubUnitId == subUnitId &&
-                                     checkIn >= a.StartDate &&
-                                     checkOut <= a.EndDate);
+                                      checkIn >= a.StartDate &&
+                                      checkOut <= a.EndDate);
 
-        var calculator = new PricingCalculator();
-        var price = calculator.CalculatePrice(subUnit, checkIn, checkOut, availability);
-
+        var price = new PricingCalculator().CalculatePrice(subUnit, checkIn, checkOut, availability);
         return Result.Success(price);
     }
 
@@ -658,15 +542,13 @@ public class SubUnitService(
             .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
 
         if (subUnit == null)
-            return Result.Failure(
-                new Error("NotFound", "SubUnit not found", 404));
+            return Result.Failure(new Error("NotFound", "SubUnit not found", 404));
 
         var policy = await _context.GeneralPolicies
             .FirstOrDefaultAsync(p => p.Id == policyId && p.IsActive);
 
         if (policy == null)
-            return Result.Failure(
-                new Error("PolicyNotFound", "General policy not found", 404));
+            return Result.Failure(new Error("PolicyNotFound", "General policy not found", 404));
 
         policy.SubUnitId = subUnitId;
         policy.UnitId = null;
@@ -681,12 +563,10 @@ public class SubUnitService(
             .FirstOrDefaultAsync(p => p.Id == policyId && p.SubUnitId == subUnitId);
 
         if (policy == null)
-            return Result.Failure(
-                new Error("NotFound", "Policy not found", 404));
+            return Result.Failure(new Error("NotFound", "Policy not found", 404));
 
         policy.SubUnitId = null;
         await _context.SaveChangesAsync();
-
         return Result.Success();
     }
 
@@ -694,6 +574,63 @@ public class SubUnitService(
 
     #region HELPER METHODS
 
+    // ── NEW: map SubUnitOptionValue rows → grouped OptionValueResponse list ──────
+    private static List<OptionValueResponse> MapOptionValues(
+        IEnumerable<SubUnitOptionValue>? optionValues)
+    {
+        if (optionValues == null) return [];
+
+        return optionValues
+            .GroupBy(ov => new
+            {
+                ov.SubUnitTypeOptionId,
+                ov.SubUnitTypeOption?.Name,
+                InputType = ov.SubUnitTypeOption?.InputType.ToString() ?? string.Empty
+            })
+            .Select(g => new OptionValueResponse
+            {
+                OptionId = g.Key.SubUnitTypeOptionId,
+                OptionName = g.Key.Name ?? string.Empty,
+                InputType = g.Key.InputType,
+                Values = g.Select(ov => ov.Value).ToList()
+            })
+            .ToList();
+    }
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    private static SubUnitImageResponses MapToImageResponse(Domain.Entities.SubUnitImage image)
+    {
+        return new SubUnitImageResponses
+        {
+            Id = image.Id,
+            ImageUrl = image.ImageUrl,
+            ThumbnailUrl = image.ThumbnailUrl,
+            MediumUrl = image.MediumUrl,
+            IsPrimary = image.IsPrimary,
+            DisplayOrder = image.DisplayOrder,
+            Caption = image.Caption ?? "no caption"
+        };
+    }
+
+    private static string GetThumbnailKey(string originalKey)
+    {
+        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
+        var filename = Path.GetFileNameWithoutExtension(originalKey);
+        var extension = Path.GetExtension(originalKey);
+        return $"{directory}/{filename}_thumbnail{extension}";
+    }
+
+    private static string GetMediumKey(string originalKey)
+    {
+        var directory = Path.GetDirectoryName(originalKey)?.Replace("\\", "/");
+        var filename = Path.GetFileNameWithoutExtension(originalKey);
+        var extension = Path.GetExtension(originalKey);
+        return $"{directory}/{filename}_medium{extension}";
+    }
+
+    private string GetBucketNameFromConfig() => "your-bucket-name";
+
+    // ── Updated: now includes OptionValues ────────────────────────────────────
     private static SubUnitResponse MapToResponse(Domain.Entities.SubUnit subUnit)
     {
         return new SubUnitResponse
@@ -711,7 +648,10 @@ public class SubUnitService(
             Description = subUnit.Description,
             IsAvailable = subUnit.IsAvailable,
             PrimaryImageUrl = subUnit.SubUnitImages?
-                .FirstOrDefault(i => i.IsPrimary)?.ImageUrl
+                .FirstOrDefault(i => i.IsPrimary)?.ImageUrl,
+            // ── NEW ────────────────────────────────────────────────────
+            OptionValues = MapOptionValues(subUnit.OptionValues)
+            // ──────────────────────────────────────────────────────────
         };
     }
 
@@ -751,21 +691,12 @@ public class SubUnitService(
             Description = subUnit.Description,
             IsAvailable = subUnit.IsAvailable,
             Images = images,
-            Amenities = amenities
+            Amenities = amenities,
+            // ── NEW ────────────────────────────────────────────────────
+            OptionValues = MapOptionValues(subUnit.OptionValues)
+            // ──────────────────────────────────────────────────────────
         };
     }
-
-    //private static SubUnitImageResponse MapToImageResponse(Domain.Entities.SubUnitImage image)
-    //{
-    //    return new SubUnitImageResponse
-    //    {
-    //        Id = image.Id,
-    //        ImageUrl = image.ImageUrl,
-    //        ThumbnailUrl = image.ThumbnailUrl,
-    //        IsPrimary = image.IsPrimary,
-    //        DisplayOrder = image.DisplayOrder
-    //    };
-    //}
 
     #endregion
 }

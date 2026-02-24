@@ -1,4 +1,6 @@
-﻿namespace Application.Contracts.publicuser;
+﻿using Application.Contracts.SubUnit;
+
+namespace Application.Contracts.publicuser;
 
 internal class publicuser
 {
@@ -34,6 +36,8 @@ public record PublicUnitResponse
     public List<string> Options { get; init; } = new();
     public string Currency { get; init; } = "SAR";
     public List<PublicCustomPolicyInfo> CustomPolicies { get; init; } = new();
+    public List<OptionValueResponse> OptionValues { get; init; } = new();
+
 }
 
 public record PublicUnitDetailsResponse
@@ -97,6 +101,8 @@ public record PublicUnitDetailsResponses
     public List<string> Options { get; init; } = new();
     public string Currency { get; init; } = "SAR";
     public List<PublicCustomPolicyInfo> CustomPolicies { get; init; } = new();
+    public List<OptionValueResponse> OptionValues { get; init; } = new();
+
 }
 
 public record PublicCustomPolicyInfo
@@ -125,6 +131,8 @@ public record PublicSubUnitDetailsResponse
 
     public List<PublicImageInfo> Images { get; init; } = new();
     public List<PublicAmenityInfo> Amenities { get; init; } = new();
+    public List<OptionValueResponse> OptionValues { get; init; } = new();
+
 }
 
 // ============= CITY/DEPARTMENT RESPONSES =============
@@ -176,9 +184,9 @@ public record PublicSubUnitSummary(
     decimal PricePerNight,
     int MaxOccupancy,
     bool IsAvailable,
-    string? PrimaryImageUrl
+    string? PrimaryImageUrl,
+    List<OptionValueResponse> OptionValues
 );
-
 public record PublicReviewSummary
 {
     public int Rating { get; init; }

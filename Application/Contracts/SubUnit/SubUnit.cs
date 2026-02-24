@@ -8,7 +8,17 @@ internal class SubUnit
 {
 }
 
-
+public class OptionValueResponse
+{
+    public int OptionId { get; init; }
+    public string OptionName { get; init; } = string.Empty;
+    public string InputType { get; init; } = string.Empty;
+    /// <summary>
+    /// One element for scalar types (Text, Number, TextArea, Checkbox, Select).
+    /// Multiple elements for MultiSelect.
+    /// </summary>
+    public List<string> Values { get; init; } = [];
+}
 
 // ============= REQUESTS =============
 
@@ -99,6 +109,7 @@ public class SubUnitResponse
     public string? Description { get; init; }
     public bool IsAvailable { get; init; }
     public string? PrimaryImageUrl { get; init; }
+    public List<OptionValueResponse> OptionValues { get; init; } = new();
 }
 
 public class SubUnitDetailsResponse
@@ -117,6 +128,8 @@ public class SubUnitDetailsResponse
     public bool IsAvailable { get; init; }
     public List<SubUnitImageResponse> Images { get; init; } = new();
     public List<AmenityInfo> Amenities { get; init; } = new();
+    public List<OptionValueResponse> OptionValues { get; init; } = new();
+
 }
 
 public class SubUnitImageResponse
