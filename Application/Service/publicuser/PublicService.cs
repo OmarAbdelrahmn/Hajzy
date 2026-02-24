@@ -973,7 +973,8 @@ public class PublicService(
             Name: unitType.Name,
             Description: unitType.Description,
             IsActive: unitType.IsActive,
-            TotalUnits: totalUnits
+            TotalUnits: totalUnits,
+            unitType.IsStandalone
         );
     }
 

@@ -843,6 +843,7 @@ public record UnitComprehensiveResponse
     public List<PolicyResponse> Policies { get; set; } = [];
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public bool IsStandAlone { get; set; }
 }
 
 public record ImageResponse

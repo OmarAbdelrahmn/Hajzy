@@ -11,7 +11,8 @@ public record UnitTypeResponse(
     string Name,
     string? Description,
     bool IsActive,
-    int TotalUnits
+    int TotalUnits,
+    bool IsStandalone
 );
 public record SubUnitTypeResponse(
     int Id,
@@ -66,6 +67,7 @@ public record CreateUnitTypeRequest
     public string Name { get; init; } = string.Empty;
     public string? Description { get; init; }
     public bool IsActive { get; init; } = true;
+    public bool IsStandalone { get; init; }
 }
 public record SubCreateUnitTypeRequest
 {
@@ -79,6 +81,7 @@ public record UpdateUnitTypeRequest
     public string? Name { get; init; }
     public string? Description { get; init; }
     public bool? IsActive { get; init; }
+    public bool? IsStandalone { get; init; }
 }
 public record SubUpdateUnitTypeRequest
 {

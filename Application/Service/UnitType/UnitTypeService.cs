@@ -58,7 +58,8 @@ public class UnitTypeService(
             ut.Name,
             ut.Description,
             ut.IsActive,
-            _context.Units.Count(u => u.UnitTypeId == ut.Id && !u.IsDeleted)
+            _context.Units.Count(u => u.UnitTypeId == ut.Id && !u.IsDeleted),
+            ut.IsStandalone
         )).ToList();
 
         var paginatedResult = CreatePaginatedResponse(
@@ -161,7 +162,8 @@ public class UnitTypeService(
             {
                 Name = request.Name,
                 Description = request.Description,
-                IsActive = request.IsActive
+                IsActive = request.IsActive,
+                IsStandalone = request.IsStandalone
             };
 
             await _context.UnitTypes.AddAsync(unitType);
@@ -212,6 +214,9 @@ public class UnitTypeService(
 
             if (request.IsActive.HasValue)
                 unitType.IsActive = request.IsActive.Value;
+            
+            if (request.IsStandalone.HasValue)
+                unitType.IsStandalone = request.IsStandalone.Value;
 
             await _context.SaveChangesAsync();
 
@@ -439,7 +444,8 @@ public class UnitTypeService(
             Name: unitType.Name,
             Description: unitType.Description,
             IsActive: unitType.IsActive,
-            TotalUnits: totalUnits
+            TotalUnits: totalUnits,
+            unitType.IsStandalone
         );
     }
 

@@ -3699,7 +3699,8 @@ public class CityAdminService(
                 PolicyType = p.PolicyType.ToString()
             }).ToList(),
             CreatedAt = unit.CreatedAt,
-            UpdatedAt = unit.UpdatedAt
+            UpdatedAt = unit.UpdatedAt,
+            IsStandAlone = unit.UnitType.IsStandalone
         };
     }
 
