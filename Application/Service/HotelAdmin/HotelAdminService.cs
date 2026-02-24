@@ -313,6 +313,10 @@ public class HotelAdminService(
                 .Include(u => u.Images.Where(i => !i.IsDeleted))
                 .Include(u => u.UnitAmenities).ThenInclude(ua => ua.Amenity)
                 .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                .Include(u => u.OptionValues).ThenInclude(ov => ov.UnitTypeOption)
+                .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                    .ThenInclude(r => r.OptionValues).ThenInclude(ov => ov.SubUnitTypeOption)
+
                 .Where(u => unitIds.Contains(u.Id) && !u.IsDeleted)
                 .AsQueryable();
 
@@ -383,6 +387,9 @@ public class HotelAdminService(
                     .ThenInclude(r => r.SubUnitAmenities).ThenInclude(sa => sa.Amenity)
                 .Include(u => u.Rooms.Where(r => !r.IsDeleted))
                     .ThenInclude(r => r.SubUnitAvailabilities)
+                    .Include(u => u.OptionValues).ThenInclude(ov => ov.UnitTypeOption)
+                .Include(u => u.Rooms.Where(r => !r.IsDeleted))
+                    .ThenInclude(r => r.OptionValues).ThenInclude(ov => ov.SubUnitTypeOption)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
 
@@ -774,6 +781,7 @@ public class HotelAdminService(
                 .Include(s => s.SubUnitImages.Where(i => !i.IsDeleted))
                 .Include(s => s.SubUnitAmenities).ThenInclude(sa => sa.Amenity)
                 .Include(s => s.SubUnitAvailabilities)
+                .Include(s => s.OptionValues).ThenInclude(ov => ov.SubUnitTypeOption)
                 .Where(s => targetIds.Contains(s.UnitId) && !s.IsDeleted)
                 .AsNoTracking()
                 .ToListAsync();
@@ -802,6 +810,7 @@ public class HotelAdminService(
                 .Include(s => s.SubUnitAmenities).ThenInclude(sa => sa.Amenity)
                 .Include(s => s.SubUnitAvailabilities)
                 .Include(s => s.BookingRooms).ThenInclude(br => br.Booking)
+                .Include(s => s.OptionValues).ThenInclude(ov => ov.SubUnitTypeOption)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
 
@@ -4212,7 +4221,8 @@ public class HotelAdminService(
             UpdatedAt = unit.UpdatedAt,
             Options = options,
             Currency = unit.PriceCurrency.ToString(),
-            CustomPolicies = customPolicies
+            CustomPolicies = customPolicies,
+            OptionValues = MapUnitOptionValues(unit.OptionValues),
         };
     }
 
@@ -4305,7 +4315,9 @@ public class HotelAdminService(
             Name = sa.Amenity.Name,
             Category = sa.Amenity.Category,
             IsAvailable = sa.IsAvailable
-        }).ToList()
+        }).ToList(),
+        OptionValues = MapSubUnitOptionValues(subUnit.OptionValues)
+
     };
 
     private ReviewResponse MapToReviewResponse(Domain.Entities.Review review) => new()
@@ -4390,4 +4402,34 @@ public class HotelAdminService(
         UpdatedAt = a.UpdatedAt,
         UpdatedByUserId = a.UpdatedByUserId
     };
+
+    private static List<Contracts.SubUnit.OptionValueResponse> MapUnitOptionValues(
+    IEnumerable<UnitOptionValue>? optionValues)
+    {
+        if (optionValues == null) return [];
+        return optionValues
+            .GroupBy(ov => ov.UnitTypeOptionId)
+            .Select(g => new Contracts.SubUnit.OptionValueResponse
+            {
+                OptionId = g.Key,
+                OptionName = g.First().UnitTypeOption.Name,
+                InputType = g.First().UnitTypeOption.InputType.ToString(),
+                Values = g.Select(ov => ov.Value).ToList()
+            }).ToList();
+    }
+
+    private static List<Contracts.SubUnit.OptionValueResponse> MapSubUnitOptionValues(
+        IEnumerable<SubUnitOptionValue>? optionValues)
+    {
+        if (optionValues == null) return [];
+        return optionValues
+            .GroupBy(ov => ov.SubUnitTypeOptionId)
+            .Select(g => new Contracts.SubUnit.OptionValueResponse
+            {
+                OptionId = g.Key,
+                OptionName = g.First().SubUnitTypeOption.Name,
+                InputType = g.First().SubUnitTypeOption.InputType.ToString(),
+                Values = g.Select(ov => ov.Value).ToList()
+            }).ToList();
+    }
 }

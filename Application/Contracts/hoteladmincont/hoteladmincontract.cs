@@ -1,5 +1,6 @@
 ﻿// Application/Contracts/hoteladmincont/HotelAdminContracts.cs
 
+using Application.Contracts.SubUnit;
 using Application.Service.Avilabilaties;
 using Domain;
 using Domain.Entities;
@@ -1123,6 +1124,7 @@ public class UnitComprehensiveResponse
     public List<string> Options { get; init; } = new();
     public string Currency { get; init; } = "SAR";
     public List<CustomPolicyDetail> CustomPolicies { get; init; } = new();
+    public List<OptionValueResponse> OptionValues { get; init; } = [];
 
     // ... rest of existing properties ...
 }
@@ -1279,6 +1281,7 @@ public class SubUnitComprehensiveDetail
     public string? Description { get; set; }
     public List<ImageResponse> Images { get; set; } = [];
     public List<AmenityResponse> Amenities { get; set; } = [];
+    public List<OptionValueResponse> OptionValues { get; init; } = [];
 }
 
 #endregion

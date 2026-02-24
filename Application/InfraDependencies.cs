@@ -2,6 +2,8 @@
 using Application;
 using Application.Authentication;
 using Application.Helpers;
+using Application.News;
+using Application.Newsletter;
 using Application.Notifications;
 using Application.Service.Admin;
 using Application.Service.AdService;
@@ -96,8 +98,11 @@ public static class InfraDependencies
         Services.AddScoped<IHotelAdminService, HotelAdminService>();
         Services.AddScoped<ICityAdminService, CityAdminService>();
         Services.AddScoped<IBookingManagementService, BookingManagementService>();
+        Services.AddScoped<INewsletterService, NewsletterService>();
         Services.AddScoped<AdExpirationJob>();
         Services.AddScoped<OfferExpirationJob>();
+        Services.AddScoped<NewsletterJob>();
+
 
         Services.AddProblemDetails();
 

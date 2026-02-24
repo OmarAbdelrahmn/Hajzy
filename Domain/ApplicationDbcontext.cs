@@ -72,6 +72,11 @@ public class ApplicationDbcontext(DbContextOptions<ApplicationDbcontext> options
     public DbSet<SubUnitTypeOptionSelection> SubUnitTypeOptionSelections { get; set; }
     public DbSet<SubUnitOptionValue> SubUnitOptionValues { get; set; }
 
+    //news
+    public DbSet<NewsletterSubscriber> NewsletterSubscribers { get; set; }
+    public DbSet<NewsletterCampaign> NewsletterCampaigns{ get; set; }
+    public DbSet<NewsletterSendLog> NewsletterSendLogs{ get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());

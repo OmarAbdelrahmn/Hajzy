@@ -7,7 +7,7 @@ namespace Hajzzy.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize(Roles = "SuperAdmin,CityAdmin")]
+//[Authorize(Roles = "SuperAdmin,CityAdmin")]
 public class SubUnitTypeController(ISubUnitTypeService service) : ControllerBase
 {
     private readonly ISubUnitTypeService _service = service;
