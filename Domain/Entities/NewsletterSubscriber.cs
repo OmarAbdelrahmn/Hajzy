@@ -45,8 +45,8 @@ public class NewsletterCampaign
 
     public NewsletterCampaignStatus Status { get; set; } = NewsletterCampaignStatus.Pending;
 
-    public string CreatedByUserId { get; set; } = string.Empty;
-    public ApplicationUser CreatedBy { get; set; } = default!;
+    public string UserId { get; set; } = string.Empty;
+    public ApplicationUser User { get; set; } = default!;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

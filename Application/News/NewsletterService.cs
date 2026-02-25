@@ -110,9 +110,10 @@ public class NewsletterService(
             {
                 Title = title,
                 Description = description,
-                CreatedByUserId = adminUserId,
+                UserId = adminUserId,
                 Status = NewsletterCampaignStatus.Queued,
-                QueuedAt = DateTime.UtcNow
+                QueuedAt = DateTime.UtcNow,
+                 
             };
 
             context.NewsletterCampaigns.Add(campaign);
@@ -135,7 +136,7 @@ public class NewsletterService(
         {
             logger.LogError(ex, "Failed to create newsletter campaign");
             return Result.Failure<int>(
-                new Error("CampaignFailed", "Failed to create campaign.", 500));
+                new Error(ex.Message, ex.InnerException.Message, 500));
         }
     }
 }
