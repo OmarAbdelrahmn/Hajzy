@@ -474,7 +474,8 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
 
                 // Timestamps
                 CreatedAt = booking.CreatedAt,
-                UpdatedAt = booking.UpdatedAt
+                UpdatedAt = booking.UpdatedAt,
+                Currency = booking.Unit.PriceCurrency.ToString()
             };
         }).ToList();
 
@@ -525,7 +526,7 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
             var thisWeek = today.AddDays(-(int)today.DayOfWeek);
 
             // Call individual methods to get detailed data
-            var revenueOverviewResult = await GetPlatformRevenueOverviewAsync(userId, thisMonth, today);
+            var revenueOverviewResult = await GetPlatformRevenueOverviewAsync(userId, today.AddMonths(-12), today);
             var departmentPerformanceResult = await GetDepartmentPerformanceAsync(userId, 5);
             var growthMetricsResult = await GetPlatformGrowthMetricsAsync(userId, 12);
             var bookingTrendsResult = await GetPlatformBookingTrendsAsync(userId, today.AddDays(-30), today);
@@ -666,7 +667,9 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
                             Month = $"{g.Key.Year}-{g.Key.Month:D2}",
                             Revenue = g.Sum(x => x.Revenue),
                             BookingCount = g.Sum(x => x.BookingCount),
-                            AverageBookingValue = g.Sum(x => x.Revenue) / g.Sum(x => x.BookingCount)
+                            AverageBookingValue = g.Sum(x => x.BookingCount) > 0
+                            ? g.Sum(x => x.Revenue) / g.Sum(x => x.BookingCount)
+                            : 0
                         }).ToList(),
                     RevenueByDepartment = revData.RevenueByDepartment
                 };

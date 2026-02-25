@@ -897,6 +897,7 @@ public record BookingComprehensiveResponse
     public string? GuestEmail2 { get; set; }
     public string? GuestPhone { get; set; }
     public string? GuestSpecialRequirements { get; set; }
+    public string? Currency { get; set; }
 }
 
 public record BookingDetailsResponse

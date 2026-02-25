@@ -3048,7 +3048,8 @@ public class CityAdminService(
                 GuestLastName = b.GuestLastName,
                 GuestEmail2 = b.GuestEmail,
                 GuestPhone = b.GuestPhone,
-                GuestSpecialRequirements = b.SpecialRequests
+                GuestSpecialRequirements = b.SpecialRequests,
+                Currency = b.Unit.PriceCurrency.ToString()
             }).ToList();
 
             var paginatedResult = CreatePaginatedResponse(responses, totalCount, filter.Page, filter.PageSize);
@@ -3782,8 +3783,10 @@ public class CityAdminService(
                     .Where(b => b.CreatedAt >= today.AddDays(-7) && b.Status == BookingStatus.Completed)
                     .Sum(b => b.TotalPrice),
                 MonthRevenue = allBookings
-                    .Where(b => b.CreatedAt.Month == today.Month && b.Status == BookingStatus.Completed)
-                    .Sum(b => b.TotalPrice),
+                .Where(b => b.CreatedAt.Year == today.Year &&
+                            b.CreatedAt.Month == today.Month &&
+                            b.Status == BookingStatus.Completed)
+                .Sum(b => b.TotalPrice),
                 OccupancyRate = await CalculateCityOccupancyRateAsync(deptId, today.AddDays(-30), today)
             };
 

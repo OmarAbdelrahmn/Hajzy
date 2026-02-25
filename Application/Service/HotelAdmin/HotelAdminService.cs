@@ -540,7 +540,8 @@ public class HotelAdminService(
                     GuestLastName = b.GuestLastName,
                     GuestEmail2 = b.GuestEmail,
                     GuestPhone = b.GuestPhone,
-                    GuestSpecialRequirements = b.SpecialRequests
+                    GuestSpecialRequirements = b.SpecialRequests,
+                    Currency = b.Unit.PriceCurrency.ToString()
                 })
                 .ToListAsync();
 

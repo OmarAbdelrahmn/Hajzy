@@ -117,6 +117,7 @@ public class AdminBookingResponse
     // Additional Info
     public string? SpecialRequests { get; set; }
     public string? CancellationReason { get; set; }
+    public string? Currency { get; set; }
     public DateTime? CancelledAt { get; set; }
 
     // Timestamps
