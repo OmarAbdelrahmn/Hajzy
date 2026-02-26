@@ -33,22 +33,34 @@ public class UnitService(
             .Where(u => !u.IsDeleted)
             .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(filter.Name))
-            query = query.Where(u => u.Name.Contains(filter.Name));
-        if (filter.CityId.HasValue)
-            query = query.Where(u => u.CityId == filter.CityId.Value);
-        if (filter.UnitTypeId.HasValue)
-            query = query.Where(u => u.UnitTypeId == filter.UnitTypeId.Value);
-        if (filter.MinPrice.HasValue)
-            query = query.Where(u => u.BasePrice >= filter.MinPrice.Value);
-        if (filter.MaxPrice.HasValue)
-            query = query.Where(u => u.BasePrice <= filter.MaxPrice.Value);
-        if (filter.MinRating.HasValue)
-            query = query.Where(u => u.AverageRating >= filter.MinRating.Value);
-        if (filter.IsActive.HasValue)
-            query = query.Where(u => u.IsActive == filter.IsActive.Value);
-        if (filter.IsVerified.HasValue)
-            query = query.Where(u => u.IsVerified == filter.IsVerified.Value);
+        //if (!string.IsNullOrWhiteSpace(filter.Name))
+        //    query = query.Where(u => u.Name.Contains(filter.Name));
+        //if (filter.CityId.HasValue)
+        //    query = query.Where(u => u.CityId == filter.CityId.Value);
+        //if (filter.UnitTypeId.HasValue)
+        //    query = query.Where(u => u.UnitTypeId == filter.UnitTypeId.Value);
+        //if (filter.MinPrice.HasValue)
+        //    query = query.Where(u => u.BasePrice >= filter.MinPrice.Value);
+        //if (filter.MaxPrice.HasValue)
+        //    query = query.Where(u => u.BasePrice <= filter.MaxPrice.Value);
+        //if (filter.MinRating.HasValue)
+        //    query = query.Where(u => u.AverageRating >= filter.MinRating.Value);
+        //if (filter.IsActive.HasValue)
+        //    query = query.Where(u => u.IsActive == filter.IsActive.Value);
+        //if (filter.IsVerified.HasValue)
+        //    query = query.Where(u => u.IsVerified == filter.IsVerified.Value);
+
+        if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+        {
+            var term = filter.SearchTerm.Trim().ToLower();
+            query = query.Where(u =>
+                u.Name.ToLower().Contains(term) ||
+                u.Description.ToLower().Contains(term) ||
+                u.Address.ToLower().Contains(term) ||
+                u.City.Name.ToLower().Contains(term) ||
+                u.UnitType.Name.ToLower().Contains(term)
+            );
+        }
 
         var totalCount = await query.CountAsync();
 
@@ -71,7 +83,8 @@ public class UnitService(
             TotalReviews = u.TotalReviews,
             IsActive = u.IsActive,
             IsVerified = u.IsVerified,
-            CreatedAt = u.CreatedAt
+            CreatedAt = u.CreatedAt,
+            IsStandAlone = u.UnitType.IsStandalone
         }).ToList();
 
         return Result.Success(
@@ -126,8 +139,8 @@ public class UnitService(
             UpdatedAt = unit.UpdatedAt,
             IsStandaloneUnit = !subUnits.Any(),
             // ── NEW ────────────────────────────────────────────────────
-            OptionValues = MapUnitOptionValues(unit.OptionValues)
-            // ──────────────────────────────────────────────────────────
+            OptionValues = MapUnitOptionValues(unit.OptionValues),
+           IsStandAlone = unit.UnitType?.IsStandalone
         });
     }
 
@@ -1193,8 +1206,7 @@ public class UnitService(
                 })
                 .FirstOrDefault(),
             // ── NEW ────────────────────────────────────────────────────
-            OptionValues = MapSubUnitOptionValues(r.OptionValues)
-            // ──────────────────────────────────────────────────────────
+            OptionValues = MapSubUnitOptionValues(r.OptionValues)            
         }).ToList() ?? new List<SubUnitComprehensiveDetail>();
 
         var options = new List<string>();
@@ -1254,8 +1266,10 @@ public class UnitService(
             Currency = unit.PriceCurrency.ToString(),
             CustomPolicies = customPolicies,
             // ── NEW ────────────────────────────────────────────────────
-            OptionValues = MapUnitOptionValues(unit.OptionValues)
+            OptionValues = MapUnitOptionValues(unit.OptionValues),
             // ──────────────────────────────────────────────────────────
+            IsStandAlone = unit.UnitType!.IsStandalone
+
         };
     }
 
@@ -1345,8 +1359,8 @@ public class UnitService(
             CreatedAt = unit.CreatedAt,
             UpdatedAt = unit.UpdatedAt,
             // ── NEW ────────────────────────────────────────────────────
-            OptionValues = MapUnitOptionValues(unit.OptionValues)
-            // ──────────────────────────────────────────────────────────
+            OptionValues = MapUnitOptionValues(unit.OptionValues),
+            IsStandAlone = unit.UnitType!.IsStandalone
         };
     }
 

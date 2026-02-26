@@ -38,11 +38,21 @@ public class UnitTypeService(
     }
     public async Task<Result<PaginatedResponse<UnitTypeResponse>>> GetAllUnitTypesAsync(
        int page = 1,
-       int pageSize = 10)
+       int pageSize = 10,
+       string? searchTerm = null)
     {
         var query = _context.UnitTypes
             .Where(ut => ut.IsActive)
             .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(ut =>
+                ut.Name.ToLower().Contains(term) ||
+                (ut.Description != null && ut.Description.ToLower().Contains(term))
+            );
+        }
 
         var totalCount = await query.CountAsync();
 

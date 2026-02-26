@@ -26,9 +26,9 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
 
     [HttpGet("")]
 
-    public async Task<IActionResult> GetAll([FromQuery] int Page = 10, [FromQuery] int PageSize = 10)
+    public async Task<IActionResult> GetAll([FromQuery] int Page = 10, [FromQuery] int PageSize = 10, string? searchTerm = null)
     {
-        var response = await service.GetAllDepartmentsAsync(Page, PageSize);
+        var response = await service.GetAllDepartmentsAsync(Page, PageSize,searchTerm);
         return response.IsSuccess ?
             Ok(response.Value) :
             response.ToProblem();
@@ -211,9 +211,9 @@ public class DepartmentController(IDepartmanetService service) : ControllerBase
 
     [HttpGet("by-country/{country}")]
 
-    public async Task<IActionResult> GetByCountry(string country, [FromQuery] int Page = 10, [FromQuery] int PageSize = 10)
+    public async Task<IActionResult> GetByCountry(string country, [FromQuery] int Page = 10, [FromQuery] int PageSize = 10, string? searchTerm = null)
     {
-        var response = await service.GetDepartmentsByCountryAsync(country, Page, PageSize);
+        var response = await service.GetDepartmentsByCountryAsync(country, Page, PageSize,searchTerm);
         return response.IsSuccess ?
             Ok(response.Value) :
             response.ToProblem();

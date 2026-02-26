@@ -236,6 +236,18 @@ public class AdService(
         if (filter.StartDateTo.HasValue)
             query = query.Where(a => a.StartDate <= filter.StartDateTo.Value);
 
+        if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+        {
+            var term = filter.SearchTerm.Trim().ToLower();
+            query = query.Where(a =>
+                (a.Title != null && a.Title.ToLower().Contains(term)) ||
+                (a.Description != null && a.Description.ToLower().Contains(term)) ||
+                (a.Link != null && a.Link.ToLower().Contains(term)) ||
+                (a.Unit != null && a.Unit.Name.ToLower().Contains(term)) ||
+                (a.UploadedBy != null && a.UploadedBy.FullName != null && a.UploadedBy.FullName.ToLower().Contains(term))
+            );
+        }
+
         // GET TOTAL COUNT BEFORE PAGINATION
         var totalCount = await query.CountAsync();
 
@@ -261,7 +273,8 @@ public class AdService(
 
     public async Task<Result<PaginatedResponse<AdResponse>>> GetCurrentActiveAdsAsync(
         int page = 1,
-        int pageSize = 10)
+        int pageSize = 10,
+         string? searchTerm = null)
     {
         var now = DateTime.UtcNow;
 
@@ -272,6 +285,18 @@ public class AdService(
                        a.IsActive &&
                        a.StartDate <= now &&
                        a.EndDate >= now);
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(a =>
+                (a.Title != null && a.Title.ToLower().Contains(term)) ||
+                (a.Description != null && a.Description.ToLower().Contains(term)) ||
+                (a.Link != null && a.Link.ToLower().Contains(term)) ||
+                (a.Unit != null && a.Unit.Name.ToLower().Contains(term)) ||
+                (a.UploadedBy != null && a.UploadedBy.FullName != null && a.UploadedBy.FullName.ToLower().Contains(term))
+            );
+        }
 
         var totalCount = await query.CountAsync();
 
@@ -291,7 +316,8 @@ public class AdService(
 
     public async Task<Result<PaginatedResponse<AdResponse>>> GetInactiveAdsAsync(
         int page = 1,
-        int pageSize = 10)
+        int pageSize = 10,
+        string? searchTerm = null)
     {
         var now = DateTime.UtcNow;
 
@@ -300,6 +326,19 @@ public class AdService(
             .Include(a => a.UploadedBy)
             .Where(a => !a.IsDeleted &&
                        (!a.IsActive || a.EndDate < now));
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(a =>
+                (a.Title != null && a.Title.ToLower().Contains(term)) ||
+                (a.Description != null && a.Description.ToLower().Contains(term)) ||
+                (a.Link != null && a.Link.ToLower().Contains(term)) ||
+                (a.Unit != null && a.Unit.Name.ToLower().Contains(term)) ||
+                (a.UploadedBy != null && a.UploadedBy.FullName != null && a.UploadedBy.FullName.ToLower().Contains(term))
+            );
+        }
+
 
         var totalCount = await query.CountAsync();
 

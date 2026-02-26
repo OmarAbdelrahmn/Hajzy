@@ -7,9 +7,9 @@ namespace Application.Service.Department;
 public interface IDepartmanetService
 {
     Task<Result<DepartmentResponse>> GetByIdAsync(int departmentId);
-    Task<Result<PaginatedResponse<DepartmentResponse>>> GetAllDepartmentsAsync(int page = 1, int pageSize = 10);
+    Task<Result<PaginatedResponse<DepartmentResponse>>> GetAllDepartmentsAsync(int page = 1, int pageSize = 10, string? searchTerm = null);
     Task<Result<PaginatedResponse<DepartmentResponse>>> GetDepartmentsByCountryAsync(
-        string country, int page = 1, int pageSize = 10);
+        string country, int page = 1, int pageSize = 10, string? searchTerm = null);
 
     Task<Result<DepartmentResponse>> CreateAsync(CreateDepartmentRequest request);
     Task<Result<DepartmentResponse>> UpdateAsync(int departmentId, UpdateDepartmentRequest request);

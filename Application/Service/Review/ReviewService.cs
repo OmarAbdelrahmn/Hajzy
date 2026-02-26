@@ -1039,13 +1039,16 @@ public class ReviewService(
             if (filter.MinValueRating.HasValue)
                 query = query.Where(r => r.ValueRating >= filter.MinValueRating.Value);
 
-            // Search in comment or unit name
             if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
             {
-                var searchLower = filter.SearchTerm.ToLower();
+                var term = filter.SearchTerm.Trim().ToLower();
                 query = query.Where(r =>
-                    (r.Comment != null && r.Comment.ToLower().Contains(searchLower)) ||
-                    (r.Unit != null && r.Unit.Name.ToLower().Contains(searchLower)));
+                    (r.Comment != null && r.Comment.ToLower().Contains(term)) ||
+                    (r.Unit != null && r.Unit.Name.ToLower().Contains(term)) ||
+                    (r.User != null && r.User.FullName != null && r.User.FullName.ToLower().Contains(term)) ||
+                    (r.User != null && r.User.Email != null && r.User.Email.ToLower().Contains(term)) ||
+                    (r.Unit != null && r.Unit.City != null && r.Unit.City.Name.ToLower().Contains(term))
+                );
             }
 
             // Apply sorting
@@ -1162,15 +1165,30 @@ public class ReviewService(
 
     public async Task<Result<IReviewService.PaginatedResponse<ReviewResponse>>> GetPendingReviewsAsync(
             int page = 1,
-            int pageSize = 10)
+            int pageSize = 10,
+            string? searchTerm = null)
     {
         try
         {
+
             var query = _context.Set<Domain.Entities.Review>()
                 .Include(r => r.Unit)
                 .Include(r => r.User)
                 .Include(r => r.Images)
-                .OrderByDescending(r => r.CreatedAt);
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+                query = query.Where(r =>
+                    (r.Comment != null && r.Comment.ToLower().Contains(term)) ||
+                    (r.Unit != null && r.Unit.Name.ToLower().Contains(term)) ||
+                    (r.User != null && r.User.FullName != null && r.User.FullName.ToLower().Contains(term)) ||
+                    (r.User != null && r.User.Email != null && r.User.Email.ToLower().Contains(term))
+                );
+            }
+
+            query = query.OrderByDescending(r => r.CreatedAt);
 
             var totalCount = await query.CountAsync();
             var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);

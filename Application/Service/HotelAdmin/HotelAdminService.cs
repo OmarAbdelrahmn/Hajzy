@@ -3716,7 +3716,7 @@ public class HotelAdminService(
         {
             _logger.LogError(ex, "Error getting currency for unit {UnitId}", unitId);
             return Result.Failure<PriceCurrency>(
-                new Error("GetCurrencyFailed", "Failed to retrieve unit currency", 500));
+                new Error(ex.InnerException.Message,ex.Message, 500));
         }
     }
 
@@ -3729,13 +3729,15 @@ public class HotelAdminService(
             if (!hasAccess.Value)
                 return Result.Failure(new Error("NoAccess", "You do not have access to this unit", 403));
 
-            var unit = await _context.Units.FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
-            if (unit == null)
+            var affected = await _context.Units
+                .Where(u => u.Id == unitId && !u.IsDeleted)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(u => u.PriceCurrency, request.Currency)
+                    .SetProperty(u => u.UpdatedAt, DateTime.UtcNow.AddHours(3)));
+
+            if (affected == 0)
                 return Result.Failure(new Error("NotFound", "Unit not found", 404));
 
-            unit.PriceCurrency = request.Currency;
-            unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
-            await _context.SaveChangesAsync();
             return Result.Success();
         }
         catch (Exception ex)
@@ -4224,6 +4226,7 @@ public class HotelAdminService(
             Currency = unit.PriceCurrency.ToString(),
             CustomPolicies = customPolicies,
             OptionValues = MapUnitOptionValues(unit.OptionValues),
+            IsStandAlone = unit.UnitType.IsStandalone
         };
     }
 
@@ -4317,7 +4320,8 @@ public class HotelAdminService(
             Category = sa.Amenity.Category,
             IsAvailable = sa.IsAvailable
         }).ToList(),
-        OptionValues = MapSubUnitOptionValues(subUnit.OptionValues)
+        OptionValues = MapSubUnitOptionValues(subUnit.OptionValues),
+        Currency = subUnit.Unit.PriceCurrency.ToString()
 
     };
 

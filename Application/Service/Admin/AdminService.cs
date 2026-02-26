@@ -82,7 +82,7 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
         return Result.Failure(new Error(error.Code, error.Description, StatusCodes.Status400BadRequest));
     }
 
-    public async Task<Result<PaginatedResponse<UserResponse>>> GetAllUsers(int page = 1, int pageSize = 10)
+    public async Task<Result<PaginatedResponse<UserResponse>>> GetAllUsers(int page = 1, int pageSize = 10, string? searchTerm = null)
     {
         var query = from u in dbcontext.Users
                     join ur in dbcontext.UserRoles on u.Id equals ur.UserId
@@ -106,6 +106,18 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
                         u.City,
                         u.Country
                     };
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(u =>
+                (u.FullName != null && u.FullName.ToLower().Contains(term)) ||
+                (u.Email != null && u.Email.ToLower().Contains(term)) ||
+                (u.PhoneNumber != null && u.PhoneNumber.ToLower().Contains(term)) ||
+                (u.City != null && u.City.ToLower().Contains(term)) ||
+                (u.Country != null && u.Country.ToLower().Contains(term))
+            );
+        }
 
         var totalCount = await query.CountAsync();
 
@@ -325,39 +337,55 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
             .Where(b => !b.IsDeleted)
             .AsQueryable();
 
-        // Apply filters
-        if (filter.BookingType.HasValue)
-            query = query.Where(b => b.BookingType == filter.BookingType.Value);
+        if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+        {
+            var term = filter.SearchTerm.Trim().ToLower();
+            query = query.Where(b =>
+                b.BookingNumber.ToLower().Contains(term) ||
+                (b.User.FullName != null && b.User.FullName.ToLower().Contains(term)) ||
+                (b.User.Email != null && b.User.Email.ToLower().Contains(term)) ||
+                (b.User.PhoneNumber != null && b.User.PhoneNumber.Contains(term)) ||
+                (b.GuestFirstName != null && b.GuestFirstName.ToLower().Contains(term)) ||
+                (b.GuestLastName != null && b.GuestLastName.ToLower().Contains(term)) ||
+                (b.GuestEmail != null && b.GuestEmail.ToLower().Contains(term)) ||
+                (b.GuestPhone != null && b.GuestPhone.Contains(term)) ||
+                b.Unit.Name.ToLower().Contains(term)
+            );
+        }
 
-        if (filter.Status.HasValue)
-            query = query.Where(b => b.Status == filter.Status.Value);
+        //// Apply filters
+        //if (filter.BookingType.HasValue)
+        //    query = query.Where(b => b.BookingType == filter.BookingType.Value);
 
-        if (filter.PaymentStatus.HasValue)
-            query = query.Where(b => b.PaymentStatus == filter.PaymentStatus.Value);
+        //if (filter.Status.HasValue)
+        //    query = query.Where(b => b.Status == filter.Status.Value);
 
-        if (filter.UnitId.HasValue)
-            query = query.Where(b => b.UnitId == filter.UnitId.Value);
+        //if (filter.PaymentStatus.HasValue)
+        //    query = query.Where(b => b.PaymentStatus == filter.PaymentStatus.Value);
 
-        if (filter.CityId.HasValue)
-            query = query.Where(b => b.Unit.CityId == filter.CityId.Value);
+        //if (filter.UnitId.HasValue)
+        //    query = query.Where(b => b.UnitId == filter.UnitId.Value);
 
-        if (!string.IsNullOrWhiteSpace(filter.UserId))
-            query = query.Where(b => b.UserId == filter.UserId);
+        //if (filter.CityId.HasValue)
+        //    query = query.Where(b => b.Unit.CityId == filter.CityId.Value);
 
-        if (!string.IsNullOrWhiteSpace(filter.BookingNumber))
-            query = query.Where(b => b.BookingNumber.Contains(filter.BookingNumber));
+        //if (!string.IsNullOrWhiteSpace(filter.UserId))
+        //    query = query.Where(b => b.UserId == filter.UserId);
 
-        if (filter.CheckInFrom.HasValue)
-            query = query.Where(b => b.CheckInDate >= filter.CheckInFrom.Value);
+        //if (!string.IsNullOrWhiteSpace(filter.BookingNumber))
+        //    query = query.Where(b => b.BookingNumber.Contains(filter.BookingNumber));
 
-        if (filter.CheckInTo.HasValue)
-            query = query.Where(b => b.CheckInDate <= filter.CheckInTo.Value);
+        //if (filter.CheckInFrom.HasValue)
+        //    query = query.Where(b => b.CheckInDate >= filter.CheckInFrom.Value);
 
-        if (filter.CreatedFrom.HasValue)
-            query = query.Where(b => b.CreatedAt >= filter.CreatedFrom.Value);
+        //if (filter.CheckInTo.HasValue)
+        //    query = query.Where(b => b.CheckInDate <= filter.CheckInTo.Value);
 
-        if (filter.CreatedTo.HasValue)
-            query = query.Where(b => b.CreatedAt <= filter.CreatedTo.Value);
+        //if (filter.CreatedFrom.HasValue)
+        //    query = query.Where(b => b.CreatedAt >= filter.CreatedFrom.Value);
+
+        //if (filter.CreatedTo.HasValue)
+        //    query = query.Where(b => b.CreatedAt <= filter.CreatedTo.Value);
 
         // Get total count before pagination
         var totalCount = await query.CountAsync();

@@ -209,8 +209,8 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                         Category = p.Category
                     }).ToList(),
                 // ── NEW ──────────────────────────────────────────────────────
-                OptionValues = MapUnitOptionValues(unit.OptionValues)
-                // ────────────────────────────────────────────────────────────
+                OptionValues = MapUnitOptionValues(unit.OptionValues),
+                IsStandAlone = unit.UnitType?.IsStandalone
             };
 
             return Result.Success(response);
@@ -731,8 +731,8 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                     Category = p.Category
                 }).ToList(),
             // ── NEW ──────────────────────────────────────────────────────
-            OptionValues = MapUnitOptionValues(unit.OptionValues)
-            // ────────────────────────────────────────────────────────────
+            OptionValues = MapUnitOptionValues(unit.OptionValues),
+            IsStandAlone = unit.UnitType?.IsStandalone
         };
     }
 
@@ -770,8 +770,9 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                     sa.Amenity.Description,
                     sa.Amenity.Category.ToString())).ToList() ?? new(),
             // ── NEW ──────────────────────────────────────────────────────
-            OptionValues = MapSubUnitOptionValues(subUnit.OptionValues)
-            // ────────────────────────────────────────────────────────────
+            OptionValues = MapSubUnitOptionValues(subUnit.OptionValues),
+
+            Currency = subUnit.Unit?.PriceCurrency.ToString()
         };
     }
 

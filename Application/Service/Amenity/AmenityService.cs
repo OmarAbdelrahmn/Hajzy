@@ -17,11 +17,21 @@ public class AmenityService(
     #region CRUD
 
     public async Task<Result<PaginatedResponse<AmenityResponse>>> GetAllAmenitiesAsync(
-        int page = 1, int pageSize = 10
-        )
+        int page = 1, int pageSize = 10 , string? searchTerm = null)
     {
         var query = _context.Set<Domain.Entities.Amenity>()
             .AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(a =>
+                a.Name.ToLower().Contains(term) ||
+                (a.Description != null && a.Description.ToLower().Contains(term)) ||
+                a.Category.ToLower().Contains(term)
+            );
+        }
+
 
         var totalCount = await query.CountAsync();
 

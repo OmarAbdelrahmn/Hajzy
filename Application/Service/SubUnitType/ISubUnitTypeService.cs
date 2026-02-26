@@ -9,7 +9,7 @@ public interface ISubUnitTypeService
     // ============= CRUD =============
     Task<Result<SubUnitTypeResponse>> GetByIdAsync(int subUnitTypeId);
     Task<Result<SubUnitTypeDetailsResponse>> GetDetailsAsync(int subUnitTypeId);
-    Task<Result<PaginatedResponse<SubUnitTypeResponse>>> GetAllSubUnitTypesAsync(int page = 1, int pageSize = 10);
+    Task<Result<PaginatedResponse<SubUnitTypeResponse>>> GetAllSubUnitTypesAsync(int page = 1, int pageSize = 10, string? searchTerm = null);
     Task<Result<SubUnitTypeResponse>> CreateAsync(CreateSubUnitTypeRequest request);
     Task<Result<SubUnitTypeResponse>> UpdateAsync(int subUnitTypeId, UpdateSubUnitTypeRequest request);
     Task<Result> DeleteAsync(int subUnitTypeId);

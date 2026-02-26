@@ -16,6 +16,7 @@ public record UnifiedBookingFilter
     public DateTime? EndDate { get; init; }
     public int? UnitId { get; init; }
     public string? UserId { get; init; }
+    public string? SearchTerm { get; set; }
 }
 
 public record PendingPaymentFilter

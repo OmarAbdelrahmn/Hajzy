@@ -75,6 +75,8 @@ public class UnitComprehensiveResponse
 
     public List<OptionValueResponse> OptionValues { get; init; } = new();
 
+    public bool? IsStandAlone { get; set; }
+
 
     // ... rest of existing properties ...
 }
@@ -158,7 +160,7 @@ public class SubUnitComprehensiveDetail
     public string RoomNumber { get; set; } = string.Empty;
     public int TypeId { get; set; }
     public decimal PricePerNight { get; set; }
-    public int MaxOccupancy { get; set; }
+    public int? MaxOccupancy { get; set; }
     public int? Bedrooms { get; set; }
     public int? Bathrooms { get; set; }
     public decimal? Size { get; set; }
@@ -247,6 +249,7 @@ public record UpdateUnitRequest
 
 public class UnitFilter
 {
+    public string? SearchTerm { get; set; }
     public string? Name { get; init; }
     public int? CityId { get; init; }
     public int? UnitTypeId { get; init; }
@@ -290,6 +293,7 @@ public class UnitResponse
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
     public int? Rank { get; set; }
+    public bool? IsStandAlone { get; set; }
 
 }
 
@@ -319,6 +323,8 @@ public class UnitResponses
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
     public List<OptionValueResponse> OptionValues { get; init; } = new();
+    public bool? IsStandAlone { get; set; }
+
 
 }
 
@@ -352,7 +358,7 @@ public class UnitDetailsResponse
     public DateTime? UpdatedAt { get; init; }
     public int? Rank { get; set; }
     public List<OptionValueResponse> OptionValues { get; init; } = new();
-
+    public bool? IsStandAlone { get; set; }
 
 }
 
@@ -387,7 +393,7 @@ public record SubUnitSummary(
     string RoomNumber,
     int TypeId,
     decimal PricePerNight,
-    int MaxOccupancy,
+    int? MaxOccupancy,
     bool IsAvailable
 );
 

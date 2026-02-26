@@ -10,7 +10,7 @@ public interface IReviewService
 
     // Create & Update
     Task<Result<PaginatedResponse<ReviewResponse>>> GetAllReviewsAsync(AllReviewsFilter filter);
-    Task<Result<PaginatedResponse<ReviewResponse>>> GetPendingReviewsAsync(int page = 1, int pageSize = 10);
+    Task<Result<PaginatedResponse<ReviewResponse>>> GetPendingReviewsAsync(int page = 1, int pageSize = 10, string? searchTerm = null);
 
 
     public class PaginatedResponse<T>

@@ -80,9 +80,11 @@ public class AdController : ControllerBase
     /// </summary>
     [HttpGet("active")]
     [AllowAnonymous]
-    public async Task<IActionResult> GetCurrentActiveAds()
+    public async Task<IActionResult> GetCurrentActiveAds([FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    [FromQuery] string? searchTerm = null)
     {
-        var result = await _adService.GetCurrentActiveAdsAsync();
+        var result = await _adService.GetCurrentActiveAdsAsync(page, pageSize, searchTerm);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
@@ -91,9 +93,11 @@ public class AdController : ControllerBase
     /// </summary>
     [HttpGet("inactive")]
     [Authorize(Roles = "SuperAdmin,CityAdmin")]
-    public async Task<IActionResult> GetInactiveAds()
+    public async Task<IActionResult> GetInactiveAds([FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    [FromQuery] string? searchTerm = null)
     {
-        var result = await _adService.GetInactiveAdsAsync();
+        var result = await _adService.GetInactiveAdsAsync(page, pageSize, searchTerm);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 

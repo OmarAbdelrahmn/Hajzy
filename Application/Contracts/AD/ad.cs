@@ -60,6 +60,7 @@ public record AdResponse(
 // ============= LIST FILTER =============
 public class AdListFilter
 {
+    public string? SearchTerm { get; set; }
     public bool? IsActive { get; set; }
     public bool? IsExpired { get; set; }
     public int? UnitId { get; set; }

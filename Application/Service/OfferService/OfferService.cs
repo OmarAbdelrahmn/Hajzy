@@ -4,6 +4,7 @@ using Application.Abstraction;
 using Application.Contracts.Offer;
 using Domain;
 using Domain.Entities;
+using MailKit.Search;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SixLabors.ImageSharp;
@@ -241,6 +242,17 @@ public class OfferService(
         if (filter.UnitId.HasValue)
             query = query.Where(o => o.UnitId == filter.UnitId.Value);
 
+        if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+        {
+            var term = filter.SearchTerm.Trim().ToLower();
+            query = query.Where(o =>
+                (o.Title != null && o.Title.ToLower().Contains(term)) ||
+                (o.Description != null && o.Description.ToLower().Contains(term)) ||
+                (o.Link != null && o.Link.ToLower().Contains(term)) ||
+                (o.Unit != null && o.Unit.Name.ToLower().Contains(term))
+            );
+        }
+
         var totalCount = await query.CountAsync();
 
         var offers = await query
@@ -279,7 +291,8 @@ public class OfferService(
 
     public async Task<Result<IOfferService.PaginatedResponse<OfferResponse>>> GetActiveOffersAsync(
         int page = 1,
-        int pageSize = 10)
+        int pageSize = 10,
+        string? searchTerm = null)
     {
         var now = DateTime.UtcNow;
 
@@ -289,6 +302,17 @@ public class OfferService(
                        o.IsActive &&
                        o.StartDate <= now &&
                        o.EndDate >= now);
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(o =>
+                (o.Title != null && o.Title.ToLower().Contains(term)) ||
+                (o.Description != null && o.Description.ToLower().Contains(term)) ||
+                (o.Link != null && o.Link.ToLower().Contains(term)) ||
+                (o.Unit != null && o.Unit.Name.ToLower().Contains(term))
+            );
+        }
 
         var totalCount = await query.CountAsync();
 
@@ -328,7 +352,8 @@ public class OfferService(
 
     public async Task<Result<IOfferService.PaginatedResponse<OfferResponse>>> GetInactiveOffersAsync(
         int page = 1,
-        int pageSize = 10)
+        int pageSize = 10,
+        string? searchTerm = null)
     {
         var now = DateTime.UtcNow;
 
@@ -336,6 +361,17 @@ public class OfferService(
             .Include(o => o.Unit)
             .Where(o => !o.IsDeleted &&
                        (!o.IsActive || o.EndDate < now));
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(o =>
+                (o.Title != null && o.Title.ToLower().Contains(term)) ||
+                (o.Description != null && o.Description.ToLower().Contains(term)) ||
+                (o.Link != null && o.Link.ToLower().Contains(term)) ||
+                (o.Unit != null && o.Unit.Name.ToLower().Contains(term))
+            );
+        }
 
         var totalCount = await query.CountAsync();
 

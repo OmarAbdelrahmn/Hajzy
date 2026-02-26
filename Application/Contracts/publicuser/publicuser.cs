@@ -37,6 +37,8 @@ public record PublicUnitResponse
     public string Currency { get; init; } = "SAR";
     public List<PublicCustomPolicyInfo> CustomPolicies { get; init; } = new();
     public List<OptionValueResponse> OptionValues { get; init; } = new();
+    public bool? IsStandAlone { get; set; }
+
 
 }
 
@@ -102,6 +104,8 @@ public record PublicUnitDetailsResponses
     public string Currency { get; init; } = "SAR";
     public List<PublicCustomPolicyInfo> CustomPolicies { get; init; } = new();
     public List<OptionValueResponse> OptionValues { get; init; } = new();
+    public bool? IsStandAlone { get; set; }
+
 
 }
 
@@ -122,7 +126,7 @@ public record PublicSubUnitDetailsResponse
     public string RoomNumber { get; init; } = string.Empty;
     public int TypeId { get; init; }
     public decimal PricePerNight { get; init; }
-    public int MaxOccupancy { get; init; }
+    public int? MaxOccupancy { get; init; }
     public int? Bedrooms { get; init; }
     public int? Bathrooms { get; init; }
     public decimal? Size { get; init; }
@@ -132,6 +136,7 @@ public record PublicSubUnitDetailsResponse
     public List<PublicImageInfo> Images { get; init; } = new();
     public List<PublicAmenityInfo> Amenities { get; init; } = new();
     public List<OptionValueResponse> OptionValues { get; init; } = new();
+    public string? Currency {  get; init; }
 
 }
 
@@ -182,7 +187,7 @@ public record PublicSubUnitSummary(
     string RoomNumber,
     int TypeId,
     decimal PricePerNight,
-    int MaxOccupancy,
+    int? MaxOccupancy,
     bool IsAvailable,
     string? PrimaryImageUrl,
     List<OptionValueResponse> OptionValues

@@ -102,7 +102,7 @@ public class SubUnitResponse
     public string RoomNumber { get; init; } = string.Empty;
     public int TypeId { get; init; }
     public decimal PricePerNight { get; init; }
-    public int MaxOccupancy { get; init; }
+    public int? MaxOccupancy { get; init; }
     public int? Bedrooms { get; init; }
     public int? Bathrooms { get; init; }
     public decimal? Size { get; init; }
@@ -120,7 +120,7 @@ public class SubUnitDetailsResponse
     public string RoomNumber { get; init; } = string.Empty;
     public int TypeId { get; init; }
     public decimal PricePerNight { get; init; }
-    public int MaxOccupancy { get; init; }
+    public int? MaxOccupancy { get; init; }
     public int? Bedrooms { get; init; }
     public int? Bathrooms { get; init; }
     public decimal? Size { get; init; }

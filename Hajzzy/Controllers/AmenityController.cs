@@ -16,9 +16,10 @@ public class AmenityController(IAmenityService service) : ControllerBase
     /// Get all amenities
     /// </summary>
     [HttpGet("")]
-    public async Task<IActionResult> GetAll(int page, int pageSize)
+    public async Task<IActionResult> GetAll(int page, int pageSize,
+    [FromQuery] string? searchTerm = null)
     {
-        var result = await _service.GetAllAmenitiesAsync(page, pageSize);
+        var result = await _service.GetAllAmenitiesAsync(page, pageSize,searchTerm);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 

@@ -38,9 +38,9 @@ public class UnitTypeController(IUnitTypeService service) : ControllerBase
     /// Get all unit types
     /// </summary>
     [HttpGet("")]
-    public async Task<IActionResult> GetAll(int page = 10, int pageSize = 10)
+    public async Task<IActionResult> GetAll(int page = 10, int pageSize = 10, string? searchTerm = null)
     {
-        var result = await _service.GetAllUnitTypesAsync(page, pageSize);
+        var result = await _service.GetAllUnitTypesAsync(page, pageSize,searchTerm);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 

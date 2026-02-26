@@ -1555,26 +1555,21 @@ public class BookingManagementService(
 
     private IQueryable<Domain.Entities.Booking> ApplyFilters(IQueryable<Domain.Entities.Booking> query, UnifiedBookingFilter filter)
     {
-        if (filter.Status.HasValue)
-            query = query.Where(b => b.Status == filter.Status.Value);
-
-        if (filter.PaymentStatus.HasValue)
-            query = query.Where(b => b.PaymentStatus == filter.PaymentStatus.Value);
-
-        if (filter.BookingType.HasValue)
-            query = query.Where(b => b.BookingType == filter.BookingType.Value);
-
-        if (filter.StartDate.HasValue)
-            query = query.Where(b => b.CheckInDate >= filter.StartDate.Value);
-
-        if (filter.EndDate.HasValue)
-            query = query.Where(b => b.CheckOutDate <= filter.EndDate.Value);
-
-        if (filter.UnitId.HasValue)
-            query = query.Where(b => b.UnitId == filter.UnitId.Value);
-
-        if (filter.UserId != null)
-            query = query.Where(b => b.UserId == filter.UserId);
+        if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+        {
+            var term = filter.SearchTerm.Trim().ToLower();
+            query = query.Where(b =>
+                b.BookingNumber.ToLower().Contains(term) ||
+                (b.User.FullName != null && b.User.FullName.ToLower().Contains(term)) ||
+                (b.User.Email != null && b.User.Email.ToLower().Contains(term)) ||
+                (b.User.PhoneNumber != null && b.User.PhoneNumber.Contains(term)) ||
+                (b.GuestFirstName != null && b.GuestFirstName.ToLower().Contains(term)) ||
+                (b.GuestLastName != null && b.GuestLastName.ToLower().Contains(term)) ||
+                (b.GuestEmail != null && b.GuestEmail.ToLower().Contains(term)) ||
+                (b.GuestPhone != null && b.GuestPhone.Contains(term)) ||
+                b.Unit.Name.ToLower().Contains(term)
+            );
+        }
 
         return query;
     }

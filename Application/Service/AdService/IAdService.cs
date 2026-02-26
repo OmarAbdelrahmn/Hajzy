@@ -30,8 +30,8 @@ public interface IAdService
     /// </summary>
     // Application/Service/AdService/IAdService.cs
     Task<Result<PaginatedResponse<AdResponse>>> GetAllAdsAsync(AdListFilter filter);
-    Task<Result<PaginatedResponse<AdResponse>>> GetCurrentActiveAdsAsync(int page = 1, int pageSize = 10);
-    Task<Result<PaginatedResponse<AdResponse>>> GetInactiveAdsAsync(int page = 1, int pageSize = 10);
+    Task<Result<PaginatedResponse<AdResponse>>> GetCurrentActiveAdsAsync(int page = 1, int pageSize = 10, string? searchTerm = null);
+    Task<Result<PaginatedResponse<AdResponse>>> GetInactiveAdsAsync(int page = 1, int pageSize = 10, string? searchTerm = null);
 
     /// <summary>
     /// Deactivate expired ads (background job)

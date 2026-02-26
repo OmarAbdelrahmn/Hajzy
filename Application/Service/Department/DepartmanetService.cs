@@ -54,7 +54,7 @@ public class DepartmanetService(
 
     public async Task<Result<PaginatedResponse<DepartmentResponse>>> GetAllDepartmentsAsync(
           int page = 1,
-          int pageSize = 10)
+          int pageSize = 10, string? searchTerm = null)
     {
         try
         {
@@ -62,6 +62,16 @@ public class DepartmanetService(
                 .Include(d => d.DepartmentAdmins.Where(da => da.IsActive))
                 .Where(d => !d.IsDeleted)
                 .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+                query = query.Where(d =>
+                    d.Name.ToLower().Contains(term) ||
+                    d.Country.ToLower().Contains(term) ||
+                    (d.Description != null && d.Description.ToLower().Contains(term))
+                );
+            }
 
             var totalCount = await query.CountAsync();
 
@@ -90,7 +100,7 @@ public class DepartmanetService(
     public async Task<Result<PaginatedResponse<DepartmentResponse>>> GetDepartmentsByCountryAsync(
         string country,
         int page = 1,
-        int pageSize = 10)
+        int pageSize = 10, string? searchTerm = null)
     {
         try
         {
@@ -98,6 +108,16 @@ public class DepartmanetService(
                 .Include(d => d.DepartmentAdmins.Where(da => da.IsActive))
                 .Where(d => !d.IsDeleted && d.Country == country)
                 .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+                query = query.Where(d =>
+                    d.Name.ToLower().Contains(term) ||
+                    d.Country.ToLower().Contains(term) ||
+                    (d.Description != null && d.Description.ToLower().Contains(term))
+                );
+            }
 
             var totalCount = await query.CountAsync();
 

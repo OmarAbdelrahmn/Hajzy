@@ -9,7 +9,7 @@ namespace Application.Service.Admin;
 
 public interface IAdminService
 {
-    Task<Result<PaginatedResponse<UserResponse>>> GetAllUsers(int page = 1, int pageSize = 10);
+    Task<Result<PaginatedResponse<UserResponse>>> GetAllUsers(int page = 1, int pageSize = 10, string? searchTerm = null);
     Task<Result<UserResponse>> GetUserAsync(string Id);
     Task<Result<UserResponse>> GetUser2Async(string UserName);
     Task<Result<UserResponse>> AddUserAsync(CreateUserRequest request);

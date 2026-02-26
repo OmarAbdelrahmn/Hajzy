@@ -217,9 +217,11 @@ public class ReviewController(IReviewService reviewService) : ControllerBase
     [Authorize(Roles = "CityAdmin,SuperAdmin")]
     public async Task<IActionResult> GetPendingReviews(
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
+        [FromQuery] int pageSize = 20,
+        
+    [FromQuery] string? searchTerm = null)
     {
-        var result = await _reviewService.GetPendingReviewsAsync(page, pageSize);
+        var result = await _reviewService.GetPendingReviewsAsync(page, pageSize,searchTerm);
 
         return result.IsSuccess
             ? Ok(result.Value)

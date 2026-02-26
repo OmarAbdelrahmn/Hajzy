@@ -41,11 +41,21 @@ public class SubUnitTypeService(
 
     public async Task<Result<PaginatedResponse<SubUnitTypeResponse>>> GetAllSubUnitTypesAsync(
        int page = 1,
-       int pageSize = 10)
+       int pageSize = 10,
+       string? searchTerm = null)
     {
         var query = _context.Set<SubUnitTypee>()
             .Where(sut => sut.IsActive)
             .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim().ToLower();
+            query = query.Where(sut =>
+                sut.Name.ToLower().Contains(term) ||
+                (sut.Description != null && sut.Description.ToLower().Contains(term))
+            );
+        }
 
         var totalCount = await query.CountAsync();
 

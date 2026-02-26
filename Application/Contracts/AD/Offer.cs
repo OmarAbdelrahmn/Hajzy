@@ -57,6 +57,7 @@ public record OfferResponse(
 // ============= LIST FILTER =============
 public class OfferListFilter
 {
+    public string? SearchTerm { get; set; }
     public bool? IsActive { get; set; }
     public bool? IsExpired { get; set; }
     public bool? IsFeatured { get; set; }

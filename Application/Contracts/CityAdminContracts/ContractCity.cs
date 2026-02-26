@@ -282,7 +282,7 @@ public record SubUnitComprehensiveDetail
     public string RoomType { get; set; } = string.Empty;
     public string? Description { get; set; }
     public decimal PricePerNight { get; set; }
-    public int MaxOccupancy { get; set; }
+    public int? MaxOccupancy { get; set; }
     public string BedType { get; set; } = string.Empty;
     public int NumberOfBeds { get; set; }
     public decimal? Size { get; set; }

@@ -14,7 +14,7 @@ public class SubUnit
 
     public RoomConfiguration? RoomConfig { get; set; }
     public decimal PricePerNight { get; set; }
-    public int MaxOccupancy { get; set; }
+    public int? MaxOccupancy { get; set; }
     public int? Bedrooms { get; set; }
     public int? Bathrooms { get; set; }
     public decimal? Size { get; set; } // Square meters

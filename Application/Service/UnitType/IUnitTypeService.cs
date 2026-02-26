@@ -9,7 +9,7 @@ public interface IUnitTypeService
 {
     // ============= CRUD =============
 
-    Task<Result<PaginatedResponse<UnitTypeResponse>>> GetAllUnitTypesAsync(int page = 1, int pageSize = 10);
+    Task<Result<PaginatedResponse<UnitTypeResponse>>> GetAllUnitTypesAsync(int page = 1, int pageSize = 10, string? searchTerm = null);
 
     Task<Result<UnitTypeResponse>> GetByIdAsync(int unitTypeId);
     Task<Result<UnitTypeDetailsResponse>> GetDetailsAsync(int unitTypeId);

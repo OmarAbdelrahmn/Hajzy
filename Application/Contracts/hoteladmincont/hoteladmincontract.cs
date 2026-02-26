@@ -30,9 +30,8 @@ public class CreateSubUnitRequest
     [Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than 0")]
     public decimal PricePerNight { get; set; }
 
-    [Required]
     [Range(1, int.MaxValue, ErrorMessage = "Max occupancy must be at least 1")]
-    public int MaxOccupancy { get; set; }
+    public int? MaxOccupancy { get; set; }
 
     [Range(0, int.MaxValue)]
     public int? Bedrooms { get; set; }
@@ -87,7 +86,7 @@ public class SubUnitCreatedResponse
     public string RoomNumber { get; set; } = string.Empty;
     public string SubUnitTypeName { get; set; } = string.Empty;
     public decimal PricePerNight { get; set; }
-    public int MaxOccupancy { get; set; }
+    public int? MaxOccupancy { get; set; }
     public int? Bedrooms { get; set; }
     public int? Bathrooms { get; set; }
     public decimal? Size { get; set; }
@@ -882,7 +881,7 @@ public record SubUnitResponse
     public int UnitId { get; init; }
     public string RoomNumber { get; init; } = string.Empty;
     public decimal PricePerNight { get; init; }
-    public int MaxOccupancy { get; init; }
+    public int? MaxOccupancy { get; init; }
     public bool IsAvailable { get; init; }
     public DateTime? UpdatedAt { get; init; }
 }
@@ -1003,7 +1002,7 @@ public record AvailableSubUnitInfo
     public string RoomNumber { get; init; } = string.Empty;
     public int TypeId { get; init; }
     public decimal PricePerNight { get; init; }
-    public int MaxOccupancy { get; init; }
+    public int? MaxOccupancy { get; init; }
     public bool IsAvailable { get; init; }
     public decimal? SpecialPrice { get; init; }
 }
@@ -1125,8 +1124,8 @@ public class UnitComprehensiveResponse
     public string Currency { get; init; } = "SAR";
     public List<CustomPolicyDetail> CustomPolicies { get; init; } = new();
     public List<OptionValueResponse> OptionValues { get; init; } = [];
+    public bool? IsStandAlone { get; set; }
 
-    // ... rest of existing properties ...
 }
 
 public record CustomPolicyDetail
@@ -1274,7 +1273,7 @@ public class SubUnitComprehensiveDetail
     public string RoomNumber { get; set; } = string.Empty;
     public string SubUnitTypeName { get; set; } = string.Empty;
     public decimal PricePerNight { get; set; }
-    public int MaxOccupancy { get; set; }
+    public int? MaxOccupancy { get; set; }
     public int? Bedrooms { get; set; }
     public int? Bathrooms { get; set; }
     public decimal? Size { get; set; }
@@ -1283,6 +1282,8 @@ public class SubUnitComprehensiveDetail
     public List<ImageResponse> Images { get; set; } = [];
     public List<AmenityResponse> Amenities { get; set; } = [];
     public List<OptionValueResponse> OptionValues { get; init; } = [];
+    public string? Currency { get; set; } 
+
 }
 
 #endregion

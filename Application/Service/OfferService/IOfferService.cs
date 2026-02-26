@@ -19,8 +19,8 @@ public interface IOfferService
         public int TotalCount { get; set; }
     }
     Task<Result<PaginatedResponse<OfferResponse>>> GetAllOffersAsync(OfferListFilter filter);
-    Task<Result<PaginatedResponse<OfferResponse>>> GetActiveOffersAsync(int page = 1, int pageSize = 10);
-    Task<Result<PaginatedResponse<OfferResponse>>> GetInactiveOffersAsync(int page = 1, int pageSize = 10);
+    Task<Result<PaginatedResponse<OfferResponse>>> GetActiveOffersAsync(int page = 1, int pageSize = 10, string? searchTerm = null);
+    Task<Result<PaginatedResponse<OfferResponse>>> GetInactiveOffersAsync(int page = 1, int pageSize = 10, string? searchTerm = null);
 
     Task<Result<OfferResponse>> CreateOfferAsync(CreateOfferRequest request, string userId);
 

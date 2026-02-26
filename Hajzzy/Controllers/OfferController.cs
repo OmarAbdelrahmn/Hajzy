@@ -83,9 +83,12 @@ public class OfferController(IOfferService offerService) : ControllerBase
     /// </summary>
     [HttpGet("active")]
     [AllowAnonymous]
-    public async Task<IActionResult> GetCurrentActiveOffers()
+    public async Task<IActionResult> GetCurrentActiveOffers(
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    [FromQuery] string? searchTerm = null)
     {
-        var result = await _offerService.GetActiveOffersAsync();
+        var result = await _offerService.GetActiveOffersAsync(page,pageSize,searchTerm);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
@@ -94,9 +97,12 @@ public class OfferController(IOfferService offerService) : ControllerBase
     /// </summary>
     [HttpGet("inactive")]
     [Authorize(Roles = "SuperAdmin,CityAdmin")]
-    public async Task<IActionResult> GetInactiveOffers()
+    public async Task<IActionResult> GetInactiveOffers(
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    [FromQuery] string? searchTerm = null)
     {
-        var result = await _offerService.GetInactiveOffersAsync();
+        var result = await _offerService.GetInactiveOffersAsync(page,pageSize,searchTerm);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 

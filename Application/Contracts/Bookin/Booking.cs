@@ -39,6 +39,7 @@ public record ValidateOptionsResponse
 }
 public class BookingAdminFilter
 {
+    public string? SearchTerm { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 5;
 
@@ -133,7 +134,7 @@ public class SubUnitSummary
     public decimal PricePerNight { get; set; }
     public int NumberOfNights { get; set; }
     public decimal Subtotal { get; set; }
-    public int MaxOccupancy { get; set; }
+    public int? MaxOccupancy { get; set; }
     public int? Bedrooms { get; set; }
     public int? Bathrooms { get; set; }
     public decimal? Size { get; set; }
