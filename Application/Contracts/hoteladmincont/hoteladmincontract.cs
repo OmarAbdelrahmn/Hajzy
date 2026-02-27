@@ -129,10 +129,7 @@ public record UpdateUnitOptionsRequest
     public List<string> Options { get; init; } = new();
 }
 
-public record UpdateUnitCurrencyRequest
-{
-    public PriceCurrency Currency { get; init; }
-}
+
 
 #region Policy Requests
 public record CreateOfferRequest

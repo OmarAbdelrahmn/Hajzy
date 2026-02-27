@@ -2977,6 +2977,7 @@ public class CityAdminService(
 
             var query = _context.Bookings
                 .Include(b => b.Unit)
+                .ThenInclude(u => u.Currency)
                 .Include(b => b.User)
                 .Include(b => b.BookingRooms)
                     .ThenInclude(br => br.Room)
@@ -3049,7 +3050,7 @@ public class CityAdminService(
                 GuestEmail2 = b.GuestEmail,
                 GuestPhone = b.GuestPhone,
                 GuestSpecialRequirements = b.SpecialRequests,
-                Currency = b.Unit.PriceCurrency.ToString()
+                Currency = b.Unit.Currency.Code
             }).ToList();
 
             var paginatedResult = CreatePaginatedResponse(responses, totalCount, filter.Page, filter.PageSize);

@@ -24,6 +24,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
         try
         {
             var query = _context.Units
+                .Include(c => c.Currency)
                 .Include(u => u.CustomPolicies.Where(p => p.IsActive))
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
@@ -93,6 +94,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
         try
         {
             var unit = await _context.Units
+                .Include(c => c.Currency)
                 .Include(u => u.CustomPolicies.Where(p => p.IsActive))
                 .Include(c => c.Rooms)
                 .Include(u => u.City)
@@ -199,7 +201,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                 Policies = policies.Select(p => new PublicPolicyInfo(
                     p.Title, p.Description, p.PolicyType.ToString(), p.IsMandatory)).ToList(),
                 Options = options,
-                Currency = unit.PriceCurrency.ToString(),
+                Currency = unit.Currency.Code.ToString(),
                 CustomPolicies = unit.CustomPolicies
                     .OrderBy(p => p.DisplayOrder)
                     .Select(p => new PublicCustomPolicyInfo
@@ -233,6 +235,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
             var keyword = request.Keyword.ToLower();
 
             var query = _context.Units
+                .Include(c => c.Currency)
                 .Include(u => u.CustomPolicies.Where(p => p.IsActive))
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
@@ -281,6 +284,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
         try
         {
             var topRated = await _context.Units
+                .Include(c => c.Currency)
                 .Include(u => u.CustomPolicies.Where(p => p.IsActive))
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
@@ -314,6 +318,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
         {
             var subUnit = await _context.SubUnits
                 .Include(s => s.Unit)
+                .ThenInclude(u => u.Currency)
                 .Include(s => s.SubUnitImages.Where(i => !i.IsDeleted))
                 .Include(s => s.SubUnitAmenities)
                     .ThenInclude(sa => sa.Amenity)
@@ -519,6 +524,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
         try
         {
             var units = await _context.Units
+                .Include(c=>c.Currency)
                 .Include(u => u.CustomPolicies.Where(p => p.IsActive))
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
@@ -721,7 +727,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
             IsAvailable = unit.IsActive && unit.IsVerified,
             IsFeatured = unit.AverageRating >= 4.5m && unit.TotalReviews >= 10,
             Options = options,
-            Currency = unit.PriceCurrency.ToString(),
+            Currency = unit.Currency.Code,
             CustomPolicies = unit.CustomPolicies
                 .OrderBy(p => p.DisplayOrder)
                 .Select(p => new PublicCustomPolicyInfo
@@ -772,7 +778,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
             // ── NEW ──────────────────────────────────────────────────────
             OptionValues = MapSubUnitOptionValues(subUnit.OptionValues),
 
-            Currency = subUnit.Unit?.PriceCurrency.ToString()
+            Currency = subUnit.Unit?.Currency.Code
         };
     }
 

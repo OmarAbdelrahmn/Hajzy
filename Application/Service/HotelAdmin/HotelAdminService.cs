@@ -1,9 +1,11 @@
 ﻿using Amazon.S3;
 using Amazon.S3.Transfer;
 using Application.Abstraction;
+using Application.Contracts.Currency;
 using Application.Contracts.hoteladmincont;
 using Application.Contracts.Options;
 using Application.Service.Avilabilaties;
+using Application.Service.Currency;
 using Application.Service.S3Image;
 using Domain;
 using Domain.Entities;
@@ -20,7 +22,8 @@ public class HotelAdminService(
     ILogger<HotelAdminService> logger,
     IAvailabilityService availabilityService,
     IS3ImageService service,
-    IAmazonS3 _s3Client
+    IAmazonS3 _s3Client,
+    ICurrencyService currencyService
     ) : IHotelAdminService
 {
     private readonly ApplicationDbcontext _context = context;
@@ -28,6 +31,7 @@ public class HotelAdminService(
     private readonly IAvailabilityService _availabilityService = availabilityService;
     private readonly IS3ImageService service = service;
     private readonly IAmazonS3 s3Client = _s3Client;
+    private readonly ICurrencyService currencyService = currencyService;
     private const string CloudFrontUrl = "";
     private const string BucketName = "hujjzy-bucket";
 
@@ -307,6 +311,7 @@ public class HotelAdminService(
 
             // Build the query directly on the DB — no in-memory filtering
             var query = _context.Units
+                .Include(a=>a.Currency)
                 .Include(u => u.CustomPolicies.Where(p => p.IsActive))
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
@@ -374,6 +379,7 @@ public class HotelAdminService(
                     new Error("NoAccess", "You do not have access to this unit", 403));
 
             var unit = await _context.Units
+                .Include(a=>a.Currency)
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
                 .Include(u => u.CancellationPolicy)
@@ -478,6 +484,8 @@ public class HotelAdminService(
                     new Error("NoAccess", "User is not a hotel administrator", 403));
 
             var query = _context.Bookings
+                .Include(b => b.Unit)
+                .ThenInclude(b => b.Currency)
                 .AsNoTracking()
                 .Where(b => unitIds.Contains(b.UnitId));
 
@@ -541,7 +549,7 @@ public class HotelAdminService(
                     GuestEmail2 = b.GuestEmail,
                     GuestPhone = b.GuestPhone,
                     GuestSpecialRequirements = b.SpecialRequests,
-                    Currency = b.Unit.PriceCurrency.ToString()
+                    Currency = b.Unit.Currency.Code
                 })
                 .ToListAsync();
 
@@ -778,6 +786,7 @@ public class HotelAdminService(
 
             var subUnits = await _context.SubUnits
                 .Include(s => s.Unit)
+                .ThenInclude(a=>a.Currency)
                 .Include(s => s.SubUnitType)
                 .Include(s => s.SubUnitImages.Where(i => !i.IsDeleted))
                 .Include(s => s.SubUnitAmenities).ThenInclude(sa => sa.Amenity)
@@ -806,6 +815,7 @@ public class HotelAdminService(
         {
             var subUnit = await _context.SubUnits
                 .Include(s => s.Unit)
+                .ThenInclude(a => a.Currency)
                 .Include(s => s.SubUnitType)
                 .Include(s => s.SubUnitImages.Where(i => !i.IsDeleted))
                 .Include(s => s.SubUnitAmenities).ThenInclude(sa => sa.Amenity)
@@ -3693,57 +3703,44 @@ public class HotelAdminService(
     // UNIT CURRENCY MANAGEMENT
     // =========================================================================
 
-    public async Task<Result<PriceCurrency>> GetUnitCurrencyAsync(string userId, int unitId)
+    public async Task<Result<CurrencyResponse>> GetUnitCurrencyAsync(string userId, int unitId)
     {
         try
         {
             var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
             if (!hasAccess.Value)
-                return Result.Failure<PriceCurrency>(
+                return Result.Failure<CurrencyResponse>(
                     new Error("NoAccess", "You do not have access to this unit", 403));
 
-            var currency = await _context.Units
-                .Where(u => u.Id == unitId && !u.IsDeleted)
-                .Select(u => (PriceCurrency?)u.PriceCurrency)
-                .FirstOrDefaultAsync();
-
-            if (currency == null)
-                return Result.Failure<PriceCurrency>(new Error("NotFound", "Unit not found", 404));
-
-            return Result.Success(currency.Value);
+            return await currencyService.GetUnitCurrencyAsync(unitId);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting currency for unit {UnitId}", unitId);
-            return Result.Failure<PriceCurrency>(
-                new Error(ex.InnerException.Message,ex.Message, 500));
+            return Result.Failure<CurrencyResponse>(
+                new Error("GetCurrencyFailed", "Failed to retrieve unit currency", 500));
         }
     }
 
+    // ── 3. Replace UpdateUnitCurrencyAsync ───────────────────────────────────────
+
     public async Task<Result> UpdateUnitCurrencyAsync(
-        string userId, int unitId, UpdateUnitCurrencyRequest request)
+        string userId, int unitId, SetUnitCurrencyRequest request)
     {
         try
         {
             var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
             if (!hasAccess.Value)
-                return Result.Failure(new Error("NoAccess", "You do not have access to this unit", 403));
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
 
-            var affected = await _context.Units
-                .Where(u => u.Id == unitId && !u.IsDeleted)
-                .ExecuteUpdateAsync(s => s
-                    .SetProperty(u => u.PriceCurrency, request.Currency)
-                    .SetProperty(u => u.UpdatedAt, DateTime.UtcNow.AddHours(3)));
-
-            if (affected == 0)
-                return Result.Failure(new Error("NotFound", "Unit not found", 404));
-
-            return Result.Success();
+            return await currencyService.SetUnitCurrencyAsync(unitId, request.CurrencyId);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating currency for unit {UnitId}", unitId);
-            return Result.Failure(new Error("UpdateCurrencyFailed", "Failed to update unit currency", 500));
+            return Result.Failure(
+                new Error("UpdateCurrencyFailed", "Failed to update unit currency", 500));
         }
     }
 
@@ -4223,7 +4220,7 @@ public class HotelAdminService(
             CreatedAt = unit.CreatedAt,
             UpdatedAt = unit.UpdatedAt,
             Options = options,
-            Currency = unit.PriceCurrency.ToString(),
+            Currency = unit.Currency.Code,
             CustomPolicies = customPolicies,
             OptionValues = MapUnitOptionValues(unit.OptionValues),
             IsStandAlone = unit.UnitType.IsStandalone
@@ -4321,7 +4318,7 @@ public class HotelAdminService(
             IsAvailable = sa.IsAvailable
         }).ToList(),
         OptionValues = MapSubUnitOptionValues(subUnit.OptionValues),
-        Currency = subUnit.Unit.PriceCurrency.ToString()
+        Currency = subUnit.Unit.Currency?.Code
 
     };
 

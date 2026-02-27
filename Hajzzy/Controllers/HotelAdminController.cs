@@ -1,4 +1,5 @@
 ﻿using Application.Abstraction.Consts;
+using Application.Contracts.Currency;
 using Application.Contracts.hoteladmincont;
 using Application.Contracts.Options;
 using Application.Extensions;
@@ -1318,7 +1319,7 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     [HttpPut("units/{unitId}/currency")]
     public async Task<IActionResult> UpdateUnitCurrency(
         int unitId,
-        [FromBody] UpdateUnitCurrencyRequest request)
+        [FromBody] SetUnitCurrencyRequest request)
     {
         var userId = User.GetUserId();
         var result = await _hotelAdminService.UpdateUnitCurrencyAsync(userId!, unitId, request);

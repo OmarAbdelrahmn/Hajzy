@@ -13,6 +13,7 @@ using Application.Service.Availability;
 using Application.Service.Avilabilaties;
 using Application.Service.Booking;
 using Application.Service.CityAdmin;
+using Application.Service.Currency;
 using Application.Service.Department;
 using Application.Service.fav;
 using Application.Service.HotelAdmin;
@@ -99,6 +100,7 @@ public static class InfraDependencies
         Services.AddScoped<ICityAdminService, CityAdminService>();
         Services.AddScoped<IBookingManagementService, BookingManagementService>();
         Services.AddScoped<INewsletterService, NewsletterService>();
+        Services.AddScoped<ICurrencyService, CurrencyService>();
         Services.AddScoped<AdExpirationJob>();
         Services.AddScoped<OfferExpirationJob>();
         Services.AddScoped<NewsletterJob>();

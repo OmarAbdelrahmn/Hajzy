@@ -36,9 +36,6 @@ public class Unit
 
     public string OptionsJson { get; set; } = "[]"; // Store as JSON array
 
-    // NEW: Price currency
-    public PriceCurrency PriceCurrency { get; set; } = PriceCurrency.SAR;
-
     [Range(1, 5)]
     public int? Rank { get; set; }
 
@@ -47,6 +44,13 @@ public class Unit
 
     public bool IsDeleted { get; set; } = false;
     public DateTime? DeletedAt { get; set; }
+
+    /// <summary>
+    /// FK to the new <see cref="Currency"/> table.
+    /// Nullable so existing rows without a CurrencyId remain valid until migrated.
+    /// </summary>
+    public int? CurrencyId { get; set; }
+    public Currency? Currency { get; set; }
 
     // Navigation
     public Department City { get; set; } = default!;

@@ -14,6 +14,7 @@ public class ApplicationDbcontext(DbContextOptions<ApplicationDbcontext> options
     public required DbSet<ApplicationRole> ApplicationRoles { get; set; }
 
     public required DbSet<Department> Departments { get; set; }
+    public required DbSet<Currency> Currencies { get; set; }
     public required DbSet<Unit> Units { get; set; }
     public required DbSet<UnitType> UnitTypes { get; set; }
     public required DbSet<SubUnitTypee> SubUnitTypees { get; set; }

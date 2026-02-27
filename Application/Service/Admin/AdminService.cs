@@ -329,6 +329,8 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
                 .ThenInclude(u => u.City)
             .Include(b => b.Unit)
                 .ThenInclude(u => u.UnitType)
+            .Include(b => b.Unit)
+                .ThenInclude(u => u.Currency)
             .Include(b => b.User)
             .Include(b => b.BookingRooms)
                 .ThenInclude(br => br.Room)
@@ -503,7 +505,7 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
                 // Timestamps
                 CreatedAt = booking.CreatedAt,
                 UpdatedAt = booking.UpdatedAt,
-                Currency = booking.Unit.PriceCurrency.ToString()
+                Currency = booking.Unit.Currency.Code
             };
         }).ToList();
 

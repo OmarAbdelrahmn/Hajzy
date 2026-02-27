@@ -1,4 +1,5 @@
 ﻿using Application.Abstraction;
+using Application.Contracts.Currency;
 using Application.Contracts.hoteladmincont;
 using Application.Contracts.Options;
 using Domain.Entities;
@@ -758,7 +759,7 @@ public interface IHotelAdminService
     /// <summary>
     /// Get unit price currency
     /// </summary>
-    Task<Result<PriceCurrency>> GetUnitCurrencyAsync(
+    Task<Result<CurrencyResponse>> GetUnitCurrencyAsync(
         string userId,
         int unitId);
 
@@ -768,7 +769,7 @@ public interface IHotelAdminService
     Task<Result> UpdateUnitCurrencyAsync(
         string userId,
         int unitId,
-        UpdateUnitCurrencyRequest request);
+        SetUnitCurrencyRequest request);
 
 
     /// <summary>

@@ -176,6 +176,7 @@ public class UnitService(
         UnitFilter filter)
     {
         var query = _context.Units
+            .Include(c => c.Currency)
             .Include(u => u.CustomPolicies.Where(p => p.IsActive))
             .Include(u => u.City)
             .Include(u => u.UnitType)
@@ -282,6 +283,7 @@ public class UnitService(
         string userId, UnitFilter filter)
     {
         var query = _context.Units
+            .Include(c => c.Currency)
             .Include(u => u.CustomPolicies.Where(p => p.IsActive))
             .Include(u => u.City)
             .Include(u => u.UnitType)
@@ -986,6 +988,7 @@ public class UnitService(
         UnitFilter filter)
     {
         var query = _context.Units
+            .Include(c => c.Currency)
             .Include(u => u.CustomPolicies.Where(p => p.IsActive))
             .Include(u => u.City)
             .Include(u => u.UnitType)
@@ -1263,7 +1266,7 @@ public class UnitService(
             CreatedAt = unit.CreatedAt,
             UpdatedAt = unit.UpdatedAt,
             Options = options,
-            Currency = unit.PriceCurrency.ToString(),
+            Currency = unit.Currency?.Code,
             CustomPolicies = customPolicies,
             // ── NEW ────────────────────────────────────────────────────
             OptionValues = MapUnitOptionValues(unit.OptionValues),
