@@ -549,7 +549,7 @@ public class HotelAdminService(
                     GuestEmail2 = b.GuestEmail,
                     GuestPhone = b.GuestPhone,
                     GuestSpecialRequirements = b.SpecialRequests,
-                    Currency = b.Unit.Currency.Code
+                    Currency = b.Unit.Currency!.Code ?? ""
                 })
                 .ToListAsync();
 
@@ -2555,6 +2555,19 @@ public class HotelAdminService(
                 return Result.Failure<SubUnitCreatedResponse>(
                     new Error("InvalidSubUnitType", "SubUnit type not found or inactive", 400));
 
+            var unitTypeId = await _context.Units
+            .Where(u => u.Id == unitId && !u.IsDeleted)
+            .Select(u => u.UnitTypeId)
+            .FirstOrDefaultAsync();
+
+            var isAllowed = await _context.UnitTypeSubUnitTypes
+                .AnyAsync(x => x.UnitTypeId == unitTypeId && x.SubUnitTypeId == request.SubUnitTypeId);
+
+            if (!isAllowed)
+                return Result.Failure<SubUnitCreatedResponse>(
+                    new Error("SubUnitTypeNotAllowed",
+                        $"SubUnit type '{subUnitType.Name}' is not allowed for this unit's type", 400));
+
             var roomExists = await _context.SubUnits.AnyAsync(s =>
                 s.UnitId == unitId && s.RoomNumber == request.RoomNumber && !s.IsDeleted);
 
@@ -4220,7 +4233,7 @@ public class HotelAdminService(
             CreatedAt = unit.CreatedAt,
             UpdatedAt = unit.UpdatedAt,
             Options = options,
-            Currency = unit.Currency.Code,
+            Currency = unit.Currency?.Code ?? "",
             CustomPolicies = customPolicies,
             OptionValues = MapUnitOptionValues(unit.OptionValues),
             IsStandAlone = unit.UnitType.IsStandalone
@@ -4318,7 +4331,7 @@ public class HotelAdminService(
             IsAvailable = sa.IsAvailable
         }).ToList(),
         OptionValues = MapSubUnitOptionValues(subUnit.OptionValues),
-        Currency = subUnit.Unit.Currency?.Code
+        Currency = subUnit.Unit.Currency?.Code ?? ""
 
     };
 

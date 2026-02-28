@@ -120,20 +120,17 @@ public class NewsletterJob(
     // ─────────────────────────────────────────────────────────────────────────
     // Email body builder
     // ─────────────────────────────────────────────────────────────────────────
-
     private static string BuildEmailBody(NewsletterCampaign campaign, string unsubscribeToken)
     {
-        // Uses the same EmailBodyBuilder pattern the rest of the app uses.
-        // If you have a "Newsletter" email template, swap the placeholders below.
         var placeholders = new Dictionary<string, string>
-        {
-            { "{{title}}",            campaign.Title },
-            { "{{description}}",      campaign.Description },
-            { "{{unsubscribe_token}}", unsubscribeToken },
-            { "{{year}}",             DateTime.UtcNow.Year.ToString() }
-        };
+    {
+        { "{{title}}",             campaign.Title },
+        { "{{description}}",       campaign.Description },
+        { "{{link_button}}",       BuildLinkButton(campaign.Link) },
+        { "{{unsubscribe_token}}", unsubscribeToken },
+        { "{{year}}",              DateTime.UtcNow.Year.ToString() }
+    };
 
-        // Try to use an HTML template; fall back to plain HTML if not found.
         try
         {
             return EmailBodyBuilder.GenerateEmailBody("Newsletter", placeholders);
@@ -141,20 +138,35 @@ public class NewsletterJob(
         catch
         {
             return $"""
-                <!DOCTYPE html>
-                <html>
-                <body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-                  <h1 style="color:#2c3e50;">{campaign.Title}</h1>
-                  <div style="color:#555;line-height:1.6;">{campaign.Description}</div>
-                  <hr style="margin:30px 0;border:none;border-top:1px solid #eee;" />
-                  <p style="font-size:12px;color:#aaa;">
-                    You are receiving this email because you subscribed to our newsletter.<br/>
-                    <a href="https://hujjzy.com/newsletter/unsubscribe/{unsubscribeToken}"
-                       style="color:#aaa;">Unsubscribe</a>
-                  </p>
-                </body>
-                </html>
-                """;
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+              <h1 style="color:#2c3e50;">{campaign.Title}</h1>
+              <div style="color:#555;line-height:1.6;">{campaign.Description}</div>
+              {BuildLinkButton(campaign.Link)}
+              <hr style="margin:30px 0;border:none;border-top:1px solid #eee;" />
+              <p style="font-size:12px;color:#aaa;">
+                You are receiving this email because you subscribed to our newsletter.<br/>
+                <a href="https://hujjzy.com/newsletter/unsubscribe/{unsubscribeToken}"
+                   style="color:#aaa;">Unsubscribe</a>
+              </p>
+            </body>
+            </html>
+            """;
         }
     }
+
+    private static string BuildLinkButton(string? link) =>
+        string.IsNullOrWhiteSpace(link)
+            ? string.Empty
+            : $"""
+          <div style="text-align:center;margin:28px 0;">
+            <a href="{link}"
+               style="background-color:#2c3e50;color:#ffffff;padding:12px 28px;
+                      text-decoration:none;border-radius:6px;font-size:15px;
+                      font-weight:bold;display:inline-block;">
+              Learn More
+            </a>
+          </div>
+          """;
 }

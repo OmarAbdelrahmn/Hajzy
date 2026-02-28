@@ -219,7 +219,6 @@ public class UnitTypeController(IUnitTypeService service) : ControllerBase
     }
     #endregion
 
-
     #region Unit Option Values (platform-admin scope)
 
     /// <summary>
@@ -248,6 +247,61 @@ public class UnitTypeController(IUnitTypeService service) : ControllerBase
         var result = await _service.SaveUnitOptionValuesAsync(unitId, request);
         return result.IsSuccess
             ? Ok(new { message = "Unit option values saved successfully" })
+            : result.ToProblem();
+    }
+
+    #endregion
+
+    #region Allowed SubUnitType Assignments
+
+    /// <summary>
+    /// Get all SubUnitTypes allowed for a specific UnitType
+    /// </summary>
+    [HttpGet("{unitTypeId}/allowed-subunit-types")]
+    public async Task<IActionResult> GetAllowedSubUnitTypes(int unitTypeId)
+    {
+        var result = await _service.GetAllowedSubUnitTypesAsync(unitTypeId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Replace the full set of allowed SubUnitTypes for a UnitType
+    /// </summary>
+    [HttpPut("{unitTypeId}/allowed-subunit-types")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<IActionResult> SetAllowedSubUnitTypes(
+        int unitTypeId,
+        [FromBody] List<int> subUnitTypeIds)
+    {
+        var result = await _service.SetAllowedSubUnitTypesAsync(unitTypeId, subUnitTypeIds);
+        return result.IsSuccess
+            ? Ok(new { message = "Allowed SubUnitTypes updated successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Add a single SubUnitType to a UnitType's allowed list
+    /// </summary>
+    [HttpPost("{unitTypeId}/allowed-subunit-types/{subUnitTypeId}")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<IActionResult> AddAllowedSubUnitType(int unitTypeId, int subUnitTypeId)
+    {
+        var result = await _service.AddAllowedSubUnitTypeAsync(unitTypeId, subUnitTypeId);
+        return result.IsSuccess
+            ? Ok(new { message = "SubUnitType added to allowed list" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Remove a single SubUnitType from a UnitType's allowed list
+    /// </summary>
+    [HttpDelete("{unitTypeId}/allowed-subunit-types/{subUnitTypeId}")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<IActionResult> RemoveAllowedSubUnitType(int unitTypeId, int subUnitTypeId)
+    {
+        var result = await _service.RemoveAllowedSubUnitTypeAsync(unitTypeId, subUnitTypeId);
+        return result.IsSuccess
+            ? Ok(new { message = "SubUnitType removed from allowed list" })
             : result.ToProblem();
     }
 

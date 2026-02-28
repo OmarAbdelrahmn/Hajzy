@@ -20,6 +20,8 @@ public class UnitType
 
     public ICollection<UnitTypeOption> Options { get; set; } = [];
 
+    public ICollection<UnitTypeSubUnitType> AllowedSubUnitTypes { get; set; } = [];
+
 }
 
 public class SubUnitTypee
@@ -37,4 +39,16 @@ public class SubUnitTypee
 
     public ICollection<SubUnitTypeOption> Options { get; set; } = [];
 
+    public ICollection<UnitTypeSubUnitType> AllowedSubUnitTypes { get; set; } = [];
+
+}
+
+public class UnitTypeSubUnitType
+{
+    public int Id { get; set; }
+    public int UnitTypeId { get; set; }
+    public UnitType UnitType { get; set; } = default!;
+
+    public int SubUnitTypeId { get; set; }
+    public SubUnitTypee SubUnitType { get; set; } = default!;
 }

@@ -201,7 +201,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                 Policies = policies.Select(p => new PublicPolicyInfo(
                     p.Title, p.Description, p.PolicyType.ToString(), p.IsMandatory)).ToList(),
                 Options = options,
-                Currency = unit.Currency.Code.ToString(),
+                Currency = unit.Currency?.Code.ToString() ?? "",
                 CustomPolicies = unit.CustomPolicies
                     .OrderBy(p => p.DisplayOrder)
                     .Select(p => new PublicCustomPolicyInfo
@@ -727,7 +727,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
             IsAvailable = unit.IsActive && unit.IsVerified,
             IsFeatured = unit.AverageRating >= 4.5m && unit.TotalReviews >= 10,
             Options = options,
-            Currency = unit.Currency.Code,
+            Currency = unit.Currency?.Code?? "",
             CustomPolicies = unit.CustomPolicies
                 .OrderBy(p => p.DisplayOrder)
                 .Select(p => new PublicCustomPolicyInfo
@@ -778,7 +778,8 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
             // ── NEW ──────────────────────────────────────────────────────
             OptionValues = MapSubUnitOptionValues(subUnit.OptionValues),
 
-            Currency = subUnit.Unit?.Currency.Code
+            Currency = subUnit.Unit?.Currency?.Code ?? "" 
+
         };
     }
 

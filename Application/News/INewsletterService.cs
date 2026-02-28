@@ -26,7 +26,8 @@ public interface INewsletterService
     Task<Result<int>> CreateAndQueueCampaignAsync(
         string title,
         string description,
-        string adminUserId);
+        string adminUserId,
+    string? link = null);
 }
 
 
@@ -45,6 +46,10 @@ public record SendNewsletterRequest
 
     [Required]
     public string Description { get; init; } = string.Empty;
+
+    // NEW
+    [MaxLength(2000)]
+    public string? Link { get; init; }
 }
 
 // ── Outbound ─────────────────────────────────────────────────────────────────
@@ -52,4 +57,5 @@ public record SendNewsletterRequest
 public record CampaignCreatedResponse(
     int CampaignId,
     string Message,
-    string HangfireStatus = "Queued");
+    string HangfireStatus = "Queued"
+    ,string? link = null);

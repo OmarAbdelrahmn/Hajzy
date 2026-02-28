@@ -102,7 +102,8 @@ public class NewsletterService(
     public async Task<Result<int>> CreateAndQueueCampaignAsync(
         string title,
         string description,
-        string adminUserId)
+        string adminUserId,
+        string? link = null)
     {
         try
         {
@@ -113,6 +114,7 @@ public class NewsletterService(
                 UserId = adminUserId,
                 Status = NewsletterCampaignStatus.Queued,
                 QueuedAt = DateTime.UtcNow,
+                Link = link
                  
             };
 

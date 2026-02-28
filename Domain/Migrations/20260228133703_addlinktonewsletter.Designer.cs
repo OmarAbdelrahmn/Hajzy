@@ -4,6 +4,7 @@ using Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Domain.Migrations
 {
     [DbContext(typeof(ApplicationDbcontext))]
-    partial class ApplicationDbcontextModelSnapshot : ModelSnapshot
+    [Migration("20260228133703_addlinktonewsletter")]
+    partial class addlinktonewsletter
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1798,7 +1801,7 @@ namespace Domain.Migrations
                             AccessFailedCount = 0,
                             Address = "lives in hotel details",
                             ConcurrencyStamp = "B4555410-F5B0-45B1-B963-1B2351A0723C",
-                            CreatedAt = new DateTime(2026, 2, 28, 13, 56, 54, 668, DateTimeKind.Utc).AddTicks(8587),
+                            CreatedAt = new DateTime(2026, 2, 28, 13, 37, 1, 87, DateTimeKind.Utc).AddTicks(4818),
                             Email = "HotelAdmin@gmail.com",
                             EmailConfirmed = true,
                             FullName = "hotel-Admin",
@@ -1806,7 +1809,7 @@ namespace Domain.Migrations
                             LockoutEnabled = false,
                             NormalizedEmail = "HOTELADMIN@GMAIL.COM",
                             NormalizedUserName = "HOTELADMIN",
-                            PasswordHash = "AQAAAAIAAYagAAAAELm/zyc4W+CaVA0LEzzXjM/mq9eHawJ3Edyn1bnXJPWGhOcINQeDepGcMI3cBFJYEQ==",
+                            PasswordHash = "AQAAAAIAAYagAAAAECPjKcrHh66Jrkmm42epmcvQbBi3NCDzF1ZTnSMAX3nFNktb9RPlyk8BmIzwdYM3nA==",
                             PhoneNumberConfirmed = false,
                             SecurityStamp = "9FABB58491024B7BB140E4D6658B5BDA",
                             TwoFactorEnabled = false,
@@ -1818,7 +1821,7 @@ namespace Domain.Migrations
                             AccessFailedCount = 0,
                             Address = "lives in city details",
                             ConcurrencyStamp = "B4555410-F5B0-45B1-B963-1B2351A0723C",
-                            CreatedAt = new DateTime(2026, 2, 28, 13, 56, 54, 760, DateTimeKind.Utc).AddTicks(5486),
+                            CreatedAt = new DateTime(2026, 2, 28, 13, 37, 1, 229, DateTimeKind.Utc).AddTicks(6881),
                             Email = "CityAdmin@gmail.com",
                             EmailConfirmed = true,
                             FullName = "city-Admin",
@@ -1826,7 +1829,7 @@ namespace Domain.Migrations
                             LockoutEnabled = false,
                             NormalizedEmail = "CITYADMIN@GMAIL.COM",
                             NormalizedUserName = "CITYADMIN",
-                            PasswordHash = "AQAAAAIAAYagAAAAENylIuzkxvWHL1VR5Gg9+2xX2zjUG/t+atuFs8MRGDedIwDgdWMjWx4llTBSUqYlSQ==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEJ2MesUPIRmMvJcrUOZoFh03Z6YqfnIOaSFNREyA7FRkTP7NWAsGs5gck8NwRExe+w==",
                             PhoneNumberConfirmed = false,
                             SecurityStamp = "9FABB58491024B7BB140E4D6658B5BDA",
                             TwoFactorEnabled = false,
@@ -1838,7 +1841,7 @@ namespace Domain.Migrations
                             AccessFailedCount = 0,
                             Address = "lives in every details",
                             ConcurrencyStamp = "B4555430-F5B0-45B1-B963-1B2351A0923C",
-                            CreatedAt = new DateTime(2026, 2, 28, 13, 56, 54, 842, DateTimeKind.Utc).AddTicks(3797),
+                            CreatedAt = new DateTime(2026, 2, 28, 13, 37, 1, 308, DateTimeKind.Utc).AddTicks(9591),
                             Email = "SuperAdmin@gmail.com",
                             EmailConfirmed = true,
                             FullName = "super-Admin",
@@ -1846,7 +1849,7 @@ namespace Domain.Migrations
                             LockoutEnabled = false,
                             NormalizedEmail = "SUPERADMIN@GMAIL.COM",
                             NormalizedUserName = "SUPERADMIN",
-                            PasswordHash = "AQAAAAIAAYagAAAAEKlae+jvuy69fkvp3rvV7rR/9ddh9nDBPXSjdBXaWXVotrofq1iGJScpOR+/YeWG3w==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEAF+KqQQ77Wz4OOQC5r1+WvNAYKTRxpjG+O9Ucz6+vJ095RBm81utuOIfsi35v7w9Q==",
                             PhoneNumberConfirmed = false,
                             SecurityStamp = "1FABB58791024B7BB190E4D6658B5BDA",
                             TwoFactorEnabled = false,
@@ -4796,29 +4799,6 @@ namespace Domain.Migrations
                     b.ToTable("UnitTypeOptionSelections");
                 });
 
-            modelBuilder.Entity("Domain.Entities.UnitTypeSubUnitType", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("SubUnitTypeId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("UnitTypeId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SubUnitTypeId");
-
-                    b.HasIndex("UnitTypeId");
-
-                    b.ToTable("UnitTypeSubUnitTypes");
-                });
-
             modelBuilder.Entity("Domain.Entities.UniteAdmin", b =>
                 {
                     b.Property<int>("Id")
@@ -5989,25 +5969,6 @@ namespace Domain.Migrations
                     b.Navigation("UnitTypeOption");
                 });
 
-            modelBuilder.Entity("Domain.Entities.UnitTypeSubUnitType", b =>
-                {
-                    b.HasOne("Domain.Entities.SubUnitTypee", "SubUnitType")
-                        .WithMany("AllowedSubUnitTypes")
-                        .HasForeignKey("SubUnitTypeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Domain.Entities.UnitType", "UnitType")
-                        .WithMany("AllowedSubUnitTypes")
-                        .HasForeignKey("UnitTypeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("SubUnitType");
-
-                    b.Navigation("UnitType");
-                });
-
             modelBuilder.Entity("Domain.Entities.UniteAdmin", b =>
                 {
                     b.HasOne("Domain.Entities.Unit", "Unit")
@@ -6202,8 +6163,6 @@ namespace Domain.Migrations
 
             modelBuilder.Entity("Domain.Entities.SubUnitTypee", b =>
                 {
-                    b.Navigation("AllowedSubUnitTypes");
-
                     b.Navigation("Options");
                 });
 
@@ -6230,8 +6189,6 @@ namespace Domain.Migrations
 
             modelBuilder.Entity("Domain.Entities.UnitType", b =>
                 {
-                    b.Navigation("AllowedSubUnitTypes");
-
                     b.Navigation("Options");
                 });
 

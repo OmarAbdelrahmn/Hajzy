@@ -4,13 +4,27 @@ namespace Application.Abstraction.Errors;
 
 public static class UserErrors
 {
-    public static readonly Error InvalidCredentials = new("User.InvalidCredentials", "Invalid Email/Password", StatusCodes.Status401Unauthorized);
-    public static readonly Error EmailAlreadyExist = new("User.UserNameAlreadyExist", "User with this Email is already exists ", StatusCodes.Status409Conflict);
-    public static readonly Error DuplicatedConfermation = new("User.EmailAlreadyConfirmed", "Email already confirmed", StatusCodes.Status400BadRequest);
-    public static readonly Error EmailNotConfirmed = new("User.EmailNotConfirmed", "this email is not confirmed", StatusCodes.Status401Unauthorized);
-    public static readonly Error UserNotFound = new("User.UserNotFound", "User not found", StatusCodes.Status401Unauthorized);
-    public static readonly Error Disableuser = new("User.UserDisable", "User is disable , contact the administrator", StatusCodes.Status401Unauthorized);
-    public static readonly Error userLockedout = new("User.LockedUser", "User is locked , contact the administrator", StatusCodes.Status401Unauthorized);
-    public static readonly Error Unauthorized = new("User.NotHaveCityRole", "Invalid Role", StatusCodes.Status401Unauthorized);
+    public static readonly Error InvalidCredentials =
+        new("بيانات تسجيل الدخول غير صحيحة", "البريد الإلكتروني أو كلمة المرور غير صحيحة", StatusCodes.Status401Unauthorized);
 
+    public static readonly Error EmailAlreadyExist =
+        new("البريد الإلكتروني مسجل مسبقًا", "يوجد مستخدم مسجل بهذا البريد الإلكتروني بالفعل", StatusCodes.Status409Conflict);
+
+    public static readonly Error DuplicatedConfermation =
+        new("البريد الإلكتروني مؤكد", "تم تأكيد البريد الإلكتروني مسبقًا", StatusCodes.Status400BadRequest);
+
+    public static readonly Error EmailNotConfirmed =
+        new("البريد الإلكتروني غير مؤكد", "لم يتم تأكيد البريد الإلكتروني بعد", StatusCodes.Status401Unauthorized);
+
+    public static readonly Error UserNotFound =
+        new("المستخدم غير موجود", "المستخدم غير موجود", StatusCodes.Status401Unauthorized);
+
+    public static readonly Error Disableuser =
+        new("المستخدم معطل", "تم تعطيل هذا المستخدم، يرجى التواصل مع الإدارة", StatusCodes.Status401Unauthorized);
+
+    public static readonly Error userLockedout =
+        new("المستخدم مقفل", "تم قفل هذا المستخدم، يرجى التواصل مع الإدارة", StatusCodes.Status401Unauthorized);
+
+    public static readonly Error Unauthorized =
+        new("ليس لديك صلاحية", "ليس لديك الصلاحية المطلوبة", StatusCodes.Status401Unauthorized);
 }

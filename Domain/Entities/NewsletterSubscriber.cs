@@ -26,6 +26,9 @@ public class NewsletterSubscriber
     [Required, MaxLength(128)]
     public string UnsubscribeToken { get; set; } = Guid.NewGuid().ToString("N");
 
+    [MaxLength(2000)]
+    public string? Link { get; set; }
+
     public DateTime SubscribedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UnsubscribedAt { get; set; }
 }
@@ -65,6 +68,8 @@ public class NewsletterCampaign
     [MaxLength(128)]
     public string? HangfireJobId { get; set; }
 
+    [MaxLength(2000)]
+    public string? Link { get; set; }
     public ICollection<NewsletterSendLog> SendLogs { get; set; } = [];
 }
 

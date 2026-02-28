@@ -50,4 +50,17 @@ public interface IUnitTypeService
     /// No user-access gate — intended for platform admins.
     /// </summary>
     Task<Result> SaveUnitOptionValuesAsync(int unitId, SaveUnitOptionValuesRequest request);
+    // ============= SUBUNIT TYPE ASSIGNMENTS =============
+
+    /// <summary>Returns all SubUnitTypees allowed for this UnitType.</summary>
+    Task<Result<IEnumerable<SubUnitTypeResponse>>> GetAllowedSubUnitTypesAsync(int unitTypeId);
+
+    /// <summary>Replaces the full set of allowed SubUnitTypees for a UnitType.</summary>
+    Task<Result> SetAllowedSubUnitTypesAsync(int unitTypeId, List<int> subUnitTypeIds);
+
+    /// <summary>Adds a single SubUnitTypee to the UnitType's allowed list.</summary>
+    Task<Result> AddAllowedSubUnitTypeAsync(int unitTypeId, int subUnitTypeId);
+
+    /// <summary>Removes a single SubUnitTypee from the UnitType's allowed list.</summary>
+    Task<Result> RemoveAllowedSubUnitTypeAsync(int unitTypeId, int subUnitTypeId);
 }

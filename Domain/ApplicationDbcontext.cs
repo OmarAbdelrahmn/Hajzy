@@ -77,6 +77,7 @@ public class ApplicationDbcontext(DbContextOptions<ApplicationDbcontext> options
     public DbSet<NewsletterSubscriber> NewsletterSubscribers { get; set; }
     public DbSet<NewsletterCampaign> NewsletterCampaigns{ get; set; }
     public DbSet<NewsletterSendLog> NewsletterSendLogs{ get; set; }
+    public DbSet<UnitTypeSubUnitType> UnitTypeSubUnitTypes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

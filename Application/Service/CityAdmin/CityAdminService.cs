@@ -3050,7 +3050,7 @@ public class CityAdminService(
                 GuestEmail2 = b.GuestEmail,
                 GuestPhone = b.GuestPhone,
                 GuestSpecialRequirements = b.SpecialRequests,
-                Currency = b.Unit.Currency.Code
+                Currency = b.Unit.Currency?.Code??""
             }).ToList();
 
             var paginatedResult = CreatePaginatedResponse(responses, totalCount, filter.Page, filter.PageSize);

@@ -817,4 +817,137 @@ public class UnitTypeService(
     }
 
     #endregion
+
+    #region SubUnitType Assignments
+
+    public async Task<Result<IEnumerable<SubUnitTypeResponse>>> GetAllowedSubUnitTypesAsync(int unitTypeId)
+    {
+        try
+        {
+            if (!await _context.UnitTypes.AnyAsync(t => t.Id == unitTypeId))
+                return Result.Failure<IEnumerable<SubUnitTypeResponse>>(
+                    new Error("NotFound", "Unit type not found", 404));
+
+            var subUnitTypes = await _context.UnitTypeSubUnitTypes
+                .Where(x => x.UnitTypeId == unitTypeId)
+                .Select(x => x.SubUnitType)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var responses = subUnitTypes.Select(s => new SubUnitTypeResponse(
+                s.Id, s.Name, s.Description, s.IsActive,
+                _context.SubUnits.Count(su => su.SubUnitTypeId == s.Id && !su.IsDeleted)
+            ));
+
+            return Result.Success(responses);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting allowed subunit types for unit type {Id}", unitTypeId);
+            return Result.Failure<IEnumerable<SubUnitTypeResponse>>(
+                new Error("GetFailed", "Failed to retrieve allowed subunit types", 500));
+        }
+    }
+
+    public async Task<Result> SetAllowedSubUnitTypesAsync(int unitTypeId, List<int> subUnitTypeIds)
+    {
+        try
+        {
+            if (!await _context.UnitTypes.AnyAsync(t => t.Id == unitTypeId))
+                return Result.Failure(new Error("NotFound", "Unit type not found", 404));
+
+            // Validate all provided IDs exist
+            var validIds = await _context.SubUnitTypees
+                .Where(s => subUnitTypeIds.Contains(s.Id))
+                .Select(s => s.Id)
+                .ToListAsync();
+
+            if (validIds.Count != subUnitTypeIds.Distinct().Count())
+                return Result.Failure(
+                    new Error("InvalidIds", "One or more SubUnitType IDs do not exist", 400));
+
+            // Atomically replace
+            var existing = await _context.UnitTypeSubUnitTypes
+                .Where(x => x.UnitTypeId == unitTypeId)
+                .ToListAsync();
+
+            _context.UnitTypeSubUnitTypes.RemoveRange(existing);
+
+            var newLinks = subUnitTypeIds.Distinct().Select(id => new UnitTypeSubUnitType
+            {
+                UnitTypeId = unitTypeId,
+                SubUnitTypeId = id
+            });
+
+            await _context.UnitTypeSubUnitTypes.AddRangeAsync(newLinks);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Set {Count} allowed subunit types for unit type {Id}", subUnitTypeIds.Count, unitTypeId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting allowed subunit types for unit type {Id}", unitTypeId);
+            return Result.Failure(new Error("SetFailed", "Failed to set allowed subunit types", 500));
+        }
+    }
+
+    public async Task<Result> AddAllowedSubUnitTypeAsync(int unitTypeId, int subUnitTypeId)
+    {
+        try
+        {
+            if (!await _context.UnitTypes.AnyAsync(t => t.Id == unitTypeId))
+                return Result.Failure(new Error("NotFound", "Unit type not found", 404));
+
+            if (!await _context.SubUnitTypees.AnyAsync(s => s.Id == subUnitTypeId))
+                return Result.Failure(new Error("NotFound", "SubUnit type not found", 404));
+
+            var alreadyExists = await _context.UnitTypeSubUnitTypes
+                .AnyAsync(x => x.UnitTypeId == unitTypeId && x.SubUnitTypeId == subUnitTypeId);
+
+            if (alreadyExists)
+                return Result.Failure(
+                    new Error("AlreadyLinked", "This SubUnitType is already allowed for this UnitType", 409));
+
+            _context.UnitTypeSubUnitTypes.Add(new UnitTypeSubUnitType
+            {
+                UnitTypeId = unitTypeId,
+                SubUnitTypeId = subUnitTypeId
+            });
+
+            await _context.SaveChangesAsync();
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding subunit type {SubId} to unit type {UnitId}", subUnitTypeId, unitTypeId);
+            return Result.Failure(new Error("AddFailed", "Failed to add allowed subunit type", 500));
+        }
+    }
+
+    public async Task<Result> RemoveAllowedSubUnitTypeAsync(int unitTypeId, int subUnitTypeId)
+    {
+        try
+        {
+            var link = await _context.UnitTypeSubUnitTypes
+                .FirstOrDefaultAsync(x => x.UnitTypeId == unitTypeId && x.SubUnitTypeId == subUnitTypeId);
+
+            if (link is null)
+                return Result.Failure(
+                    new Error("NotFound", "This SubUnitType is not linked to this UnitType", 404));
+
+            _context.UnitTypeSubUnitTypes.Remove(link);
+            await _context.SaveChangesAsync();
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing subunit type {SubId} from unit type {UnitId}", subUnitTypeId, unitTypeId);
+            return Result.Failure(new Error("RemoveFailed", "Failed to remove allowed subunit type", 500));
+        }
+    }
+
+    #endregion
 }
