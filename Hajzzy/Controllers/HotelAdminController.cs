@@ -1389,6 +1389,161 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
         return result.IsSuccess ? Ok(new {message = "Done"}) : result.ToProblem();
     }
     #endregion
+
+    // ════════════════════════════════════════════════════════════════════════════
+    //  ADD THIS REGION TO HotelAdminController.cs
+    //  (paste before the closing brace of the class)
+    // ════════════════════════════════════════════════════════════════════════════
+
+    // ============================================================================
+    // ADMIN MANAGEMENT ENDPOINTS
+    // ============================================================================
+
+    #region Admin Management
+
+    /// <summary>
+    /// Get all admins for a unit. Pass ?isActive=true/false to filter.
+    /// </summary>
+    [HttpGet("units/{unitId}/admins")]
+    public async Task<IActionResult> GetUnitAdmins(
+        int unitId,
+        [FromQuery] bool? isActive = null)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.GetUnitAdminsAsync(userId!, unitId, isActive);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Get a specific admin record by its ID.
+    /// </summary>
+    [HttpGet("admins/{unitAdminId}")]
+    public async Task<IActionResult> GetUnitAdminById(int unitAdminId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.GetUnitAdminByIdAsync(userId!, unitAdminId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Add a user (by email) as admin for a unit.
+    /// Re-activates the record if the user was previously deactivated.
+    /// </summary>
+    [HttpPost("units/{unitId}/admins")]
+    public async Task<IActionResult> AddUnitAdmin(
+        int unitId,
+        [FromBody] AddUnitAdminRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.AddUnitAdminAsync(userId!, unitId, request);
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Hard-delete an admin record. Cannot remove yourself.
+    /// Blocked if the target is the last active admin.
+    /// </summary>
+    [HttpDelete("admins/{unitAdminId}")]
+    public async Task<IActionResult> RemoveUnitAdmin(int unitAdminId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.RemoveUnitAdminAsync(userId!, unitAdminId);
+        return result.IsSuccess
+            ? Ok(new { message = "Admin removed successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Deactivate an admin (IsActive = false). Does not delete the record.
+    /// Cannot deactivate yourself or the last active admin.
+    /// </summary>
+    [HttpPatch("admins/{unitAdminId}/deactivate")]
+    public async Task<IActionResult> DeactivateUnitAdmin(int unitAdminId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.DeactivateUnitAdminAsync(userId!, unitAdminId);
+        return result.IsSuccess
+            ? Ok(new { message = "Admin deactivated successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Reactivate a previously deactivated admin (IsActive = true).
+    /// </summary>
+    [HttpPatch("admins/{unitAdminId}/activate")]
+    public async Task<IActionResult> ActivateUnitAdmin(int unitAdminId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.ActivateUnitAdminAsync(userId!, unitAdminId);
+        return result.IsSuccess
+            ? Ok(new { message = "Admin activated successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Toggle an admin's active status.
+    /// Returns the new IsActive value.
+    /// Cannot toggle yourself or the last active admin.
+    /// </summary>
+    [HttpPatch("admins/{unitAdminId}/toggle-status")]
+    public async Task<IActionResult> ToggleUnitAdminStatus(int unitAdminId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.ToggleUnitAdminStatusAsync(userId!, unitAdminId);
+        return result.IsSuccess
+            ? Ok(new { isActive = result.Value, message = result.Value ? "Admin activated" : "Admin deactivated" })
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Get an activity summary for a specific admin
+    /// (shows which units they manage, scoped to units the requester can see).
+    /// </summary>
+    [HttpGet("admins/{targetUserId}/activity")]
+    public async Task<IActionResult> GetAdminActivitySummary(string targetUserId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.GetAdminActivitySummaryAsync(userId!, targetUserId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Transfer all unit-admin assignments from one user to another.
+    /// Pass deactivateOriginal=true to also deactivate the source admin.
+    /// </summary>
+    [HttpPost("admins/transfer")]
+    public async Task<IActionResult> TransferAdminUnits(
+        [FromBody] TransferAdminRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.TransferAdminUnitsAsync(
+            userId!,
+            request.FromUserId,
+            request.ToUserEmail,
+            request.DeactivateOriginal);
+
+        return result.IsSuccess
+            ? Ok(new { message = "Units transferred successfully" })
+            : result.ToProblem();
+    }
+
+    #endregion
+
+
+    // ─── Add this DTO near the bottom of the controller file ───────────────────
+
+    public class TransferAdminRequest
+    {
+        [Required]
+        public string FromUserId { get; set; } = string.Empty;
+
+        [Required, EmailAddress]
+        public string ToUserEmail { get; set; } = string.Empty;
+
+        public bool DeactivateOriginal { get; set; } = false;
+    }
 }
 
 // Request DTO

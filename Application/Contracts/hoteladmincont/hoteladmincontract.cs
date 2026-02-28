@@ -14,8 +14,52 @@ namespace Application.Contracts.hoteladmincont;
 // ============================================================================
 
 
-// Application/Contracts/hoteladmincont/CreateSubUnitRequest.cs
+public class AddUnitAdminRequest
+{
+    /// <summary>Email or UserId of the user to add as admin</summary>
+    [Required]
+    public string UserEmail { get; set; } = string.Empty;
+}
 
+public class UpdateUnitAdminRequest
+{
+    public bool IsActive { get; set; }
+}
+
+// ─── Response DTOs ───────────────────────────────────────────────────────────
+
+public class UnitAdminResponse
+{
+    public int Id { get; set; }
+    public string UserId { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? PhoneNumber { get; set; }
+    public string? AvatarUrl { get; set; }
+    public int UnitId { get; set; }
+    public string UnitName { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+    public DateTime AssignedAt { get; set; }
+    public DateTime? LastLoginAt { get; set; }
+}
+
+public class AdminActivitySummary
+{
+    public string UserId { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public int TotalUnitsManaged { get; set; }
+    public int ActiveUnitsManaged { get; set; }
+    public List<ManagedUnitInfo> ManagedUnits { get; set; } = [];
+}
+
+public class ManagedUnitInfo
+{
+    public int UnitId { get; set; }
+    public string UnitName { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+    public DateTime AssignedAt { get; set; }
+}
 
 public class CreateSubUnitRequest
 {

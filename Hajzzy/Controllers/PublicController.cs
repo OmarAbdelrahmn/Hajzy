@@ -23,6 +23,31 @@ public class PublicController(IPublicServise service, IOfferService service1, IA
     private readonly IAdminService service2 = service2;
     private readonly ICityAdminService _cityAdminService = cityAdminService;
 
+
+    [HttpGet("units/{unitId:int}/images")]
+    public async Task<IActionResult> GetUnitImages(int unitId)
+    {
+        var result = await _service.GetUnitImagesAsync(unitId);
+
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
+
+    /// <summary>
+    /// GET api/public/subunits/{subUnitId}/images
+    /// Returns only the images for the specified subunit.
+    /// </summary>
+    [HttpGet("subunits/{subUnitId:int}/images")]
+    public async Task<IActionResult> GetSubUnitImages(int subUnitId)
+    {
+        var result = await _service.GetSubUnitImagesAsync(subUnitId);
+
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
+
     [HttpGet("admins")]
     public async Task<IActionResult> getallcityadmin()
     {

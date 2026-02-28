@@ -324,224 +324,182 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
 
     public async Task<Result<PaginatedBookingsResponse>> GetAllBookingsAsync(BookingAdminFilter filter)
     {
-        var query = dbcontext.Bookings
-            .Include(b => b.Unit)
-                .ThenInclude(u => u.City)
-            .Include(b => b.Unit)
-                .ThenInclude(u => u.UnitType)
-            .Include(b => b.Unit)
-                .ThenInclude(u => u.Currency)
-            .Include(b => b.User)
-            .Include(b => b.BookingRooms)
-                .ThenInclude(br => br.Room)
-                    .ThenInclude(r => r.SubUnitType)
-            .Include(b => b.Payments)
-            .Where(b => !b.IsDeleted)
-            .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+        try
         {
-            var term = filter.SearchTerm.Trim().ToLower();
-            query = query.Where(b =>
-                b.BookingNumber.ToLower().Contains(term) ||
-                (b.User.FullName != null && b.User.FullName.ToLower().Contains(term)) ||
-                (b.User.Email != null && b.User.Email.ToLower().Contains(term)) ||
-                (b.User.PhoneNumber != null && b.User.PhoneNumber.Contains(term)) ||
-                (b.GuestFirstName != null && b.GuestFirstName.ToLower().Contains(term)) ||
-                (b.GuestLastName != null && b.GuestLastName.ToLower().Contains(term)) ||
-                (b.GuestEmail != null && b.GuestEmail.ToLower().Contains(term)) ||
-                (b.GuestPhone != null && b.GuestPhone.Contains(term)) ||
-                b.Unit.Name.ToLower().Contains(term)
-            );
-        }
+            var query = dbcontext.Bookings
+                .Include(b => b.Unit)
+                    .ThenInclude(u => u.City)
+                .Include(b => b.Unit)
+                    .ThenInclude(u => u.UnitType)
+                .Include(b => b.Unit)
+                    .ThenInclude(u => u.Currency)
+                .Include(b => b.User)
+                .Include(b => b.BookingRooms)
+                    .ThenInclude(br => br.Room)
+                        .ThenInclude(r => r.SubUnitType)
+                .Include(b => b.Payments)
+                .Where(b => !b.IsDeleted)
+                .AsQueryable();
 
-        //// Apply filters
-        //if (filter.BookingType.HasValue)
-        //    query = query.Where(b => b.BookingType == filter.BookingType.Value);
-
-        //if (filter.Status.HasValue)
-        //    query = query.Where(b => b.Status == filter.Status.Value);
-
-        //if (filter.PaymentStatus.HasValue)
-        //    query = query.Where(b => b.PaymentStatus == filter.PaymentStatus.Value);
-
-        //if (filter.UnitId.HasValue)
-        //    query = query.Where(b => b.UnitId == filter.UnitId.Value);
-
-        //if (filter.CityId.HasValue)
-        //    query = query.Where(b => b.Unit.CityId == filter.CityId.Value);
-
-        //if (!string.IsNullOrWhiteSpace(filter.UserId))
-        //    query = query.Where(b => b.UserId == filter.UserId);
-
-        //if (!string.IsNullOrWhiteSpace(filter.BookingNumber))
-        //    query = query.Where(b => b.BookingNumber.Contains(filter.BookingNumber));
-
-        //if (filter.CheckInFrom.HasValue)
-        //    query = query.Where(b => b.CheckInDate >= filter.CheckInFrom.Value);
-
-        //if (filter.CheckInTo.HasValue)
-        //    query = query.Where(b => b.CheckInDate <= filter.CheckInTo.Value);
-
-        //if (filter.CreatedFrom.HasValue)
-        //    query = query.Where(b => b.CreatedAt >= filter.CreatedFrom.Value);
-
-        //if (filter.CreatedTo.HasValue)
-        //    query = query.Where(b => b.CreatedAt <= filter.CreatedTo.Value);
-
-        // Get total count before pagination
-        var totalCount = await query.CountAsync();
-
-        // Apply sorting
-        query = filter.SortBy?.ToLower() switch
-        {
-            "bookingdate" => filter.SortDescending
-                ? query.OrderByDescending(b => b.CreatedAt)
-                : query.OrderBy(b => b.CreatedAt),
-            "checkin" => filter.SortDescending
-                ? query.OrderByDescending(b => b.CheckInDate)
-                : query.OrderBy(b => b.CheckInDate),
-            "totalprice" => filter.SortDescending
-                ? query.OrderByDescending(b => b.TotalPrice)
-                : query.OrderBy(b => b.TotalPrice),
-            "status" => filter.SortDescending
-                ? query.OrderByDescending(b => b.Status)
-                : query.OrderBy(b => b.Status),
-            _ => query.OrderByDescending(b => b.CreatedAt)
-        };
-
-        // Apply pagination
-        var bookings = await query
-            .Skip((filter.Page - 1) * filter.PageSize)
-            .Take(filter.PageSize)
-            .AsNoTracking()
-            .ToListAsync();
-
-        // Get coupon information for all bookings
-        var bookingIds = bookings.Select(b => b.Id).ToList();
-        var bookingCoupons = await dbcontext.Set<BookingCoupon>()
-            .Include(bc => bc.Coupon)
-            .Where(bc => bookingIds.Contains(bc.BookingId))
-            .AsNoTracking()
-            .ToListAsync();
-
-        // Map to response
-        var bookingResponses = bookings.Select(booking =>
-        {
-            var bookingCoupon = bookingCoupons.FirstOrDefault(bc => bc.BookingId == booking.Id);
-
-            return new AdminBookingResponse
+            if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
             {
-                // Basic Info
-                Id = booking.Id,
-                BookingNumber = booking.BookingNumber,
-                BookingType = booking.BookingType.ToString(),
-                Status = booking.Status.ToString(),
-                PaymentStatus = booking.PaymentStatus.ToString(),
+                var term = filter.SearchTerm.Trim().ToLower();
+                query = query.Where(b =>
+                    (b.BookingNumber != null && b.BookingNumber.ToLower().Contains(term)) ||
+                    (b.User.FullName != null && b.User.FullName.ToLower().Contains(term)) ||
+                    (b.User.Email != null && b.User.Email.ToLower().Contains(term)) ||
+                    (b.User.PhoneNumber != null && b.User.PhoneNumber.Contains(term)) ||
+                    (b.GuestFirstName != null && b.GuestFirstName.ToLower().Contains(term)) ||
+                    (b.GuestLastName != null && b.GuestLastName.ToLower().Contains(term)) ||
+                    (b.GuestEmail != null && b.GuestEmail.ToLower().Contains(term)) ||
+                    (b.GuestPhone != null && b.GuestPhone.Contains(term)) ||
+                    (b.Unit != null && b.Unit.Name != null && b.Unit.Name.ToLower().Contains(term))
+                );
+            }
 
-                // Unit Info
-                UnitId = booking.UnitId,
-                UnitName = booking.Unit.Name,
-                UnitAddress = booking.Unit.Address,
-                UnitType = booking.Unit.UnitType.Name,
-                CityName = booking.Unit.City.Name,
-                CityId = booking.Unit.CityId,
+            var totalCount = await query.CountAsync();
 
-                // SubUnit Info (for SubUnit bookings)
-                SubUnits = booking.BookingType == BookingType.SubUnitBooking
-                    ? booking.BookingRooms.Select(br => new Contracts.Bookin.SubUnitSummary
-                    {
-                        SubUnitId = br.RoomId,
-                        RoomNumber = br.Room.RoomNumber,
-                        SubUnitType = br.Room.SubUnitType?.Name ?? "N/A",
-                        PricePerNight = br.PricePerNight,
-                        NumberOfNights = br.NumberOfNights,
-                        Subtotal = br.PricePerNight * br.NumberOfNights,
-                        MaxOccupancy = br.Room.MaxOccupancy,
-                        Bedrooms = br.Room.Bedrooms,
-                        Bathrooms = br.Room.Bathrooms,
-                        Size = br.Room.Size
-                    }).ToList()
-                    : new List<Contracts.Bookin.SubUnitSummary>(),
-
-                // Guest Info
-                UserId = booking.UserId,
-                GuestName = booking.User.FullName ?? "N/A",
-                GuestEmail = booking.User.Email ?? "N/A",
-                GuestPhone = booking.User.PhoneNumber,
-
-                // Booking Details
-                CheckInDate = booking.CheckInDate,
-                CheckOutDate = booking.CheckOutDate,
-                NumberOfGuests = booking.NumberOfGuests,
-                NumberOfNights = booking.NumberOfNights,
-
-                // Financial Info
-                TotalPrice = booking.TotalPrice,
-                PaidAmount = booking.PaidAmount,
-                RemainingAmount = booking.TotalPrice - booking.PaidAmount,
-
-                // Coupon Info
-                CouponCode = bookingCoupon?.Coupon?.Code,
-                CouponDiscount = bookingCoupon?.DiscountApplied,
-
-                // Payment Info
-                Payments = booking.Payments?.Select(p => new PaymentSummary
-                {
-                    Id = p.Id,
-                    TransactionId = p.TransactionId,
-                    Amount = p.Amount,
-                    PaymentMethod = p.PaymentMethod.ToString(),
-                    PaymentDate = p.PaymentDate,
-                    Status = p.Status.ToString(),
-                    Notes = p.Notes
-                }).OrderByDescending(p => p.PaymentDate).ToList() ?? new List<PaymentSummary>(),
-
-                // Additional Info
-                SpecialRequests = booking.SpecialRequests,
-                CancellationReason = booking.CancellationReason,
-                CancelledAt = booking.CancelledAt,
-
-                // Timestamps
-                CreatedAt = booking.CreatedAt,
-                UpdatedAt = booking.UpdatedAt,
-                Currency = booking.Unit.Currency.Code
+            query = filter.SortBy?.ToLower() switch
+            {
+                "bookingdate" => filter.SortDescending
+                    ? query.OrderByDescending(b => b.CreatedAt)
+                    : query.OrderBy(b => b.CreatedAt),
+                "checkin" => filter.SortDescending
+                    ? query.OrderByDescending(b => b.CheckInDate)
+                    : query.OrderBy(b => b.CheckInDate),
+                "totalprice" => filter.SortDescending
+                    ? query.OrderByDescending(b => b.TotalPrice)
+                    : query.OrderBy(b => b.TotalPrice),
+                "status" => filter.SortDescending
+                    ? query.OrderByDescending(b => b.Status)
+                    : query.OrderBy(b => b.Status),
+                _ => query.OrderByDescending(b => b.CreatedAt)
             };
-        }).ToList();
 
-        // Calculate statistics
-        var statistics = new BookingStatistics
+            var bookings = await query
+                .Skip((filter.Page - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var bookingIds = bookings.Select(b => b.Id).ToList();
+            var bookingCoupons = await dbcontext.Set<BookingCoupon>()
+                .Include(bc => bc.Coupon)
+                .Where(bc => bookingIds.Contains(bc.BookingId))
+                .AsNoTracking()
+                .ToListAsync();
+
+            var bookingResponses = bookings.Select(booking =>
+            {
+                var bookingCoupon = bookingCoupons.FirstOrDefault(bc => bc.BookingId == booking.Id);
+
+                return new AdminBookingResponse
+                {
+                    Id = booking.Id,
+                    BookingNumber = booking.BookingNumber,
+                    BookingType = booking.BookingType.ToString(),
+                    Status = booking.Status.ToString(),
+                    PaymentStatus = booking.PaymentStatus.ToString(),
+
+                    UnitId = booking.UnitId,
+                    UnitName = booking.Unit.Name,
+                    UnitAddress = booking.Unit.Address,
+                    UnitType = booking.Unit.UnitType.Name,
+                    CityName = booking.Unit.City.Name,
+                    CityId = booking.Unit.CityId,
+
+                    SubUnits = booking.BookingType == BookingType.SubUnitBooking
+                        ? booking.BookingRooms.Select(br => new Contracts.Bookin.SubUnitSummary
+                        {
+                            SubUnitId = br.RoomId,
+                            RoomNumber = br.Room.RoomNumber,
+                            SubUnitType = br.Room.SubUnitType?.Name ?? "N/A",
+                            PricePerNight = br.PricePerNight,
+                            NumberOfNights = br.NumberOfNights,
+                            Subtotal = br.PricePerNight * br.NumberOfNights,
+                            MaxOccupancy = br.Room.MaxOccupancy,
+                            Bedrooms = br.Room.Bedrooms,
+                            Bathrooms = br.Room.Bathrooms,
+                            Size = br.Room.Size
+                        }).ToList()
+                        : new List<Contracts.Bookin.SubUnitSummary>(),
+
+                    UserId = booking.UserId,
+                    GuestName = booking.User.FullName ?? "N/A",
+                    GuestEmail = booking.User.Email ?? "N/A",
+                    GuestPhone = booking.User.PhoneNumber,
+
+                    CheckInDate = booking.CheckInDate,
+                    CheckOutDate = booking.CheckOutDate,
+                    NumberOfGuests = booking.NumberOfGuests,
+                    NumberOfNights = booking.NumberOfNights,
+
+                    TotalPrice = booking.TotalPrice,
+                    PaidAmount = booking.PaidAmount,
+                    RemainingAmount = booking.TotalPrice - booking.PaidAmount,
+
+                    CouponCode = bookingCoupon?.Coupon?.Code,
+                    CouponDiscount = bookingCoupon?.DiscountApplied,
+
+                    Payments = booking.Payments?.Select(p => new PaymentSummary
+                    {
+                        Id = p.Id,
+                        TransactionId = p.TransactionId,
+                        Amount = p.Amount,
+                        PaymentMethod = p.PaymentMethod.ToString(),
+                        PaymentDate = p.PaymentDate,
+                        Status = p.Status.ToString(),
+                        Notes = p.Notes
+                    }).OrderByDescending(p => p.PaymentDate).ToList() ?? new List<PaymentSummary>(),
+
+                    SpecialRequests = booking.SpecialRequests,
+                    CancellationReason = booking.CancellationReason,
+                    CancelledAt = booking.CancelledAt,
+
+                    CreatedAt = booking.CreatedAt,
+                    UpdatedAt = booking.UpdatedAt,
+                    Currency = booking.Unit.Currency?.Code ?? "N/A"
+                };
+            }).ToList();
+
+            var statistics = new BookingStatistics
+            {
+                TotalBookings = totalCount,
+                TotalRevenue = bookings.Sum(b => b.TotalPrice),
+                PaidRevenue = bookings.Sum(b => b.PaidAmount),
+                PendingRevenue = bookings.Where(b => b.Status != BookingStatus.Cancelled)
+                    .Sum(b => b.TotalPrice - b.PaidAmount),
+
+                PendingCount = bookings.Count(b => b.Status == BookingStatus.Pending),
+                ConfirmedCount = bookings.Count(b => b.Status == BookingStatus.Confirmed),
+                CheckedInCount = bookings.Count(b => b.Status == BookingStatus.CheckedIn),
+                CompletedCount = bookings.Count(b => b.Status == BookingStatus.Completed),
+                CancelledCount = bookings.Count(b => b.Status == BookingStatus.Cancelled),
+
+                UnitBookingsCount = bookings.Count(b => b.BookingType == BookingType.UnitBooking),
+                SubUnitBookingsCount = bookings.Count(b => b.BookingType == BookingType.SubUnitBooking),
+
+                AverageBookingValue = bookings.Any() ? bookings.Average(b => b.TotalPrice) : 0,
+                AverageNightsPerBooking = bookings.Any() ? bookings.Average(b => b.NumberOfNights) : 0
+            };
+
+            var response = new PaginatedBookingsResponse
+            {
+                Bookings = bookingResponses,
+                TotalCount = totalCount,
+                Page = filter.Page,
+                PageSize = filter.PageSize,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)filter.PageSize),
+                Statistics = statistics
+            };
+
+            return Result.Success(response);
+        }
+        catch (Exception ex)
         {
-            TotalBookings = totalCount,
-            TotalRevenue = bookings.Sum(b => b.TotalPrice),
-            PaidRevenue = bookings.Sum(b => b.PaidAmount),
-            PendingRevenue = bookings.Where(b => b.Status != BookingStatus.Cancelled)
-                .Sum(b => b.TotalPrice - b.PaidAmount),
-
-            PendingCount = bookings.Count(b => b.Status == BookingStatus.Pending),
-            ConfirmedCount = bookings.Count(b => b.Status == BookingStatus.Confirmed),
-            CheckedInCount = bookings.Count(b => b.Status == BookingStatus.CheckedIn),
-            CompletedCount = bookings.Count(b => b.Status == BookingStatus.Completed),
-            CancelledCount = bookings.Count(b => b.Status == BookingStatus.Cancelled),
-
-            UnitBookingsCount = bookings.Count(b => b.BookingType == BookingType.UnitBooking),
-            SubUnitBookingsCount = bookings.Count(b => b.BookingType == BookingType.SubUnitBooking),
-
-            AverageBookingValue = bookings.Any() ? bookings.Average(b => b.TotalPrice) : 0,
-            AverageNightsPerBooking = bookings.Any() ? bookings.Average(b => b.NumberOfNights) : 0
-        };
-
-        var response = new PaginatedBookingsResponse
-        {
-            Bookings = bookingResponses,
-            TotalCount = totalCount,
-            Page = filter.Page,
-            PageSize = filter.PageSize,
-            TotalPages = (int)Math.Ceiling(totalCount / (double)filter.PageSize),
-            Statistics = statistics
-        };
-
-        return Result.Success(response);
+            return Result.Failure<PaginatedBookingsResponse>(
+                new Error(ex.InnerException.Message,ex.Message,500));
+        }
     }
 
 

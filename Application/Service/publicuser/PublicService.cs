@@ -16,6 +16,81 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
 {
     private readonly ApplicationDbcontext _context = context;
 
+
+
+    public async Task<Result<List<PublicImageInfo>>> GetUnitImagesAsync(int unitId)
+    {
+        try
+        {
+            var exists = await _context.Units
+                .AnyAsync(u => u.Id == unitId && !u.IsDeleted && u.IsActive && u.IsVerified);
+
+            if (!exists)
+                return Result.Failure<List<PublicImageInfo>>(
+                    new Error("NotFound", "Unit not found or not available", 404));
+
+            var images = await _context.Units
+                .Where(u => u.Id == unitId)
+                .SelectMany(u => u.Images.Where(i => !i.IsDeleted))
+                .OrderBy(i => i.DisplayOrder)
+                .Select(i => new PublicImageInfo
+                {
+                    ImageUrl = i.ImageUrl,
+                    ThumbnailUrl = i.ThumbnailUrl,
+                    MediumUrl = i.MediumUrl,
+                    IsPrimary = i.IsPrimary,
+                    DisplayOrder = i.DisplayOrder,
+                    Caption = i.Caption
+                })
+                .AsNoTracking()
+                .ToListAsync();
+
+            return Result.Success(images);
+        }
+        catch
+        {
+            return Result.Failure<List<PublicImageInfo>>(
+                new Error("GetFailed", "Failed to retrieve unit images", 500));
+        }
+    }
+
+    public async Task<Result<List<PublicImageInfo>>> GetSubUnitImagesAsync(int subUnitId)
+    {
+        try
+        {
+            var exists = await _context.SubUnits
+                .AnyAsync(s => s.Id == subUnitId && !s.IsDeleted && s.IsAvailable
+                            && !s.Unit.IsDeleted && s.Unit.IsActive && s.Unit.IsVerified);
+
+            if (!exists)
+                return Result.Failure<List<PublicImageInfo>>(
+                    new Error("NotFound", "SubUnit not found or not available", 404));
+
+            var images = await _context.SubUnits
+                .Where(s => s.Id == subUnitId)
+                .SelectMany(s => s.SubUnitImages.Where(i => !i.IsDeleted))
+                .OrderBy(i => i.DisplayOrder)
+                .Select(i => new PublicImageInfo
+                {
+                    ImageUrl = i.ImageUrl,
+                    ThumbnailUrl = i.ThumbnailUrl,
+                    MediumUrl = i.MediumUrl,
+                    IsPrimary = i.IsPrimary,
+                    DisplayOrder = i.DisplayOrder,
+                    Caption = i.Caption
+                })
+                .AsNoTracking()
+                .ToListAsync();
+
+            return Result.Success(images);
+        }
+        catch
+        {
+            return Result.Failure<List<PublicImageInfo>>(
+                new Error("GetFailed", "Failed to retrieve subunit images", 500));
+        }
+    }
+
     #region UNITS
 
     public async Task<Result<PaginatedResponse<PublicUnitResponse>>> GetAllUnitsAsync(

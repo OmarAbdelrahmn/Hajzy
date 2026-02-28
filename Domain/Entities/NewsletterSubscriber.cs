@@ -71,6 +71,21 @@ public class NewsletterCampaign
     [MaxLength(2000)]
     public string? Link { get; set; }
     public ICollection<NewsletterSendLog> SendLogs { get; set; } = [];
+    // ── Targeting Filters (all nullable = no filter applied) ──────────────
+    /// <summary>Only send to subscribers who booked/visited a unit in this city.</summary>
+    public int? FilterCityId { get; set; }
+
+    /// <summary>Only send to subscribers who booked/visited this specific unit.</summary>
+    public int? FilterUnitId { get; set; }
+
+    /// <summary>Only send to subscribers who joined/booked after this date.</summary>
+    public DateTime? FilterFromDate { get; set; }
+
+    /// <summary>Only send to subscribers who joined/booked before this date.</summary>
+    public DateTime? FilterToDate { get; set; }
+
+    /// <summary>Only send to subscribers who are also registered users (not anonymous).</summary>
+    public bool? FilterRegisteredUsersOnly { get; set; }
 }
 
 /// <summary>

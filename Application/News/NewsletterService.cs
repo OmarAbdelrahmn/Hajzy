@@ -100,10 +100,15 @@ public class NewsletterService(
     // ─────────────────────────────────────────────────────────────────────────
 
     public async Task<Result<int>> CreateAndQueueCampaignAsync(
-        string title,
-        string description,
-        string adminUserId,
-        string? link = null)
+    string title,
+    string description,
+    string adminUserId,
+    string? link = null,
+    int? filterCityId = null,
+    int? filterUnitId = null,
+    DateTime? filterFromDate = null,
+    DateTime? filterToDate = null,
+    bool? filterRegisteredUsersOnly = null)
     {
         try
         {
@@ -114,31 +119,30 @@ public class NewsletterService(
                 UserId = adminUserId,
                 Status = NewsletterCampaignStatus.Queued,
                 QueuedAt = DateTime.UtcNow,
-                Link = link
-                 
+                Link = link,
+                // ── store filters ──
+                FilterCityId = filterCityId,
+                FilterUnitId = filterUnitId,
+                FilterFromDate = filterFromDate,
+                FilterToDate = filterToDate,
+                FilterRegisteredUsersOnly = filterRegisteredUsersOnly,
             };
 
             context.NewsletterCampaigns.Add(campaign);
             await context.SaveChangesAsync();
 
-            // Enqueue the actual sending to Hangfire
             var jobId = backgroundJobClient.Enqueue<NewsletterJob>(
                 j => j.SendCampaignAsync(campaign.Id));
 
             campaign.HangfireJobId = jobId;
             await context.SaveChangesAsync();
 
-            logger.LogInformation(
-                "Newsletter campaign {CampaignId} queued. Hangfire job: {JobId}",
-                campaign.Id, jobId);
-
             return Result.Success(campaign.Id);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to create newsletter campaign");
-            return Result.Failure<int>(
-                new Error(ex.Message, ex.InnerException.Message, 500));
+            return Result.Failure<int>(new Error(ex.Message, ex.InnerException?.Message ?? "", 500));
         }
     }
 }

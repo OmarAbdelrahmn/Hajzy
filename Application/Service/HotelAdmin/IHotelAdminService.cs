@@ -9,6 +9,82 @@ namespace Application.Service.HotelAdmin;
 
 public interface IHotelAdminService
 {
+
+
+    /// <summary>
+    /// Get all admins for a unit.
+    /// Pass <paramref name="isActive"/> to filter active / inactive only.
+    /// </summary>
+    Task<Result<IEnumerable<UnitAdminResponse>>> GetUnitAdminsAsync(
+        string requestingUserId,
+        int unitId,
+        bool? isActive = null);
+
+    /// <summary>Get a single UniteAdmin record by its row ID.</summary>
+    Task<Result<UnitAdminResponse>> GetUnitAdminByIdAsync(
+        string requestingUserId,
+        int unitAdminId);
+
+    /// <summary>
+    /// Add a user (looked up by email) as admin for a unit.
+    /// Re-activates the record if the user was previously deactivated.
+    /// The requester must already be an active admin of that unit.
+    /// </summary>
+    Task<Result<UnitAdminResponse>> AddUnitAdminAsync(
+        string requestingUserId,
+        int unitId,
+        AddUnitAdminRequest request);
+
+    /// <summary>
+    /// Hard-delete a UniteAdmin row.
+    /// Blocked if the target is the requester themselves or the last active admin.
+    /// </summary>
+    Task<Result> RemoveUnitAdminAsync(
+        string requestingUserId,
+        int unitAdminId);
+
+    /// <summary>
+    /// Set IsActive = false without deleting the record.
+    /// Blocked if the target is the requester themselves or the last active admin.
+    /// </summary>
+    Task<Result> DeactivateUnitAdminAsync(
+        string requestingUserId,
+        int unitAdminId);
+
+    /// <summary>Set IsActive = true for a previously deactivated admin.</summary>
+    Task<Result> ActivateUnitAdminAsync(
+        string requestingUserId,
+        int unitAdminId);
+
+    /// <summary>
+    /// Flip IsActive (true → false or false → true).
+    /// Returns the new IsActive value.
+    /// Blocked if the target is the requester themselves or the last active admin.
+    /// </summary>
+    Task<Result<bool>> ToggleUnitAdminStatusAsync(
+        string requestingUserId,
+        int unitAdminId);
+
+    /// <summary>
+    /// Return a summary of which units a given user administers,
+    /// scoped to units visible to the requester.
+    /// </summary>
+    Task<Result<AdminActivitySummary>> GetAdminActivitySummaryAsync(
+        string requestingUserId,
+        string targetUserId);
+
+    /// <summary>
+    /// Copy all unit-admin assignments from <paramref name="fromUserId"/> to the user
+    /// identified by <paramref name="toUserEmail"/>.
+    /// Pass <paramref name="deactivateOriginal"/> = true to also set the source
+    /// admin's records to IsActive = false.
+    /// Only units that the requester also manages are transferred.
+    /// </summary>
+    Task<Result> TransferAdminUnitsAsync(
+        string requestingUserId,
+        string fromUserId,
+        string toUserEmail,
+        bool deactivateOriginal = false);
     // ============= OFFERS MANAGEMENT =============
 
     /// <summary>

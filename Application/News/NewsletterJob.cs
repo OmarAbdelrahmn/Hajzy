@@ -36,11 +36,8 @@ public class NewsletterJob(
         await context.SaveChangesAsync();
 
         // ── Collect all active subscriber emails ─────────────────────────────
-        var emails = await context.NewsletterSubscribers
-            .Where(s => s.IsActive)
-            .Select(s => new { s.Email, s.UnsubscribeToken })
-            .AsNoTracking()
-            .ToListAsync();
+        var emails = await BuildTargetedEmailListAsync(campaign);
+
 
         campaign.TotalRecipients = emails.Count;
         await context.SaveChangesAsync();
@@ -115,6 +112,61 @@ public class NewsletterJob(
         logger.LogInformation(
             "NewsletterJob: campaign {Id} finished. Sent={Sent} Failed={Failed}",
             campaignId, sent, failed);
+    }
+    private async Task<List<(string Email, string UnsubscribeToken)>> BuildTargetedEmailListAsync(
+    NewsletterCampaign campaign)
+    {
+        // Start from active subscribers only
+        var query = context.NewsletterSubscribers
+            .Where(s => s.IsActive)
+            .AsQueryable();
+
+        // Filter: registered users only
+        if (campaign.FilterRegisteredUsersOnly == true)
+            query = query.Where(s => s.UserId != null);
+
+        // Filter: subscribed/joined within date range
+        if (campaign.FilterFromDate.HasValue)
+            query = query.Where(s => s.SubscribedAt >= campaign.FilterFromDate.Value);
+
+        if (campaign.FilterToDate.HasValue)
+            query = query.Where(s => s.SubscribedAt <= campaign.FilterToDate.Value);
+
+        // Filter: users who have a booking at a unit in the given city
+        if (campaign.FilterCityId.HasValue)
+        {
+            var userIdsInCity = await context.Bookings
+                .Where(b => b.Unit.CityId == campaign.FilterCityId.Value
+                         && b.UserId != null)
+                .Select(b => b.UserId)
+                .Distinct()
+                .ToListAsync();
+
+            query = query.Where(s => s.UserId != null
+                                  && userIdsInCity.Contains(s.UserId!));
+        }
+
+        // Filter: users who have a booking at a specific unit
+        if (campaign.FilterUnitId.HasValue)
+        {
+            var userIdsAtUnit = await context.Bookings
+                .Where(b => b.UnitId == campaign.FilterUnitId.Value
+                         && b.UserId != null)
+                .Select(b => b.UserId)
+                .Distinct()
+                .ToListAsync();
+
+            query = query.Where(s => s.UserId != null
+                                  && userIdsAtUnit.Contains(s.UserId!));
+        }
+
+        return await query
+            .Select(s => new { s.Email, s.UnsubscribeToken })
+            .AsNoTracking()
+            .ToListAsync()
+            .ContinueWith(t => t.Result
+                .Select(x => (x.Email, x.UnsubscribeToken))
+                .ToList());
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 ﻿using Amazon.S3;
+using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 using Application.Abstraction;
 using Application.Contracts.AD;
@@ -243,7 +244,7 @@ public class AdService(
                 (a.Title != null && a.Title.ToLower().Contains(term)) ||
                 (a.Description != null && a.Description.ToLower().Contains(term)) ||
                 (a.Link != null && a.Link.ToLower().Contains(term)) ||
-                (a.Unit != null && a.Unit.Name.ToLower().Contains(term)) ||
+                (a.Unit != null && a.Unit.Name != null && a.Unit.Name.ToLower().Contains(term)) ||
                 (a.UploadedBy != null && a.UploadedBy.FullName != null && a.UploadedBy.FullName.ToLower().Contains(term))
             );
         }
@@ -293,7 +294,7 @@ public class AdService(
                 (a.Title != null && a.Title.ToLower().Contains(term)) ||
                 (a.Description != null && a.Description.ToLower().Contains(term)) ||
                 (a.Link != null && a.Link.ToLower().Contains(term)) ||
-                (a.Unit != null && a.Unit.Name.ToLower().Contains(term)) ||
+                (a.Unit != null && a.Unit.Name != null && a.Unit.Name.ToLower().Contains(term)) ||
                 (a.UploadedBy != null && a.UploadedBy.FullName != null && a.UploadedBy.FullName.ToLower().Contains(term))
             );
         }
@@ -334,7 +335,7 @@ public class AdService(
                 (a.Title != null && a.Title.ToLower().Contains(term)) ||
                 (a.Description != null && a.Description.ToLower().Contains(term)) ||
                 (a.Link != null && a.Link.ToLower().Contains(term)) ||
-                (a.Unit != null && a.Unit.Name.ToLower().Contains(term)) ||
+                (a.Unit != null && a.Unit.Name != null && a.Unit.Name.ToLower().Contains(term)) ||
                 (a.UploadedBy != null && a.UploadedBy.FullName != null && a.UploadedBy.FullName.ToLower().Contains(term))
             );
         }

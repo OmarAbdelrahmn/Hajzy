@@ -27,7 +27,12 @@ public interface INewsletterService
         string title,
         string description,
         string adminUserId,
-    string? link = null);
+    string? link = null,   // ── new targeting filters ──
+    int? filterCityId = null,
+    int? filterUnitId = null,
+    DateTime? filterFromDate = null,
+    DateTime? filterToDate = null,
+    bool? filterRegisteredUsersOnly = null);
 }
 
 
@@ -50,6 +55,12 @@ public record SendNewsletterRequest
     // NEW
     [MaxLength(2000)]
     public string? Link { get; init; }
+    // ── Targeting Filters (all optional) ─────────────────────────────────
+    public int? FilterCityId { get; init; }
+    public int? FilterUnitId { get; init; }
+    public DateTime? FilterFromDate { get; init; }
+    public DateTime? FilterToDate { get; init; }
+    public bool? FilterRegisteredUsersOnly { get; init; }
 }
 
 // ── Outbound ─────────────────────────────────────────────────────────────────
@@ -58,4 +69,9 @@ public record CampaignCreatedResponse(
     int CampaignId,
     string Message,
     string HangfireStatus = "Queued"
-    ,string? link = null);
+    ,string? link = null,
+    int? FilterCityId = null,
+    int? FilterUnitId = null,
+    DateTime? FilterFromDate = null,
+    DateTime? FilterToDate = null,
+    bool? FilterRegisteredUsersOnly = null);

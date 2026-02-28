@@ -43,49 +43,57 @@ public class NewsletterController(INewsletterService newsletterService) : Contro
     return Ok(new { message = "You have successfully subscribed to our newsletter." });
 }
 
-// =========================================================================
-// ENDPOINT 2 — Send newsletter (admin only)
-// POST /api/newsletter/send
-// =========================================================================
+    // =========================================================================
+    // ENDPOINT 2 — Send newsletter (admin only)
+    // POST /api/newsletter/send
+    // =========================================================================
 
-/// <summary>
-/// Admin creates a newsletter campaign. Hangfire picks it up immediately
-/// and fans the emails out in batches across all active subscribers.
-/// </summary>
-[HttpPost("send")]
-[Authorize(Roles = "SuperAdmin,Admin")]
-[ProducesResponseType(typeof(CampaignCreatedResponse), StatusCodes.Status202Accepted)]
-[ProducesResponseType(StatusCodes.Status400BadRequest)]
-[ProducesResponseType(StatusCodes.Status401Unauthorized)]
-public async Task<IActionResult> SendNewsletter([FromBody] SendNewsletterRequest request)
-{
-    if (!ModelState.IsValid)
-        return BadRequest(ModelState);
+    /// <summary>
+    /// Admin creates a newsletter campaign. Hangfire picks it up immediately
+    /// and fans the emails out in batches across all active subscribers.
+    /// </summary>
+    [HttpPost("send")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin")]
+    public async Task<IActionResult> SendNewsletter([FromBody] SendNewsletterRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
 
-    var adminId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+        var adminId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
-    var result = await newsletterService.CreateAndQueueCampaignAsync(
-        request.Title,
-        request.Description,
-        adminId);
+        var result = await newsletterService.CreateAndQueueCampaignAsync(
+            request.Title,
+            request.Description,
+            adminId,
+            link: request.Link,                                    // was missing before!
+            filterCityId: request.FilterCityId,
+            filterUnitId: request.FilterUnitId,
+            filterFromDate: request.FilterFromDate,
+            filterToDate: request.FilterToDate,
+            filterRegisteredUsersOnly: request.FilterRegisteredUsersOnly);
 
-    if (!result.IsSuccess)
-        return result.ToProblem();
+        if (!result.IsSuccess)
+            return result.ToProblem();
 
-    return Accepted(new CampaignCreatedResponse(
-        CampaignId: result.Value,
-        Message: "Newsletter campaign queued. Emails are being sent in the background."));
-}
+        return Accepted(new CampaignCreatedResponse(
+            CampaignId: result.Value,
+            Message: "Newsletter campaign queued. Emails are being sent in the background.",
+            FilterCityId: request.FilterCityId,
+            FilterUnitId: request.FilterUnitId,
+            FilterFromDate: request.FilterFromDate,
+            FilterToDate: request.FilterToDate,
+            FilterRegisteredUsersOnly: request.FilterRegisteredUsersOnly));
+    }
 
-// =========================================================================
-// ENDPOINT 3 — Unsubscribe via token link (no auth, from email link)
-// GET /api/newsletter/unsubscribe/{token}
-// =========================================================================
+    // =========================================================================
+    // ENDPOINT 3 — Unsubscribe via token link (no auth, from email link)
+    // GET /api/newsletter/unsubscribe/{token}
+    // =========================================================================
 
-/// <summary>
-/// One-click unsubscribe link embedded in every newsletter email.
-/// </summary>
-[HttpGet("unsubscribe/{token}")]
+    /// <summary>
+    /// One-click unsubscribe link embedded in every newsletter email.
+    /// </summary>
+    [HttpGet("unsubscribe/{token}")]
 [AllowAnonymous]
 public async Task<IActionResult> Unsubscribe(string token)
 {

@@ -124,7 +124,7 @@ public record UnitRegistrationListFilter
     public int? UnitTypeId { get; init; }
     public DateTime? SubmittedFrom { get; init; }
     public DateTime? SubmittedTo { get; init; }
-    public string? SearchKeyword { get; init; }
+    public string? searchTerm { get; init; }
     // Pagination
     public int Page { get; init; } = 1;
     public int PageSize { get; init; } = 20;

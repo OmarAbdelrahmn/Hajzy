@@ -405,9 +405,9 @@ public class UnitRegistrationService(
         if (filter.SubmittedTo.HasValue)
             query = query.Where(r => r.SubmittedAt <= filter.SubmittedTo.Value);
 
-        if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+        if (!string.IsNullOrWhiteSpace(filter.searchTerm))
         {
-            var keyword = filter.SearchKeyword.ToLower();
+            var keyword = filter.searchTerm.ToLower();
             query = query.Where(r =>
                 r.UnitName.ToLower().Contains(keyword) ||
                 r.OwnerFullName.ToLower().Contains(keyword) ||
@@ -492,9 +492,9 @@ public class UnitRegistrationService(
         if (filter.SubmittedTo.HasValue)
             query = query.Where(r => r.SubmittedAt <= filter.SubmittedTo.Value);
 
-        if (!string.IsNullOrWhiteSpace(filter.SearchKeyword))
+        if (!string.IsNullOrWhiteSpace(filter.searchTerm))
         {
-            var keyword = filter.SearchKeyword.ToLower();
+            var keyword = filter.searchTerm.ToLower();
             query = query.Where(r =>
                 r.UnitName.ToLower().Contains(keyword) ||
                 r.OwnerFullName.ToLower().Contains(keyword) ||

@@ -9,6 +9,11 @@ namespace Application.Service.publicuser;
 
 public interface IPublicServise
 {
+    Task<Result<List<PublicImageInfo>>> GetUnitImagesAsync(int unitId);
+
+    /// <summary>Get only the images for a subunit.</summary>
+    Task<Result<List<PublicImageInfo>>> GetSubUnitImagesAsync(int subUnitId);
+
     // <summary>
     /// Get all units with public information only
     /// </summary>

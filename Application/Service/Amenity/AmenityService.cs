@@ -17,42 +17,47 @@ public class AmenityService(
     #region CRUD
 
     public async Task<Result<PaginatedResponse<AmenityResponse>>> GetAllAmenitiesAsync(
-        int page = 1, int pageSize = 10 , string? searchTerm = null)
+        int page = 1, int pageSize = 10, string? searchTerm = null)
     {
-        var query = _context.Set<Domain.Entities.Amenity>()
-            .AsNoTracking();
-
-        if (!string.IsNullOrWhiteSpace(searchTerm))
+        try
         {
-            var term = searchTerm.Trim().ToLower();
-            query = query.Where(a =>
-                a.Name.ToLower().Contains(term) ||
-                (a.Description != null && a.Description.ToLower().Contains(term)) ||
-                a.Category.ToLower().Contains(term)
-            );
+            var query = _context.Set<Domain.Entities.Amenity>()
+                .AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim().ToLower();
+                query = query.Where(a =>
+                    (a.Name != null && a.Name.ToLower().Contains(term)) ||
+                    (a.Description != null && a.Description.ToLower().Contains(term)) ||
+                    (a.Category != null && a.Category.ToLower().Contains(term))
+                );
+            }
+
+            var totalCount = await query.CountAsync();
+
+            var amenities = await query
+                .OrderBy(a => a.Name)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var responses = amenities.Select(a => new AmenityResponse(
+                a.Id,
+                a.Name,
+                a.Description,
+                a.Category
+            )).ToList();
+
+            var paginatedResult = CreatePaginatedResponse(responses, totalCount, page, pageSize);
+
+            return Result.Success(paginatedResult);
         }
-
-
-        var totalCount = await query.CountAsync();
-
-
-        var amenities = await query
-            .OrderBy(a => a.Name)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
-
-        var responses = amenities.Select(a => new AmenityResponse(
-            a.Id,
-            a.Name,
-            a.Description,
-            a.Category
-        )).ToList();
-
-        var paginatedResult = CreatePaginatedResponse(
-            responses, totalCount, page, pageSize);
-
-        return Result.Success(paginatedResult);
+        catch (Exception ex)
+        {
+            return Result.Failure<PaginatedResponse<AmenityResponse>>(
+                new Error(ex.InnerException.Message, ex.Message, 500));
+        }
     }
 
     public async Task<Result<AmenityDetailsResponse>> GetByIdAsync(int amenityId)

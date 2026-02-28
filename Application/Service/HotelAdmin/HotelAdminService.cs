@@ -4447,4 +4447,509 @@ public class HotelAdminService(
                 Values = g.Select(ov => ov.Value).ToList()
             }).ToList();
     }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    //  ADD THIS REGION TO HotelAdminService.cs
+    //  (paste after the existing "HELPER / VALIDATION" region)
+    // ════════════════════════════════════════════════════════════════════════════
+
+    // =========================================================================
+    // ADMIN MANAGEMENT
+    // =========================================================================
+
+    public async Task<Result<IEnumerable<UnitAdminResponse>>> GetUnitAdminsAsync(
+        string requestingUserId,
+        int unitId,
+        bool? isActive = null)
+    {
+        try
+        {
+            var hasAccess = await IsAdminOfUnitAsync(requestingUserId, unitId);
+            if (!hasAccess.Value)
+                return Result.Failure<IEnumerable<UnitAdminResponse>>(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            var query = _context.Set<UniteAdmin>()
+                .Include(a => a.User)
+                .Include(a => a.Unit)
+                .Where(a => a.UnitId == unitId)
+                .AsQueryable();
+
+            if (isActive.HasValue)
+                query = query.Where(a => a.IsActive == isActive.Value);
+
+            var admins = await query
+                .OrderBy(a => a.AssignedAt)
+                .AsNoTracking()
+                .ToListAsync();
+
+            return Result.Success(admins.Select(MapToUnitAdminResponse));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting admins for unit {UnitId}", unitId);
+            return Result.Failure<IEnumerable<UnitAdminResponse>>(
+                new Error("GetAdminsFailed", "Failed to retrieve unit admins", 500));
+        }
+    }
+
+    public async Task<Result<UnitAdminResponse>> GetUnitAdminByIdAsync(
+        string requestingUserId,
+        int unitAdminId)
+    {
+        try
+        {
+            var record = await _context.Set<UniteAdmin>()
+                .Include(a => a.User)
+                .Include(a => a.Unit)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == unitAdminId);
+
+            if (record == null)
+                return Result.Failure<UnitAdminResponse>(
+                    new Error("NotFound", "Admin record not found", 404));
+
+            var hasAccess = await IsAdminOfUnitAsync(requestingUserId, record.UnitId);
+            if (!hasAccess.Value)
+                return Result.Failure<UnitAdminResponse>(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            return Result.Success(MapToUnitAdminResponse(record));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting admin record {UnitAdminId}", unitAdminId);
+            return Result.Failure<UnitAdminResponse>(
+                new Error("GetAdminFailed", "Failed to retrieve admin record", 500));
+        }
+    }
+
+    public async Task<Result<UnitAdminResponse>> AddUnitAdminAsync(
+        string requestingUserId,
+        int unitId,
+        AddUnitAdminRequest request)
+    {
+        try
+        {
+            // Requester must be an active admin of this unit
+            var hasAccess = await IsAdminOfUnitAsync(requestingUserId, unitId);
+            if (!hasAccess.Value)
+                return Result.Failure<UnitAdminResponse>(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            // Resolve the user by email
+            var targetUser = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Email == request.UserEmail);
+
+            if (targetUser == null)
+                return Result.Failure<UnitAdminResponse>(
+                    new Error("UserNotFound", $"No user found with email '{request.UserEmail}'", 404));
+
+            // Check if the unit exists
+            var unitExists = await _context.Units.AnyAsync(u => u.Id == unitId && !u.IsDeleted);
+            if (!unitExists)
+                return Result.Failure<UnitAdminResponse>(
+                    new Error("NotFound", "Unit not found", 404));
+
+            // Check for an existing record (active or inactive)
+            var existing = await _context.Set<UniteAdmin>()
+                .FirstOrDefaultAsync(a => a.UnitId == unitId && a.UserId == targetUser.Id);
+
+            if (existing != null)
+            {
+                if (existing.IsActive)
+                    return Result.Failure<UnitAdminResponse>(
+                        new Error("AlreadyAdmin", "This user is already an active admin for this unit", 409));
+
+                // Re-activate the existing record
+                existing.IsActive = true;
+                existing.AssignedAt = DateTime.UtcNow.AddHours(3);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Admin {TargetUserId} re-activated for unit {UnitId} by {RequestingUserId}",
+                    targetUser.Id, unitId, requestingUserId);
+            }
+            else
+            {
+                // Create a fresh record
+                existing = new UniteAdmin
+                {
+                    UserId = targetUser.Id,
+                    UnitId = unitId,
+                    IsActive = true,
+                    AssignedAt = DateTime.UtcNow.AddHours(3)
+                };
+
+                _context.Set<UniteAdmin>().Add(existing);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Admin {TargetUserId} added to unit {UnitId} by {RequestingUserId}",
+                    targetUser.Id, unitId, requestingUserId);
+            }
+
+            // Return the saved record with navigation props loaded
+            var saved = await _context.Set<UniteAdmin>()
+                .Include(a => a.User)
+                .Include(a => a.Unit)
+                .AsNoTracking()
+                .FirstAsync(a => a.Id == existing.Id);
+
+            return Result.Success(MapToUnitAdminResponse(saved));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding admin to unit {UnitId}", unitId);
+            return Result.Failure<UnitAdminResponse>(
+                new Error("AddAdminFailed", "Failed to add admin", 500));
+        }
+    }
+
+    public async Task<Result> RemoveUnitAdminAsync(
+        string requestingUserId,
+        int unitAdminId)
+    {
+        try
+        {
+            var record = await _context.Set<UniteAdmin>()
+                .FirstOrDefaultAsync(a => a.Id == unitAdminId);
+
+            if (record == null)
+                return Result.Failure(new Error("NotFound", "Admin record not found", 404));
+
+            // Requester must be an active admin of the same unit
+            var hasAccess = await IsAdminOfUnitAsync(requestingUserId, record.UnitId);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            // Prevent self-removal
+            if (record.UserId == requestingUserId)
+                return Result.Failure(
+                    new Error("SelfRemovalNotAllowed", "You cannot remove yourself as admin", 400));
+
+            // Prevent removing the last active admin
+            var activeAdminCount = await _context.Set<UniteAdmin>()
+                .CountAsync(a => a.UnitId == record.UnitId && a.IsActive);
+
+            if (activeAdminCount <= 1)
+                return Result.Failure(
+                    new Error("LastAdmin", "Cannot remove the last active admin for this unit", 400));
+
+            _context.Set<UniteAdmin>().Remove(record);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Admin record {UnitAdminId} (user {UserId}) removed from unit {UnitId} by {RequestingUserId}",
+                unitAdminId, record.UserId, record.UnitId, requestingUserId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing admin record {UnitAdminId}", unitAdminId);
+            return Result.Failure(new Error("RemoveAdminFailed", "Failed to remove admin", 500));
+        }
+    }
+
+    public async Task<Result> DeactivateUnitAdminAsync(
+        string requestingUserId,
+        int unitAdminId)
+    {
+        try
+        {
+            var record = await _context.Set<UniteAdmin>()
+                .FirstOrDefaultAsync(a => a.Id == unitAdminId);
+
+            if (record == null)
+                return Result.Failure(new Error("NotFound", "Admin record not found", 404));
+
+            var hasAccess = await IsAdminOfUnitAsync(requestingUserId, record.UnitId);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            if (record.UserId == requestingUserId)
+                return Result.Failure(
+                    new Error("SelfDeactivationNotAllowed", "You cannot deactivate yourself", 400));
+
+            if (!record.IsActive)
+                return Result.Failure(
+                    new Error("AlreadyInactive", "Admin is already inactive", 400));
+
+            // Prevent deactivating the last active admin
+            var activeAdminCount = await _context.Set<UniteAdmin>()
+                .CountAsync(a => a.UnitId == record.UnitId && a.IsActive);
+
+            if (activeAdminCount <= 1)
+                return Result.Failure(
+                    new Error("LastAdmin", "Cannot deactivate the last active admin for this unit", 400));
+
+            record.IsActive = false;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Admin {UserId} deactivated for unit {UnitId} by {RequestingUserId}",
+                record.UserId, record.UnitId, requestingUserId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deactivating admin record {UnitAdminId}", unitAdminId);
+            return Result.Failure(new Error("DeactivateFailed", "Failed to deactivate admin", 500));
+        }
+    }
+
+    public async Task<Result> ActivateUnitAdminAsync(
+        string requestingUserId,
+        int unitAdminId)
+    {
+        try
+        {
+            var record = await _context.Set<UniteAdmin>()
+                .FirstOrDefaultAsync(a => a.Id == unitAdminId);
+
+            if (record == null)
+                return Result.Failure(new Error("NotFound", "Admin record not found", 404));
+
+            var hasAccess = await IsAdminOfUnitAsync(requestingUserId, record.UnitId);
+            if (!hasAccess.Value)
+                return Result.Failure(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            if (record.IsActive)
+                return Result.Failure(
+                    new Error("AlreadyActive", "Admin is already active", 400));
+
+            record.IsActive = true;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Admin {UserId} activated for unit {UnitId} by {RequestingUserId}",
+                record.UserId, record.UnitId, requestingUserId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error activating admin record {UnitAdminId}", unitAdminId);
+            return Result.Failure(new Error("ActivateFailed", "Failed to activate admin", 500));
+        }
+    }
+
+    public async Task<Result<bool>> ToggleUnitAdminStatusAsync(
+        string requestingUserId,
+        int unitAdminId)
+    {
+        try
+        {
+            var record = await _context.Set<UniteAdmin>()
+                .FirstOrDefaultAsync(a => a.Id == unitAdminId);
+
+            if (record == null)
+                return Result.Failure<bool>(new Error("NotFound", "Admin record not found", 404));
+
+            var hasAccess = await IsAdminOfUnitAsync(requestingUserId, record.UnitId);
+            if (!hasAccess.Value)
+                return Result.Failure<bool>(
+                    new Error("NoAccess", "You do not have access to this unit", 403));
+
+            if (record.UserId == requestingUserId)
+                return Result.Failure<bool>(
+                    new Error("SelfToggleNotAllowed", "You cannot toggle your own admin status", 400));
+
+            // If trying to deactivate, ensure there's at least one other active admin
+            if (record.IsActive)
+            {
+                var activeAdminCount = await _context.Set<UniteAdmin>()
+                    .CountAsync(a => a.UnitId == record.UnitId && a.IsActive);
+
+                if (activeAdminCount <= 1)
+                    return Result.Failure<bool>(
+                        new Error("LastAdmin", "Cannot deactivate the last active admin for this unit", 400));
+            }
+
+            record.IsActive = !record.IsActive;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Admin {UserId} status toggled to {Status} for unit {UnitId} by {RequestingUserId}",
+                record.UserId, record.IsActive, record.UnitId, requestingUserId);
+
+            return Result.Success(record.IsActive);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error toggling admin record {UnitAdminId}", unitAdminId);
+            return Result.Failure<bool>(new Error("ToggleFailed", "Failed to toggle admin status", 500));
+        }
+    }
+
+    public async Task<Result<AdminActivitySummary>> GetAdminActivitySummaryAsync(
+        string requestingUserId,
+        string targetUserId)
+    {
+        try
+        {
+            // Requester must share at least one unit with the target admin
+            var requestingUnitIds = await GetUserAdminUnitIdsAsync(requestingUserId);
+            var targetUnitIds = await _context.Set<UniteAdmin>()
+                .Where(a => a.UserId == targetUserId)
+                .Select(a => a.UnitId)
+                .ToListAsync();
+
+            var sharedUnitIds = requestingUnitIds.Intersect(targetUnitIds).ToList();
+            if (!sharedUnitIds.Any())
+                return Result.Failure<AdminActivitySummary>(
+                    new Error("NoAccess", "You do not share any units with this admin", 403));
+
+            // Fetch the target user
+            var targetUser = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == targetUserId);
+
+            if (targetUser == null)
+                return Result.Failure<AdminActivitySummary>(
+                    new Error("NotFound", "User not found", 404));
+
+            // Load all their admin records (scoped to units the requester can see)
+            var adminRecords = await _context.Set<UniteAdmin>()
+                .Include(a => a.Unit)
+                .Where(a => a.UserId == targetUserId && sharedUnitIds.Contains(a.UnitId))
+                .AsNoTracking()
+                .ToListAsync();
+
+            var summary = new AdminActivitySummary
+            {
+                UserId = targetUser.Id,
+                FullName = targetUser.FullName ?? string.Empty,
+                Email = targetUser.Email ?? string.Empty,
+                TotalUnitsManaged = adminRecords.Count,
+                ActiveUnitsManaged = adminRecords.Count(a => a.IsActive),
+                ManagedUnits = adminRecords.Select(a => new ManagedUnitInfo
+                {
+                    UnitId = a.UnitId,
+                    UnitName = a.Unit.Name,
+                    IsActive = a.IsActive,
+                    AssignedAt = a.AssignedAt
+                }).ToList()
+            };
+
+            return Result.Success(summary);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error getting admin activity summary for user {TargetUserId}", targetUserId);
+            return Result.Failure<AdminActivitySummary>(
+                new Error("SummaryFailed", "Failed to retrieve admin activity summary", 500));
+        }
+    }
+
+    public async Task<Result> TransferAdminUnitsAsync(
+        string requestingUserId,
+        string fromUserId,
+        string toUserEmail,
+        bool deactivateOriginal = false)
+    {
+        try
+        {
+            // Requester must share at least one unit with fromUserId
+            var requestingUnitIds = await GetUserAdminUnitIdsAsync(requestingUserId);
+            var fromUnitIds = await _context.Set<UniteAdmin>()
+                .Where(a => a.UserId == fromUserId && a.IsActive)
+                .Select(a => a.UnitId)
+                .ToListAsync();
+
+            var transferableUnitIds = requestingUnitIds.Intersect(fromUnitIds).ToList();
+            if (!transferableUnitIds.Any())
+                return Result.Failure(
+                    new Error("NoAccess", "You do not share any units with the source admin", 403));
+
+            // Resolve the destination user
+            var toUser = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Email == toUserEmail);
+
+            if (toUser == null)
+                return Result.Failure(
+                    new Error("UserNotFound", $"No user found with email '{toUserEmail}'", 404));
+
+            var now = DateTime.UtcNow.AddHours(3);
+
+            foreach (var unitId in transferableUnitIds)
+            {
+                // Check if the target is already an admin
+                var existing = await _context.Set<UniteAdmin>()
+                    .FirstOrDefaultAsync(a => a.UnitId == unitId && a.UserId == toUser.Id);
+
+                if (existing != null)
+                {
+                    // Just make sure they're active
+                    if (!existing.IsActive)
+                    {
+                        existing.IsActive = true;
+                        existing.AssignedAt = now;
+                    }
+                }
+                else
+                {
+                    _context.Set<UniteAdmin>().Add(new UniteAdmin
+                    {
+                        UserId = toUser.Id,
+                        UnitId = unitId,
+                        IsActive = true,
+                        AssignedAt = now
+                    });
+                }
+
+                // Optionally deactivate the source admin
+                if (deactivateOriginal && fromUserId != requestingUserId)
+                {
+                    var fromRecord = await _context.Set<UniteAdmin>()
+                        .FirstOrDefaultAsync(a => a.UnitId == unitId && a.UserId == fromUserId);
+
+                    if (fromRecord != null)
+                        fromRecord.IsActive = false;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Admin units transferred from {FromUserId} to {ToUserId} " +
+                "({Count} units) by {RequestingUserId}. DeactivateOriginal={Deactivate}",
+                fromUserId, toUser.Id, transferableUnitIds.Count,
+                requestingUserId, deactivateOriginal);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error transferring admin units from {FromUserId}", fromUserId);
+            return Result.Failure(new Error("TransferFailed", "Failed to transfer admin units", 500));
+        }
+    }
+
+    // ─── Private mapping helper ──────────────────────────────────────────────────
+
+    private static UnitAdminResponse MapToUnitAdminResponse(UniteAdmin a) => new()
+    {
+        Id = a.Id,
+        UserId = a.UserId,
+        FullName = a.User.FullName ?? string.Empty,
+        Email = a.User.Email ?? string.Empty,
+        PhoneNumber = a.User.PhoneNumber,
+        AvatarUrl = a.User.AvatarUrl,
+        UnitId = a.UnitId,
+        UnitName = a.Unit.Name,
+        IsActive = a.IsActive,
+        AssignedAt = a.AssignedAt,
+        LastLoginAt = a.User.LastLoginAt
+    };
+
+
 }

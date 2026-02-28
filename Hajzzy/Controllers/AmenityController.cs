@@ -16,7 +16,7 @@ public class AmenityController(IAmenityService service) : ControllerBase
     /// Get all amenities
     /// </summary>
     [HttpGet("")]
-    public async Task<IActionResult> GetAll(int page, int pageSize,
+    public async Task<IActionResult> GetAll(int page = 1, int pageSize = 10,
     [FromQuery] string? searchTerm = null)
     {
         var result = await _service.GetAllAmenitiesAsync(page, pageSize,searchTerm);
