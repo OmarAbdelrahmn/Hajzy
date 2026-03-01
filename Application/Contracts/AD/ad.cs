@@ -16,6 +16,8 @@ public record CreateAdRequest(
     string? Link,
     DateTime StartDate,
     DateTime EndDate,
+    int? FilterCityId,
+    int? FilterUnitId,
     bool IsActive = true
 );
 

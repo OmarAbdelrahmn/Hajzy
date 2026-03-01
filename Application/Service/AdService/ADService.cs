@@ -5,6 +5,7 @@ using Application.Abstraction;
 using Application.Contracts.AD;
 using Domain;
 using Domain.Entities;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SixLabors.ImageSharp;
@@ -16,10 +17,12 @@ namespace Application.Service.AdService;
 public class AdService(
     ApplicationDbcontext context,
     IAmazonS3 s3Client,
+    IBackgroundJobClient backgroundJobClient,   // ← add this
     ILogger<AdService> logger) : IAdService
 {
     private readonly ApplicationDbcontext _context = context;
     private readonly IAmazonS3 _s3Client = s3Client;
+    private readonly IBackgroundJobClient backgroundJobClient = backgroundJobClient;
     private readonly ILogger<AdService> _logger = logger;
     private const string CloudFrontUrl = "";
     private const string BucketName = "hujjzy-bucket";
@@ -78,6 +81,12 @@ public class AdService(
                 .Include(a => a.Unit)
                 .Include(a => a.UploadedBy)
                 .FirstAsync(a => a.Id == ad.Id);
+
+            backgroundJobClient.Enqueue<AdNotificationJob>(j =>
+            j.SendAdNotificationAsync(
+                ad.Id,
+                request.FilterCityId,
+                request.FilterUnitId));
 
             return Result.Success(MapToResponse(createdAd));
         }

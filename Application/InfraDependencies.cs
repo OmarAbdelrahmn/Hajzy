@@ -104,7 +104,7 @@ public static class InfraDependencies
         Services.AddScoped<AdExpirationJob>();
         Services.AddScoped<OfferExpirationJob>();
         Services.AddScoped<NewsletterJob>();
-
+        Services.AddScoped<AdNotificationJob>();
 
         Services.AddProblemDetails();
 
