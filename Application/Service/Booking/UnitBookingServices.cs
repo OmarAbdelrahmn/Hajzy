@@ -44,7 +44,6 @@ public class UnitBookingService(
             // 1. Validate Unit exists and load related data
             var unit = await _context.Units
                 .Include(u => u.Rooms.Where(r => !r.IsDeleted)) // Load subunits
-                .Include(u => u.CancellationPolicy)
                 .FirstOrDefaultAsync(u => u.Id == request.UnitId && !u.IsDeleted);
 
             if (unit == null)
@@ -360,7 +359,6 @@ public class UnitBookingService(
     {
         var booking = await _context.Bookings
             .Include(b => b.Unit)
-                .ThenInclude(u => u.CancellationPolicy)
             .FirstOrDefaultAsync(b => b.Id == bookingId && b.BookingType == BookingType.UnitBooking);
 
         if (booking == null)
@@ -769,17 +767,17 @@ public class UnitBookingService(
 
     private decimal CalculateRefundAmount(Domain.Entities.Booking booking)
     {
-        if (booking.Unit?.CancellationPolicy == null)
-            return 0;
+        //if (booking.Unit?.CancellationPolicy == null)
+        //    return 0;
 
-        var policy = booking.Unit.CancellationPolicy;
-        var daysUntilCheckIn = (booking.CheckInDate - DateTime.UtcNow).Days;
+        //var policy = booking.Unit.CancellationPolicy;
+        //var daysUntilCheckIn = (booking.CheckInDate - DateTime.UtcNow).Days;
 
-        if (daysUntilCheckIn >= policy.FullRefundDays)
-            return booking.PaidAmount;
+        //if (daysUntilCheckIn >= policy.FullRefundDays)
+        //    return booking.PaidAmount;
 
-        if (daysUntilCheckIn >= policy.PartialRefundDays)
-            return booking.PaidAmount * (policy.PartialRefundPercentage / 100);
+        //if (daysUntilCheckIn >= policy.PartialRefundDays)
+        //    return booking.PaidAmount * (policy.PartialRefundPercentage / 100);
 
         return 0;
     }

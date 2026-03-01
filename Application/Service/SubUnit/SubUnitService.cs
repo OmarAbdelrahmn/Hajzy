@@ -37,11 +37,13 @@ public class SubUnitService(
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
 
+        var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+
         if (subUnit == null)
             return Result.Failure<SubUnitResponse>(
                 new Error("NotFound", "SubUnit not found", 404));
 
-        return Result.Success(MapToResponse(subUnit));
+        return Result.Success(MapToResponse(subUnit,defaultCurrencyCode));
     }
 
     public async Task<Result<SubUnitDetailsResponse>> GetDetailsAsync(int subUnitId)
@@ -59,11 +61,14 @@ public class SubUnitService(
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
 
+        var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+
+
         if (subUnit == null)
             return Result.Failure<SubUnitDetailsResponse>(
                 new Error("NotFound", "SubUnit not found", 404));
 
-        return Result.Success(MapToDetailsResponse(subUnit));
+        return Result.Success(MapToDetailsResponse(subUnit, defaultCurrencyCode));
     }
 
     public async Task<Result<IEnumerable<SubUnitResponse>>> GetByUnitAsync(int unitId)
@@ -79,7 +84,10 @@ public class SubUnitService(
             .AsNoTracking()
             .ToListAsync();
 
-        var responses = subUnits.Select(MapToResponse).ToList();
+        var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+
+
+        var responses = subUnits.Select(s=> MapToResponse(s,defaultCurrencyCode)).ToList();
         return Result.Success<IEnumerable<SubUnitResponse>>(responses);
     }
 
@@ -130,7 +138,10 @@ public class SubUnitService(
                 .Reference(s => s.Unit)
                 .LoadAsync();
 
-            return Result.Success(MapToResponse(subUnit));
+            var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+
+
+            return Result.Success(MapToResponse(subUnit, defaultCurrencyCode));
         }
         catch (Exception ex)
         {
@@ -169,7 +180,10 @@ public class SubUnitService(
 
         await _context.SaveChangesAsync();
 
-        return Result.Success(MapToResponse(subUnit));
+        var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+
+
+        return Result.Success(MapToResponse(subUnit, defaultCurrencyCode));
     }
 
     public async Task<Result> DeleteAsync(int subUnitId, bool softDelete = true)
@@ -311,6 +325,8 @@ public class SubUnitService(
             .AsNoTracking()
             .ToListAsync();
 
+        var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+
         var bookedRoomIds = await _context.BookingRooms
             .Include(br => br.Booking)
             .Where(br => br.Room.UnitId == unitId &&
@@ -322,7 +338,7 @@ public class SubUnitService(
 
         var available = subUnits
             .Where(s => !bookedRoomIds.Contains(s.Id))
-            .Select(MapToResponse)
+            .Select(s=>MapToResponse(s,defaultCurrencyCode))
             .ToList();
 
         return Result.Success(available);
@@ -631,7 +647,7 @@ public class SubUnitService(
     private string GetBucketNameFromConfig() => "your-bucket-name";
 
     // ── Updated: now includes OptionValues ────────────────────────────────────
-    private static SubUnitResponse MapToResponse(Domain.Entities.SubUnit subUnit)
+    private static SubUnitResponse MapToResponse(Domain.Entities.SubUnit subUnit, string? defaultCurrencyCode = null)
     {
         return new SubUnitResponse
         {
@@ -650,12 +666,14 @@ public class SubUnitService(
             PrimaryImageUrl = subUnit.SubUnitImages?
                 .FirstOrDefault(i => i.IsPrimary)?.ImageUrl,
             // ── NEW ────────────────────────────────────────────────────
-            OptionValues = MapOptionValues(subUnit.OptionValues)
+            OptionValues = MapOptionValues(subUnit.OptionValues),
             // ──────────────────────────────────────────────────────────
+            Currency = subUnit.Unit?.Currency?.Code ?? defaultCurrencyCode,
+            SubunitTypeName = subUnit.Unit?.UnitType.Name
         };
     }
 
-    private static SubUnitDetailsResponse MapToDetailsResponse(Domain.Entities.SubUnit subUnit)
+    private static SubUnitDetailsResponse MapToDetailsResponse(Domain.Entities.SubUnit subUnit , string? defaultCurrencyCode = null)
     {
         var images = subUnit.SubUnitImages?.Where(i => !i.IsDeleted)
             .Select(i => new SubUnitImageResponse
@@ -676,6 +694,7 @@ public class SubUnitService(
             sa.IsAvailable
         )).ToList() ?? new List<AmenityInfo>();
 
+
         return new SubUnitDetailsResponse
         {
             Id = subUnit.Id,
@@ -693,10 +712,20 @@ public class SubUnitService(
             Images = images,
             Amenities = amenities,
             // ── NEW ────────────────────────────────────────────────────
-            OptionValues = MapOptionValues(subUnit.OptionValues)
+            OptionValues = MapOptionValues(subUnit.OptionValues),
             // ──────────────────────────────────────────────────────────
+            Currency = subUnit.Unit?.Currency?.Code ?? defaultCurrencyCode,
+            SubunitTypeName = subUnit.Unit?.UnitType.Name
         };
     }
 
+    private async Task<string?> GetDefaultCurrencyCodeAsync()
+    {
+        return await _context.Currencies
+            .AsNoTracking()
+            .Where(c => c.IsDefault && c.IsActive)
+            .Select(c => c.Code)
+            .FirstOrDefaultAsync();
+    }
     #endregion
 }

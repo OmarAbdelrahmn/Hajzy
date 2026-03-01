@@ -458,41 +458,41 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
-    /// <summary>
-    /// Get unit's current cancellation policy
-    /// </summary>
-    [HttpGet("units/{unitId}/cancellation-policy")]
-    public async Task<IActionResult> GetUnitCancellationPolicy(int unitId)
-    {
-        var userId = User.GetUserId();
-        var result = await _hotelAdminService.GetUnitCancellationPolicyAsync(userId!, unitId);
-        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
-    }
+    ///// <summary>
+    ///// Get unit's current cancellation policy
+    ///// </summary>
+    //[HttpGet("units/{unitId}/cancellation-policy")]
+    //public async Task<IActionResult> GetUnitCancellationPolicy(int unitId)
+    //{
+    //    var userId = User.GetUserId();
+    //    var result = await _hotelAdminService.GetUnitCancellationPolicyAsync(userId!, unitId);
+    //    return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    //}
 
-    /// <summary>
-    /// Set cancellation policy for a unit
-    /// </summary>
-    [HttpPut("units/{unitId}/cancellation-policy/{policyId}")]
-    public async Task<IActionResult> SetUnitCancellationPolicy(int unitId, int policyId)
-    {
-        var userId = User.GetUserId();
-        var result = await _hotelAdminService.SetUnitCancellationPolicyAsync(userId!, unitId, policyId);
-        return result.IsSuccess
-            ? Ok(new { message = "Cancellation policy set successfully" })
-            : result.ToProblem();
-    }
+    ///// <summary>
+    ///// Set cancellation policy for a unit
+    ///// </summary>
+    //[HttpPut("units/{unitId}/cancellation-policy/{policyId}")]
+    //public async Task<IActionResult> SetUnitCancellationPolicy(int unitId, int policyId)
+    //{
+    //    var userId = User.GetUserId();
+    //    var result = await _hotelAdminService.SetUnitCancellationPolicyAsync(userId!, unitId, policyId);
+    //    return result.IsSuccess
+    //        ? Ok(new { message = "Cancellation policy set successfully" })
+    //        : result.ToProblem();
+    //}
 
-    /// <summary>
-    /// Create a custom cancellation policy
-    /// </summary>
-    [HttpPost("cancellation-policies/custom")]
-    public async Task<IActionResult> CreateCustomCancellationPolicy(
-        [FromBody] Application.Contracts.hoteladmincont.CreateCancellationPolicyRequest request)
-    {
-        var userId = User.GetUserId();
-        var result = await _hotelAdminService.CreateCustomCancellationPolicyAsync(userId!, request);
-        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
-    }
+    ///// <summary>
+    ///// Create a custom cancellation policy
+    ///// </summary>
+    //[HttpPost("cancellation-policies/custom")]
+    //public async Task<IActionResult> CreateCustomCancellationPolicy(
+    //    [FromBody] Application.Contracts.hoteladmincont.CreateCancellationPolicyRequest request)
+    //{
+    //    var userId = User.GetUserId();
+    //    var result = await _hotelAdminService.CreateCustomCancellationPolicyAsync(userId!, request);
+    //    return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    //}
 
     #endregion
 

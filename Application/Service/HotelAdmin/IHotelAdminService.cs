@@ -414,24 +414,6 @@ public interface IHotelAdminService
     /// <summary>
     /// Get unit's current cancellation policy
     /// </summary>
-    Task<Result<CancellationPolicyResponse>> GetUnitCancellationPolicyAsync(
-        string userId,
-        int unitId);
-
-    /// <summary>
-    /// Set/Update cancellation policy for unit
-    /// </summary>
-    Task<Result> SetUnitCancellationPolicyAsync(
-        string userId,
-        int unitId,
-        int cancellationPolicyId);
-
-    /// <summary>
-    /// Create custom cancellation policy
-    /// </summary>
-    Task<Result<CancellationPolicyResponse>> CreateCustomCancellationPolicyAsync(
-        string userId,
-        CreateCancellationPolicyRequest request);
 
     // ============= COMPREHENSIVE AVAILABILITY MANAGEMENT =============
 

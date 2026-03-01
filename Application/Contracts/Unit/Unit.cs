@@ -289,11 +289,14 @@ public class UnitResponse
     public decimal AverageRating { get; init; }
     public int TotalReviews { get; init; }
     public string? PrimaryImageUrl { get; init; }
+    public string? Currency { get; init; }
     public int AdminCount { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
     public int? Rank { get; set; }
     public bool? IsStandAlone { get; set; }
+    public bool? IsFeatured { get; set; }
+
 
 }
 
@@ -319,11 +322,13 @@ public class UnitResponses
     public decimal AverageRating { get; init; }
     public int TotalReviews { get; init; }
     public string? PrimaryImageUrl { get; init; }
+    public string? Currency  { get; init; }
     public int AdminCount { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
     public List<OptionValueResponse> OptionValues { get; init; } = new();
     public bool? IsStandAlone { get; set; }
+    public bool? IsFeatured { get; set; }
 
 
 }
@@ -350,6 +355,7 @@ public class UnitDetailsResponse
     public int TotalReviews { get; init; }
     public int? CancellationPolicyId { get; init; }
     public string? CancellationPolicyName { get; init; }
+    public string? Currency  { get; init; }
     public List<UnitAdminInfo> Admins { get; init; } = new();
     public List<UnitImageResponse> Images { get; init; } = new();
     public List<AmenityInfo> Amenities { get; init; } = new();
@@ -359,6 +365,8 @@ public class UnitDetailsResponse
     public int? Rank { get; set; }
     public List<OptionValueResponse> OptionValues { get; init; } = new();
     public bool? IsStandAlone { get; set; }
+    public bool? IsFeatured { get; set; }
+
 
 }
 

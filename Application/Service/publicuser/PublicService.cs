@@ -153,7 +153,8 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
             var skip = (filter.Page - 1) * filter.PageSize;
             var units = await query.Skip(skip).Take(filter.PageSize).AsNoTracking().ToListAsync();
 
-            var responses = units.Select(MapToPublicResponse).ToList();
+            var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+            var responses = units.Select(u => MapToPublicResponse(u, defaultCurrencyCode)).ToList();
             return Result.Success(
                 CreatePaginatedResponse(responses, totalCount, filter.Page, filter.PageSize));
         }
@@ -188,7 +189,6 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                     .ThenInclude(r => r.OptionValues)
                         .ThenInclude(ov => ov.SubUnitTypeOption)
                 // ──────────────────────────────────────────────────────────
-                .Include(u => u.CancellationPolicy)
                 .Include(u => u.Reviews
                     .Where(r => r.IsVisible)
                     .OrderByDescending(r => r.CreatedAt).Take(10))
@@ -208,6 +208,8 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                 .Where(p => p.UnitId == unitId && p.IsActive)
                 .AsNoTracking()
                 .ToListAsync();
+            var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+
 
             var subUnits = unit.Rooms.Where(r => !r.IsDeleted && r.IsAvailable).ToList();
 
@@ -265,18 +267,10 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                         ImageUrls = r.Images.Where(i => !i.IsDeleted)
                             .Select(i => i.ImageUrl).ToList()
                     }).ToList() ?? new(),
-                CancellationPolicy = unit.CancellationPolicy != null
-                    ? new PublicCancellationPolicy(
-                        unit.CancellationPolicy.Name,
-                        unit.CancellationPolicy.Description,
-                        unit.CancellationPolicy.FullRefundDays,
-                        unit.CancellationPolicy.PartialRefundDays,
-                        unit.CancellationPolicy.PartialRefundPercentage)
-                    : null,
                 Policies = policies.Select(p => new PublicPolicyInfo(
                     p.Title, p.Description, p.PolicyType.ToString(), p.IsMandatory)).ToList(),
                 Options = options,
-                Currency = unit.Currency?.Code.ToString() ?? "",
+                Currency = unit.Currency?.Code ?? defaultCurrencyCode,
                 CustomPolicies = unit.CustomPolicies
                     .OrderBy(p => p.DisplayOrder)
                     .Select(p => new PublicCustomPolicyInfo
@@ -298,7 +292,14 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                 new Error("GetFailed", "Failed to retrieve unit details", 500));
         }
     }
-
+    private async Task<string?> GetDefaultCurrencyCodeAsync()
+    {
+        return await _context.Currencies
+            .AsNoTracking()
+            .Where(c => c.IsDefault && c.IsActive)
+            .Select(c => c.Code)
+            .FirstOrDefaultAsync();
+    }
     public async Task<Result<IEnumerable<PublicUnitResponse>>> SearchUnitsAsync(
         PublicSearchRequest request)
     {
@@ -343,9 +344,10 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
 
             var skip = (request.Page - 1) * request.PageSize;
             var units = await query.Skip(skip).Take(request.PageSize).AsNoTracking().ToListAsync();
+            var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
 
             return Result.Success<IEnumerable<PublicUnitResponse>>(
-                units.Select(MapToPublicResponse).ToList());
+                units.Select(u => MapToPublicResponse(u, defaultCurrencyCode)).ToList());
         }
         catch
         {
@@ -374,7 +376,8 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                 .AsNoTracking()
                 .ToListAsync();
 
-            return Result.Success(topRated.Select(MapToPublicResponse).ToList());
+            var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+            return Result.Success(topRated.Select(u => MapToPublicResponse(u, defaultCurrencyCode)).ToList());
         }
         catch
         {
@@ -409,7 +412,8 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                 return Result.Failure<PublicSubUnitDetailsResponse>(
                     new Error("NotFound", "SubUnit not found or not available", 404));
 
-            return Result.Success(MapToPublicSubUnitDetails(subUnit));
+            var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+            return Result.Success(MapToPublicSubUnitDetails(subUnit, defaultCurrencyCode));
         }
         catch
         {
@@ -612,11 +616,12 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                 .AsNoTracking()
                 .ToListAsync();
 
+            var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
             var nearby = units
                 .Where(u => CalculateDistance(latitude, longitude, u.Latitude, u.Longitude) <= radiusKm)
                 .OrderBy(u => CalculateDistance(latitude, longitude, u.Latitude, u.Longitude))
                 .Take(20)
-                .Select(MapToPublicResponse)
+                .Select(u => MapToPublicResponse(u, defaultCurrencyCode))
                 .ToList();
 
             return Result.Success<IEnumerable<PublicUnitResponse>>(nearby);
@@ -771,7 +776,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    private static PublicUnitResponse MapToPublicResponse(Domain.Entities.Unit unit)
+    private PublicUnitResponse MapToPublicResponse(Domain.Entities.Unit unit, string? defaultCurrencyCode = null)
     {
         var options = new List<string>();
         try
@@ -802,7 +807,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
             IsAvailable = unit.IsActive && unit.IsVerified,
             IsFeatured = unit.AverageRating >= 4.5m && unit.TotalReviews >= 10,
             Options = options,
-            Currency = unit.Currency?.Code?? "",
+            Currency = unit.Currency?.Code ?? defaultCurrencyCode,
             CustomPolicies = unit.CustomPolicies
                 .OrderBy(p => p.DisplayOrder)
                 .Select(p => new PublicCustomPolicyInfo
@@ -818,7 +823,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
     }
 
     private static PublicSubUnitDetailsResponse MapToPublicSubUnitDetails(
-        Domain.Entities.SubUnit subUnit)
+        Domain.Entities.SubUnit subUnit, string? defaultCurrencyCode = null)
     {
         return new PublicSubUnitDetailsResponse
         {
@@ -853,8 +858,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
             // ── NEW ──────────────────────────────────────────────────────
             OptionValues = MapSubUnitOptionValues(subUnit.OptionValues),
 
-            Currency = subUnit.Unit?.Currency?.Code ?? "" 
-
+            Currency = subUnit.Unit?.Currency?.Code ?? defaultCurrencyCode
         };
     }
 

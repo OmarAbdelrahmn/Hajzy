@@ -750,16 +750,16 @@ public class CityAdminController(ICityAdminService cityAdminService) : Controlle
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
-    /// <summary>
-    /// Get cancellation policies usage in the city
-    /// </summary>
-    [HttpGet("policies/cancellation/usage")]
-    public async Task<IActionResult> GetCityCancellationPolicyUsage()
-    {
-        var userId = User.GetUserId();
-        var result = await _cityAdminService.GetCityCancellationPolicyUsageAsync(userId!);
-        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
-    }
+    ///// <summary>
+    ///// Get cancellation policies usage in the city
+    ///// </summary>
+    //[HttpGet("policies/cancellation/usage")]
+    //public async Task<IActionResult> GetCityCancellationPolicyUsage()
+    //{
+    //    var userId = User.GetUserId();
+    //    var result = await _cityAdminService.GetCityCancellationPolicyUsageAsync(userId!);
+    //    return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    //}
 
     #endregion
 

@@ -2,6 +2,7 @@
 using Amazon.S3.Transfer;
 using Application.Abstraction;
 using Application.Abstraction.Consts;
+using Application.Contracts.Bookin;
 using Application.Contracts.CityAdminContracts;
 using Application.Contracts.Options;
 using Application.Helpers;
@@ -1800,46 +1801,33 @@ public class CityAdminService(
         }
     }
 
-    public async Task<Result<CancellationPolicyUsageResponse>> GetCityCancellationPolicyUsageAsync(string userId)
-    {
-        try
-        {
-            var departmentId = await GetAdminDepartmentIdAsync(userId);
-            if (!departmentId.IsSuccess)
-                return Result.Failure<CancellationPolicyUsageResponse>(departmentId.Error);
+    //public async Task<Result<CancellationPolicyUsageResponse>> GetCityCancellationPolicyUsageAsync(string userId)
+    //{
+    //    try
+    //    {
+    //        var departmentId = await GetAdminDepartmentIdAsync(userId);
+    //        if (!departmentId.IsSuccess)
+    //            return Result.Failure<CancellationPolicyUsageResponse>(departmentId.Error);
 
-            var units = await _context.Units
-                .Include(u => u.CancellationPolicy)
-                .Where(u => u.CityId == departmentId.Value && !u.IsDeleted)
-                .ToListAsync();
+    //        var units = await _context.Units
+    //            .Where(u => u.CityId == departmentId.Value && !u.IsDeleted)
+    //            .ToListAsync();
 
-            var totalUnits = units.Count;
-            var policyUsage = units
-                .Where(u => u.CancellationPolicyId.HasValue)
-                .GroupBy(u => new { u.CancellationPolicyId, u.CancellationPolicy!.Name })
-                .Select(g => new PolicyUsage
-                {
-                    PolicyId = g.Key.CancellationPolicyId!.Value,
-                    PolicyName = g.Key.Name,
-                    UnitCount = g.Count(),
-                    UsagePercentage = totalUnits > 0 ? (decimal)g.Count() / totalUnits * 100 : 0
-                })
-                .ToList();
+    //        var totalUnits = units.Count;
+    //        var response = new CancellationPolicyUsageResponse
+    //        {
+    //            Policies = policyUsage,
+    //            TotalUnits = totalUnits
+    //        };
 
-            var response = new CancellationPolicyUsageResponse
-            {
-                Policies = policyUsage,
-                TotalUnits = totalUnits
-            };
-
-            return Result.Success(response);
-        }
-        catch (Exception ex)
-        {
-            return Result.Failure<CancellationPolicyUsageResponse>(
-                new Error("GetPolicyUsageFailed", "Failed to retrieve cancellation policy usage", 500));
-        }
-    }
+    //        return Result.Success(response);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        return Result.Failure<CancellationPolicyUsageResponse>(
+    //            new Error("GetPolicyUsageFailed", "Failed to retrieve cancellation policy usage", 500));
+    //    }
+    //}
 
     #endregion
 
@@ -3018,6 +3006,10 @@ public class CityAdminService(
                 .Take(filter.PageSize)
                 .ToListAsync();
 
+            var defaultCurrency = await _context.Currencies
+    .AsNoTracking()
+    .FirstOrDefaultAsync(c => c.IsDefault && c.IsActive);
+
             var responses = bookings.Select(b => new BookingComprehensiveResponse
             {
                 Id = b.Id,
@@ -3050,7 +3042,9 @@ public class CityAdminService(
                 GuestEmail2 = b.GuestEmail,
                 GuestPhone = b.GuestPhone,
                 GuestSpecialRequirements = b.SpecialRequests,
-                Currency = b.Unit.Currency?.Code??""
+                Currency = b.Unit.Currency?.Code
+           ?? defaultCurrency?.Code
+           ?? null
             }).ToList();
 
             var paginatedResult = CreatePaginatedResponse(responses, totalCount, filter.Page, filter.PageSize);
@@ -3266,7 +3260,6 @@ public class CityAdminService(
         {
             var booking = await _context.Bookings
                 .Include(b => b.Unit)
-                    .ThenInclude(u => u.CancellationPolicy)
                 .FirstOrDefaultAsync(b => b.Id == bookingId);
 
             if (booking == null)
@@ -3433,17 +3426,17 @@ public class CityAdminService(
 
     private decimal CalculateRefundAmount(Domain.Entities.Booking booking)
     {
-        if (booking.Unit?.CancellationPolicy == null)
-            return 0;
+        //if (booking.Unit?.CancellationPolicy == null)
+        //    return 0;
 
-        var policy = booking.Unit.CancellationPolicy;
-        var daysUntilCheckIn = (booking.CheckInDate - DateTime.UtcNow).Days;
+        //var policy = booking.Unit.CancellationPolicy;
+        //var daysUntilCheckIn = (booking.CheckInDate - DateTime.UtcNow).Days;
 
-        if (daysUntilCheckIn >= policy.FullRefundDays)
-            return booking.PaidAmount;
+        //if (daysUntilCheckIn >= policy.FullRefundDays)
+        //    return booking.PaidAmount;
 
-        if (daysUntilCheckIn >= policy.PartialRefundDays)
-            return booking.PaidAmount * (policy.PartialRefundPercentage / 100);
+        //if (daysUntilCheckIn >= policy.PartialRefundDays)
+        //    return booking.PaidAmount * (policy.PartialRefundPercentage / 100);
 
         return 0;
     }
@@ -3533,7 +3526,6 @@ public class CityAdminService(
             var unit = await _context.Units
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
-                .Include(u => u.CancellationPolicy)
                 .Include(u => u.Admins.Where(a => a.IsActive))
                     .ThenInclude(a => a.User)
                 .Include(u => u.Images.Where(i => !i.IsDeleted))

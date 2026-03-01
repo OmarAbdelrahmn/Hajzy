@@ -431,6 +431,8 @@ public class UnitController(IUnitService service) : ControllerBase
     }
 
     #endregion
+
+    #region Policies
     [HttpPost("{unitId}/toggle-featured")]
     [Authorize(Roles = "SuperAdmin,CityAdmin")]
     public async Task<IActionResult> ToggleFeatured(int unitId)
@@ -464,6 +466,95 @@ public class UnitController(IUnitService service) : ControllerBase
         var result = await _service.GetFeaturedUnitsAsync(filter);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
+
+    #region Custom Policy Management
+
+    /// <summary>Get all custom policies for a unit</summary>
+    [HttpGet("{unitId}/custom-policies")]
+    public async Task<IActionResult> GetCustomPolicies(int unitId, [FromQuery] bool? isActive = null)
+    {
+        var result = await _service.GetUnitCustomPoliciesAsync(unitId, isActive);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>Get a single custom policy by ID</summary>
+    [HttpGet("custom-policies/{policyId}")]
+    public async Task<IActionResult> GetCustomPolicyById(int policyId)
+    {
+        var result = await _service.GetUnitCustomPolicyByIdAsync(policyId);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>Create a new custom policy for a unit</summary>
+    [HttpPost("{unitId}/custom-policies")]
+    [Authorize]
+    public async Task<IActionResult> CreateCustomPolicy(
+        int unitId, [FromBody] CreateUnitCustomPolicyRequest request)
+    {
+        var userId = User.GetUserId();
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var result = await _service.CreateUnitCustomPolicyAsync(unitId, userId, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>Update a custom policy</summary>
+    [HttpPut("custom-policies/{policyId}")]
+    [Authorize]
+    public async Task<IActionResult> UpdateCustomPolicy(
+        int policyId, [FromBody] UpdateUnitCustomPolicyRequest request)
+    {
+        var result = await _service.UpdateUnitCustomPolicyAsync(policyId, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>Delete a custom policy</summary>
+    [HttpDelete("custom-policies/{policyId}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteCustomPolicy(int policyId)
+    {
+        var result = await _service.DeleteUnitCustomPolicyAsync(policyId);
+        return result.IsSuccess
+            ? Ok(new { message = "Custom policy deleted successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>Toggle active status of a custom policy</summary>
+    [HttpPost("custom-policies/{policyId}/toggle")]
+    [Authorize]
+    public async Task<IActionResult> ToggleCustomPolicy(int policyId)
+    {
+        var result = await _service.ToggleUnitCustomPolicyStatusAsync(policyId);
+        return result.IsSuccess
+            ? Ok(new { message = "Custom policy status toggled" })
+            : result.ToProblem();
+    }
+
+    /// <summary>Reorder custom policies for a unit</summary>
+    [HttpPut("{unitId}/custom-policies/reorder")]
+    [Authorize]
+    public async Task<IActionResult> ReorderCustomPolicies(
+        int unitId, [FromBody] ReorderPoliciesRequest request)
+    {
+        var result = await _service.ReorderUnitCustomPoliciesAsync(unitId, request.PolicyIds);
+        return result.IsSuccess
+            ? Ok(new { message = "Custom policies reordered successfully" })
+            : result.ToProblem();
+    }
+
+    /// <summary>Bulk delete custom policies for a unit</summary>
+    [HttpDelete("{unitId}/custom-policies/bulk")]
+    [Authorize]
+    public async Task<IActionResult> BulkDeleteCustomPolicies(
+        int unitId, [FromBody] BulkDeletePoliciesRequest request)
+    {
+        var result = await _service.BulkDeleteUnitCustomPoliciesAsync(unitId, request.PolicyIds);
+        return result.IsSuccess
+            ? Ok(new { message = $"Custom policies deleted successfully" })
+            : result.ToProblem();
+    }
+    #endregion
+    #endregion
 }
 
 // ============= REQUEST DTO =============
@@ -479,3 +570,4 @@ public record ReorderImagesRequests
 {
     public List<int> ImageIds { get; init; } = new();
 }
+public record BulkDeletePoliciesRequest(List<int> PolicyIds);

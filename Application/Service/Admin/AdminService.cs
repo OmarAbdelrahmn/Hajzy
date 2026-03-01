@@ -388,6 +388,9 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
                 .Where(bc => bookingIds.Contains(bc.BookingId))
                 .AsNoTracking()
                 .ToListAsync();
+            var defaultCurrency = await dbcontext.Currencies
+    .AsNoTracking()
+    .FirstOrDefaultAsync(c => c.IsDefault && c.IsActive);
 
             var bookingResponses = bookings.Select(booking =>
             {
@@ -458,7 +461,9 @@ public class AdminService(UserManager<ApplicationUser> manager, ApplicationDbcon
 
                     CreatedAt = booking.CreatedAt,
                     UpdatedAt = booking.UpdatedAt,
-                    Currency = booking.Unit.Currency?.Code ?? "N/A"
+                    Currency = booking.Unit.Currency?.Code
+           ?? defaultCurrency?.Code
+           ?? null
                 };
             }).ToList();
 

@@ -78,4 +78,44 @@ public interface IUnitService
     /// </summary>
     Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetFeaturedUnitsAsync(UnitFilter filter);
 
+    // ============= CUSTOM POLICY MANAGEMENT =============
+    Task<Result<IEnumerable<UnitCustomPolicyResponse>>> GetUnitCustomPoliciesAsync(int unitId, bool? isActive = null);
+    Task<Result<UnitCustomPolicyResponse>> GetUnitCustomPolicyByIdAsync(int policyId);
+    Task<Result<UnitCustomPolicyResponse>> CreateUnitCustomPolicyAsync(int unitId, string userId, CreateUnitCustomPolicyRequest request);
+    Task<Result<UnitCustomPolicyResponse>> UpdateUnitCustomPolicyAsync(int policyId, UpdateUnitCustomPolicyRequest request);
+    Task<Result> DeleteUnitCustomPolicyAsync(int policyId);
+    Task<Result> ToggleUnitCustomPolicyStatusAsync(int policyId);
+    Task<Result> ReorderUnitCustomPoliciesAsync(int unitId, List<int> policyIds);
+    Task<Result> BulkDeleteUnitCustomPoliciesAsync(int unitId, List<int> policyIds);
+
+}
+
+public record UnitCustomPolicyResponse
+{
+    public int Id { get; init; }
+    public int UnitId { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string? Category { get; init; }
+    public int DisplayOrder { get; init; }
+    public bool IsActive { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime? UpdatedAt { get; init; }
+}
+
+public record CreateUnitCustomPolicyRequest
+{
+    public string Title { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string? Category { get; init; }
+    public int DisplayOrder { get; init; } = 0;
+}
+
+public record UpdateUnitCustomPolicyRequest
+{
+    public string? Title { get; init; }
+    public string? Description { get; init; }
+    public string? Category { get; init; }
+    public int? DisplayOrder { get; init; }
+    public bool? IsActive { get; init; }
 }

@@ -1,6 +1,7 @@
 ﻿using Amazon.S3;
 using Amazon.S3.Transfer;
 using Application.Abstraction;
+using Application.Contracts.Bookin;
 using Application.Contracts.Currency;
 using Application.Contracts.hoteladmincont;
 using Application.Contracts.Options;
@@ -56,7 +57,6 @@ public class HotelAdminService(
             .Include(u => u.CustomPolicies.Where(p => p.IsActive))
             .Include(u => u.City)
             .Include(u => u.UnitType)
-            .Include(u => u.CancellationPolicy)
             .Include(u => u.Admins.Where(a => a.IsActive))
                 .ThenInclude(a => a.User)
             .Include(u => u.Images.Where(i => !i.IsDeleted))
@@ -344,7 +344,7 @@ public class HotelAdminService(
                     u.UnitType.Name.ToLower().Contains(kw) ||
                     u.City.Name.ToLower().Contains(kw));
             }
-
+            var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
             var units = await query.AsNoTracking().ToListAsync();
             var fetchedUnitIds = units.Select(u => u.Id).ToList();
 
@@ -355,7 +355,7 @@ public class HotelAdminService(
                 .ToListAsync();
 
             var responses = units.Select(u =>
-                MapToComprehensiveResponse(u, generalPolicies.Where(p => p.UnitId == u.Id).ToList()));
+                MapToComprehensiveResponse(u, generalPolicies.Where(p => p.UnitId == u.Id).ToList(), defaultCurrencyCode));
 
             return Result.Success(responses);
         }
@@ -382,7 +382,6 @@ public class HotelAdminService(
                 .Include(a=>a.Currency)
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
-                .Include(u => u.CancellationPolicy)
                 .Include(u => u.CustomPolicies.Where(p => p.IsActive))
                 .Include(u => u.Admins.Where(a => a.IsActive)).ThenInclude(a => a.User)
                 .Include(u => u.Images.Where(i => !i.IsDeleted))
@@ -511,6 +510,7 @@ public class HotelAdminService(
                     (b.User.Email != null && b.User.Email.ToLower().Contains(kw)) ||
                     (b.User.PhoneNumber != null && b.User.PhoneNumber.Contains(kw)));
             }
+            var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
 
             var totalCount = await query.CountAsync();
 
@@ -549,7 +549,7 @@ public class HotelAdminService(
                     GuestEmail2 = b.GuestEmail,
                     GuestPhone = b.GuestPhone,
                     GuestSpecialRequirements = b.SpecialRequests,
-                    Currency = b.Unit.Currency!.Code ?? ""
+                    Currency = b.Unit.Currency != null ? b.Unit.Currency.Code : defaultCurrencyCode 
                 })
                 .ToListAsync();
 
@@ -561,6 +561,14 @@ public class HotelAdminService(
             return Result.Failure<IHotelAdminService.PaginatedResponse<BookingComprehensiveResponse>>(
                 new Error("GetBookingsFailed", "Failed to retrieve bookings", 500));
         }
+    }
+    private async Task<string?> GetDefaultCurrencyCodeAsync()
+    {
+        return await _context.Currencies
+            .AsNoTracking()
+            .Where(c => c.IsDefault && c.IsActive)
+            .Select(c => c.Code)
+            .FirstOrDefaultAsync();
     }
 
     private IHotelAdminService.PaginatedResponse<T> CreatePaginatedResponse<T>(
@@ -795,9 +803,10 @@ public class HotelAdminService(
                 .Where(s => targetIds.Contains(s.UnitId) && !s.IsDeleted)
                 .AsNoTracking()
                 .ToListAsync();
+            var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
 
             return Result.Success<IEnumerable<SubUnitComprehensiveDetail>>(
-                subUnits.Select(MapToSubUnitComprehensiveDetail));
+                subUnits.Select(s => MapToSubUnitComprehensiveDetail(s,defaultCurrencyCode)));
         }
         catch (Exception ex)
         {
@@ -834,7 +843,10 @@ public class HotelAdminService(
                 return Result.Failure<SubUnitComprehensiveDetail>(
                     new Error("NoAccess", "You do not have access to this subunit", 403));
 
-            return Result.Success(MapToSubUnitComprehensiveDetail(subUnit));
+            var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+
+
+            return Result.Success(MapToSubUnitComprehensiveDetail(subUnit , defaultCurrencyCode));
         }
         catch (Exception ex)
         {
@@ -1738,96 +1750,94 @@ public class HotelAdminService(
         }
     }
 
-    public async Task<Result<CancellationPolicyResponse>> GetUnitCancellationPolicyAsync(
-        string userId, int unitId)
-    {
-        try
-        {
-            var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
-            if (!hasAccess.Value)
-                return Result.Failure<CancellationPolicyResponse>(
-                    new Error("NoAccess", "You do not have access to this unit", 403));
+    //public async Task<Result<CancellationPolicyResponse>> GetUnitCancellationPolicyAsync(
+    //    string userId, int unitId)
+    //{
+    //    try
+    //    {
+    //        var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
+    //        if (!hasAccess.Value)
+    //            return Result.Failure<CancellationPolicyResponse>(
+    //                new Error("NoAccess", "You do not have access to this unit", 403));
 
-            var unit = await _context.Units
-                .Include(u => u.CancellationPolicy)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+    //        var unit = await _context.Units
+    //            .AsNoTracking()
+    //            .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
 
-            if (unit?.CancellationPolicy == null)
-                return Result.Failure<CancellationPolicyResponse>(
-                    new Error("NotFound", "Cancellation policy not found", 404));
+    //        if (unit?.CancellationPolicy == null)
+    //            return Result.Failure<CancellationPolicyResponse>(
+    //                new Error("NotFound", "Cancellation policy not found", 404));
 
-            return Result.Success(MapToCancellationPolicyResponse(unit.CancellationPolicy));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting cancellation policy for unit {UnitId}", unitId);
-            return Result.Failure<CancellationPolicyResponse>(
-                new Error("GetPolicyFailed", "Failed to retrieve cancellation policy", 500));
-        }
-    }
+    //        return Result.Success(MapToCancellationPolicyResponse(unit.CancellationPolicy));
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error getting cancellation policy for unit {UnitId}", unitId);
+    //        return Result.Failure<CancellationPolicyResponse>(
+    //            new Error("GetPolicyFailed", "Failed to retrieve cancellation policy", 500));
+    //    }
+    //}
 
-    public async Task<Result> SetUnitCancellationPolicyAsync(
-        string userId, int unitId, int cancellationPolicyId)
-    {
-        try
-        {
-            var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
-            if (!hasAccess.Value)
-                return Result.Failure(new Error("NoAccess", "You do not have access to this unit", 403));
+    //public async Task<Result> SetUnitCancellationPolicyAsync(
+    //    string userId, int unitId, int cancellationPolicyId)
+    //{
+    //    try
+    //    {
+    //        var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
+    //        if (!hasAccess.Value)
+    //            return Result.Failure(new Error("NoAccess", "You do not have access to this unit", 403));
 
-            var unit = await _context.Units.FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
-            if (unit == null)
-                return Result.Failure(new Error("NotFound", "Unit not found", 404));
+    //        var unit = await _context.Units.FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
+    //        if (unit == null)
+    //            return Result.Failure(new Error("NotFound", "Unit not found", 404));
 
-            var policy = await _context.CancellationPolicies
-                .FirstOrDefaultAsync(p => p.Id == cancellationPolicyId && p.IsActive);
+    //        var policy = await _context.CancellationPolicies
+    //            .FirstOrDefaultAsync(p => p.Id == cancellationPolicyId && p.IsActive);
 
-            if (policy == null)
-                return Result.Failure(new Error("NotFound", "Cancellation policy not found", 404));
+    //        if (policy == null)
+    //            return Result.Failure(new Error("NotFound", "Cancellation policy not found", 404));
 
-            unit.CancellationPolicyId = cancellationPolicyId;
-            unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
-            await _context.SaveChangesAsync();
+    //        unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
+    //        await _context.SaveChangesAsync();
 
-            return Result.Success();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error setting cancellation policy for unit {UnitId}", unitId);
-            return Result.Failure(new Error("SetPolicyFailed", "Failed to set cancellation policy", 500));
-        }
-    }
+    //        return Result.Success();
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error setting cancellation policy for unit {UnitId}", unitId);
+    //        return Result.Failure(new Error("SetPolicyFailed", "Failed to set cancellation policy", 500));
+    //    }
+    //}
 
-    public async Task<Result<CancellationPolicyResponse>> CreateCustomCancellationPolicyAsync(
-        string userId, CreateCancellationPolicyRequest request)
-    {
-        try
-        {
-            var policy = new CancellationPolicy
-            {
-                Name = request.Name,
-                Description = request.Description,
-                FullRefundDays = request.FullRefundDays,
-                PartialRefundDays = request.PartialRefundDays,
-                PartialRefundPercentage = request.PartialRefundPercentage,
-                IsActive = true,
-                IsDefault = request.IsDefault,
-                CreatedAt = DateTime.UtcNow.AddHours(3)
-            };
+    //public async Task<Result<CancellationPolicyResponse>> CreateCustomCancellationPolicyAsync(
+    //    string userId, CreateCancellationPolicyRequest request)
+    //{
+    //    try
+    //    {
+    //        var policy = new CancellationPolicy
+    //        {
+    //            Name = request.Name,
+    //            Description = request.Description,
+    //            FullRefundDays = request.FullRefundDays,
+    //            PartialRefundDays = request.PartialRefundDays,
+    //            PartialRefundPercentage = request.PartialRefundPercentage,
+    //            IsActive = true,
+    //            IsDefault = request.IsDefault,
+    //            CreatedAt = DateTime.UtcNow.AddHours(3)
+    //        };
 
-            _context.CancellationPolicies.Add(policy);
-            await _context.SaveChangesAsync();
+    //        _context.CancellationPolicies.Add(policy);
+    //        await _context.SaveChangesAsync();
 
-            return Result.Success(MapToCancellationPolicyResponse(policy));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating custom cancellation policy");
-            return Result.Failure<CancellationPolicyResponse>(
-                new Error("CreatePolicyFailed", "Failed to create cancellation policy", 500));
-        }
-    }
+    //        return Result.Success(MapToCancellationPolicyResponse(policy));
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error creating custom cancellation policy");
+    //        return Result.Failure<CancellationPolicyResponse>(
+    //            new Error("CreatePolicyFailed", "Failed to create cancellation policy", 500));
+    //    }
+    //}
 
     // =========================================================================
     // AVAILABILITY (comprehensive)
@@ -4163,7 +4173,7 @@ public class HotelAdminService(
     // =========================================================================
 
     private UnitComprehensiveResponse MapToComprehensiveResponse(
-        Domain.Entities.Unit unit, List<GeneralPolicy> policies)
+        Domain.Entities.Unit unit, List<GeneralPolicy> policies, string? defaultCurrencyCode = null)
     {
         List<string> options;
         try
@@ -4233,7 +4243,7 @@ public class HotelAdminService(
             CreatedAt = unit.CreatedAt,
             UpdatedAt = unit.UpdatedAt,
             Options = options,
-            Currency = unit.Currency?.Code ?? "",
+            Currency = unit.Currency?.Code ?? defaultCurrencyCode,
             CustomPolicies = customPolicies,
             OptionValues = MapUnitOptionValues(unit.OptionValues),
             IsStandAlone = unit.UnitType.IsStandalone
@@ -4302,7 +4312,7 @@ public class HotelAdminService(
         GuestSpecialRequirements = booking.SpecialRequests
     };
 
-    private SubUnitComprehensiveDetail MapToSubUnitComprehensiveDetail(Domain.Entities.SubUnit subUnit) => new()
+    private SubUnitComprehensiveDetail MapToSubUnitComprehensiveDetail(Domain.Entities.SubUnit subUnit, string? defaultCurrencyCode = null) => new()
     {
         Id = subUnit.Id,
         UnitId = subUnit.UnitId,
@@ -4331,8 +4341,7 @@ public class HotelAdminService(
             IsAvailable = sa.IsAvailable
         }).ToList(),
         OptionValues = MapSubUnitOptionValues(subUnit.OptionValues),
-        Currency = subUnit.Unit.Currency?.Code ?? ""
-
+        Currency = subUnit.Unit.Currency?.Code ?? defaultCurrencyCode
     };
 
     private ReviewResponse MapToReviewResponse(Domain.Entities.Review review) => new()

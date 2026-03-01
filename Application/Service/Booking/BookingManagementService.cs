@@ -149,7 +149,6 @@ public class BookingManagementService(
                 .Include(b => b.Unit)
                     .ThenInclude(u => u.City)
                 .Include(b => b.Unit)
-                    .ThenInclude(u => u.CancellationPolicy)
                 .Include(b => b.User)
                 .Include(b => b.BookingRooms)
                     .ThenInclude(br => br.Room)
@@ -180,7 +179,6 @@ public class BookingManagementService(
                 .Include(b => b.Unit)
                     .ThenInclude(u => u.City)
                 .Include(b => b.Unit)
-                    .ThenInclude(u => u.CancellationPolicy)
                 .Include(b => b.User)
                 .Include(b => b.BookingRooms)
                     .ThenInclude(br => br.Room)
@@ -367,7 +365,6 @@ public class BookingManagementService(
         {
             var booking = await _context.Bookings
                 .Include(b => b.Unit)
-                    .ThenInclude(u => u.CancellationPolicy)
                 .FirstOrDefaultAsync(b => b.Id == bookingId);
 
             if (booking == null)
@@ -1478,7 +1475,6 @@ public class BookingManagementService(
         {
             var booking = await _context.Bookings
                 .Include(b => b.Unit)
-                    .ThenInclude(u => u.CancellationPolicy)
                 .FirstOrDefaultAsync(b => b.Id == bookingId);
 
             if (booking == null)
@@ -1689,9 +1685,6 @@ public class BookingManagementService(
             AppliedCouponCode = bookingCoupon?.Coupon?.Code,
             CouponDiscount = bookingCoupon?.DiscountApplied,
 
-            // Cancellation Policy
-            CancellationPolicyName = booking.Unit?.CancellationPolicy?.Name,
-
             // Timestamps
             CreatedAt = booking.CreatedAt,
             UpdatedAt = booking.UpdatedAt,
@@ -1705,18 +1698,18 @@ public class BookingManagementService(
 
     private decimal CalculateRefundAmount(Domain.Entities.Booking booking, DateTime? cancellationDate = null)
     {
-        if (booking.Unit?.CancellationPolicy == null)
-            return 0;
+        //if (booking.Unit?.CancellationPolicy == null)
+        //    return 0;
 
-        var policy = booking.Unit.CancellationPolicy;
-        var cancelDate = cancellationDate ?? DateTime.UtcNow;
-        var daysUntilCheckIn = (booking.CheckInDate - cancelDate).Days;
+        //var policy = booking.Unit.CancellationPolicy;
+        //var cancelDate = cancellationDate ?? DateTime.UtcNow;
+        //var daysUntilCheckIn = (booking.CheckInDate - cancelDate).Days;
 
-        if (daysUntilCheckIn >= policy.FullRefundDays)
-            return booking.PaidAmount;
+        //if (daysUntilCheckIn >= policy.FullRefundDays)
+        //    return booking.PaidAmount;
 
-        if (daysUntilCheckIn >= policy.PartialRefundDays)
-            return booking.PaidAmount * (policy.PartialRefundPercentage / 100);
+        //if (daysUntilCheckIn >= policy.PartialRefundDays)
+        //    return booking.PaidAmount * (policy.PartialRefundPercentage / 100);
 
         return 0;
     }

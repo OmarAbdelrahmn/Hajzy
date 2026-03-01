@@ -56,8 +56,6 @@ public class Unit
     public Department City { get; set; } = default!;
     public UnitType UnitType { get; set; } = default!;
 
-    public int? CancellationPolicyId { get; set; }
-    public CancellationPolicy? CancellationPolicy { get; set; }
     public ICollection<UniteAdmin> Admins { get; set; } = [];
     public ICollection<UnitImage> Images { get; set; } = [];
     public ICollection<UnitAmenity> UnitAmenities { get; set; } = [];

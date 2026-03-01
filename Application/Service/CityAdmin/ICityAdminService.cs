@@ -395,9 +395,7 @@ public interface ICityAdminService
 
     /// <summary>
     /// Get cancellation policies usage in the city
-    /// </summary>
-    Task<Result<CancellationPolicyUsageResponse>> GetCityCancellationPolicyUsageAsync(
-        string userId);
+
 
     // ============= AVAILABILITY OVERVIEW =============
 

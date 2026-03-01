@@ -22,6 +22,245 @@ public class UnitService(
     private readonly IUnitImageService _s3Service = s3Service;
     private readonly ILogger<UnitService> _logger = logger;
 
+
+
+    public async Task<Result<IEnumerable<UnitCustomPolicyResponse>>> GetUnitCustomPoliciesAsync(
+    int unitId, bool? isActive = null)
+    {
+        try
+        {
+            var unitExists = await _context.Units.AnyAsync(u => u.Id == unitId && !u.IsDeleted);
+            if (!unitExists)
+                return Result.Failure<IEnumerable<UnitCustomPolicyResponse>>(
+                    new Error("NotFound", "Unit not found", 404));
+
+            var query = _context.Set<UnitCustomPolicy>()
+                .Where(p => p.UnitId == unitId)
+                .AsQueryable();
+
+            if (isActive.HasValue)
+                query = query.Where(p => p.IsActive == isActive.Value);
+
+            var policies = await query
+                .OrderBy(p => p.DisplayOrder)
+                .ThenBy(p => p.CreatedAt)
+                .AsNoTracking()
+                .ToListAsync();
+
+            return Result.Success(policies.Select(MapToCustomPolicyResponse));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting custom policies for unit {UnitId}", unitId);
+            return Result.Failure<IEnumerable<UnitCustomPolicyResponse>>(
+                new Error("GetFailed", "Failed to retrieve custom policies", 500));
+        }
+    }
+
+    public async Task<Result<UnitCustomPolicyResponse>> GetUnitCustomPolicyByIdAsync(int policyId)
+    {
+        try
+        {
+            var policy = await _context.Set<UnitCustomPolicy>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == policyId);
+
+            if (policy == null)
+                return Result.Failure<UnitCustomPolicyResponse>(
+                    new Error("NotFound", "Custom policy not found", 404));
+
+            return Result.Success(MapToCustomPolicyResponse(policy));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting custom policy {PolicyId}", policyId);
+            return Result.Failure<UnitCustomPolicyResponse>(
+                new Error("GetFailed", "Failed to retrieve custom policy", 500));
+        }
+    }
+
+    public async Task<Result<UnitCustomPolicyResponse>> CreateUnitCustomPolicyAsync(
+        int unitId, string userId, CreateUnitCustomPolicyRequest request)
+    {
+        try
+        {
+            var unitExists = await _context.Units.AnyAsync(u => u.Id == unitId && !u.IsDeleted);
+            if (!unitExists)
+                return Result.Failure<UnitCustomPolicyResponse>(
+                    new Error("NotFound", "Unit not found", 404));
+
+            var policy = new UnitCustomPolicy
+            {
+                UnitId = unitId,
+                Title = request.Title,
+                Description = request.Description,
+                Category = request.Category,
+                DisplayOrder = request.DisplayOrder,
+                IsActive = true,
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow.AddHours(3)
+            };
+
+            await _context.Set<UnitCustomPolicy>().AddAsync(policy);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Custom policy {PolicyId} created for unit {UnitId}", policy.Id, unitId);
+            return Result.Success(MapToCustomPolicyResponse(policy));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating custom policy for unit {UnitId}", unitId);
+            return Result.Failure<UnitCustomPolicyResponse>(
+                new Error("CreateFailed", "Failed to create custom policy", 500));
+        }
+    }
+
+    public async Task<Result<UnitCustomPolicyResponse>> UpdateUnitCustomPolicyAsync(
+        int policyId, UpdateUnitCustomPolicyRequest request)
+    {
+        try
+        {
+            var policy = await _context.Set<UnitCustomPolicy>()
+                .FirstOrDefaultAsync(p => p.Id == policyId);
+
+            if (policy == null)
+                return Result.Failure<UnitCustomPolicyResponse>(
+                    new Error("NotFound", "Custom policy not found", 404));
+
+            if (request.Title != null) policy.Title = request.Title;
+            if (request.Description != null) policy.Description = request.Description;
+            if (request.Category != null) policy.Category = request.Category;
+            if (request.DisplayOrder.HasValue) policy.DisplayOrder = request.DisplayOrder.Value;
+            if (request.IsActive.HasValue) policy.IsActive = request.IsActive.Value;
+            policy.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Custom policy {PolicyId} updated", policyId);
+            return Result.Success(MapToCustomPolicyResponse(policy));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating custom policy {PolicyId}", policyId);
+            return Result.Failure<UnitCustomPolicyResponse>(
+                new Error("UpdateFailed", "Failed to update custom policy", 500));
+        }
+    }
+
+    public async Task<Result> DeleteUnitCustomPolicyAsync(int policyId)
+    {
+        try
+        {
+            var policy = await _context.Set<UnitCustomPolicy>()
+                .FirstOrDefaultAsync(p => p.Id == policyId);
+
+            if (policy == null)
+                return Result.Failure(new Error("NotFound", "Custom policy not found", 404));
+
+            _context.Set<UnitCustomPolicy>().Remove(policy);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Custom policy {PolicyId} deleted", policyId);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting custom policy {PolicyId}", policyId);
+            return Result.Failure(new Error("DeleteFailed", "Failed to delete custom policy", 500));
+        }
+    }
+
+    public async Task<Result> ToggleUnitCustomPolicyStatusAsync(int policyId)
+    {
+        try
+        {
+            var policy = await _context.Set<UnitCustomPolicy>()
+                .FirstOrDefaultAsync(p => p.Id == policyId);
+
+            if (policy == null)
+                return Result.Failure(new Error("NotFound", "Custom policy not found", 404));
+
+            policy.IsActive = !policy.IsActive;
+            policy.UpdatedAt = DateTime.UtcNow.AddHours(3);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Custom policy {PolicyId} toggled to {Status}", policyId, policy.IsActive);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error toggling custom policy {PolicyId}", policyId);
+            return Result.Failure(new Error("ToggleFailed", "Failed to toggle custom policy status", 500));
+        }
+    }
+
+    public async Task<Result> ReorderUnitCustomPoliciesAsync(int unitId, List<int> policyIds)
+    {
+        try
+        {
+            var policies = await _context.Set<UnitCustomPolicy>()
+                .Where(p => p.UnitId == unitId && policyIds.Contains(p.Id))
+                .ToListAsync();
+
+            if (policies.Count != policyIds.Count)
+                return Result.Failure(
+                    new Error("InvalidPolicies", "Some policy IDs were not found for this unit", 400));
+
+            var now = DateTime.UtcNow.AddHours(3);
+            foreach (var (policyId, index) in policyIds.Select((id, i) => (id, i)))
+            {
+                var policy = policies.FirstOrDefault(p => p.Id == policyId);
+                if (policy != null) { policy.DisplayOrder = index; policy.UpdatedAt = now; }
+            }
+
+            await _context.SaveChangesAsync();
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reordering custom policies for unit {UnitId}", unitId);
+            return Result.Failure(new Error("ReorderFailed", "Failed to reorder custom policies", 500));
+        }
+    }
+
+    public async Task<Result> BulkDeleteUnitCustomPoliciesAsync(int unitId, List<int> policyIds)
+    {
+        try
+        {
+            var policies = await _context.Set<UnitCustomPolicy>()
+                .Where(p => p.UnitId == unitId && policyIds.Contains(p.Id))
+                .ToListAsync();
+
+            if (!policies.Any())
+                return Result.Failure(new Error("NotFound", "No matching policies found", 404));
+
+            _context.Set<UnitCustomPolicy>().RemoveRange(policies);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Bulk deleted {Count} custom policies from unit {UnitId}",
+                policies.Count, unitId);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error bulk deleting custom policies for unit {UnitId}", unitId);
+            return Result.Failure(new Error("BulkDeleteFailed", "Failed to bulk delete custom policies", 500));
+        }
+    }
+
+    // Add this private mapping helper in the #region HELPER METHODS block:
+    private static UnitCustomPolicyResponse MapToCustomPolicyResponse(UnitCustomPolicy p) => new()
+    {
+        Id = p.Id,
+        UnitId = p.UnitId,
+        Title = p.Title,
+        Description = p.Description,
+        Category = p.Category,
+        DisplayOrder = p.DisplayOrder,
+        IsActive = p.IsActive,
+        CreatedAt = p.CreatedAt
+    };
+
     #region BASIC CRUD
 
     public async Task<Result<PaginatedResponse<UnitResponse>>> FilterUnitsAsync(UnitFilter filter)
@@ -70,6 +309,8 @@ public class UnitService(
             .AsNoTracking()
             .ToListAsync();
 
+        var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+
         var responses = units.Select(u => new UnitResponse
         {
             Id = u.Id,
@@ -84,20 +325,29 @@ public class UnitService(
             IsActive = u.IsActive,
             IsVerified = u.IsVerified,
             CreatedAt = u.CreatedAt,
-            IsStandAlone = u.UnitType.IsStandalone
+            IsStandAlone = u.UnitType.IsStandalone,
+            Currency = u.Currency?.Code ?? defaultCurrencyCode,
+            IsFeatured = u.IsFeatured,
         }).ToList();
 
         return Result.Success(
             CreatePaginatedResponse(responses, totalCount, filter.Page, filter.PageSize));
     }
 
+    private async Task<string?> GetDefaultCurrencyCodeAsync()
+    {
+        return await _context.Currencies
+            .AsNoTracking()
+            .Where(c => c.IsDefault && c.IsActive)
+            .Select(c => c.Code)
+            .FirstOrDefaultAsync();
+    }
     public async Task<Result<UnitResponses>> GetByIdAsync(int unitId)
     {
         var unit = await _context.Units
             .Include(c => c.Rooms)
             .Include(u => u.City)
             .Include(u => u.UnitType)
-            .Include(u => u.CancellationPolicy)
             .Include(u => u.Admins.Where(a => a.IsActive))
                 .ThenInclude(a => a.User)
             .Include(u => u.Images.Where(i => !i.IsDeleted))
@@ -112,6 +362,8 @@ public class UnitService(
             return Result.Failure<UnitResponses>(new Error("NotFound", "Unit not found", 404));
 
         var subUnits = unit.Rooms.Where(r => !r.IsDeleted && r.IsAvailable).ToList();
+
+        var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
 
         return Result.Success(new UnitResponses
         {
@@ -140,7 +392,9 @@ public class UnitService(
             IsStandaloneUnit = !subUnits.Any(),
             // ── NEW ────────────────────────────────────────────────────
             OptionValues = MapUnitOptionValues(unit.OptionValues),
-           IsStandAlone = unit.UnitType?.IsStandalone
+           IsStandAlone = unit.UnitType?.IsStandalone,
+            Currency = unit.Currency?.Code ?? defaultCurrencyCode,
+            IsFeatured = unit.IsFeatured
         });
     }
 
@@ -149,7 +403,6 @@ public class UnitService(
         var unit = await _context.Units
             .Include(u => u.City)
             .Include(u => u.UnitType)
-            .Include(u => u.CancellationPolicy)
             .Include(u => u.Admins.Where(a => a.IsActive))
                 .ThenInclude(a => a.User)
             .Include(u => u.Images.Where(i => !i.IsDeleted))
@@ -169,7 +422,10 @@ public class UnitService(
             return Result.Failure<UnitDetailsResponse>(
                 new Error("NotFound", "Unit not found", 404));
 
-        return Result.Success(MapToDetailsResponse(unit));
+        var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+
+
+        return Result.Success(MapToDetailsResponse(unit,defaultCurrencyCode));
     }
 
     public async Task<Result<IEnumerable<UnitComprehensiveResponse>>> GetAllComprehensiveAsync(
@@ -180,7 +436,6 @@ public class UnitService(
             .Include(u => u.CustomPolicies.Where(p => p.IsActive))
             .Include(u => u.City)
             .Include(u => u.UnitType)
-            .Include(u => u.CancellationPolicy)
             .Include(u => u.Admins.Where(a => a.IsActive))
                 .ThenInclude(a => a.User)
             .Include(u => u.Images.Where(i => !i.IsDeleted))
@@ -239,9 +494,11 @@ public class UnitService(
             .AsNoTracking()
             .ToListAsync();
 
+        var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+
         var responses = units.Select(u =>
             MapToComprehensiveResponse(u,
-                generalPolicies.Where(p => p.UnitId == u.Id).ToList())).ToList();
+                generalPolicies.Where(p => p.UnitId == u.Id).ToList(), defaultCurrencyCode)).ToList();
 
         return Result.Success<IEnumerable<UnitComprehensiveResponse>>(responses);
     }
@@ -287,7 +544,6 @@ public class UnitService(
             .Include(u => u.CustomPolicies.Where(p => p.IsActive))
             .Include(u => u.City)
             .Include(u => u.UnitType)
-            .Include(u => u.CancellationPolicy)
             .Include(u => u.Admins.Where(a => a.IsActive))
                 .ThenInclude(a => a.User)
             .Include(u => u.Images.Where(i => !i.IsDeleted))
@@ -332,10 +588,11 @@ public class UnitService(
             .Where(p => unitIds.Contains(p.UnitId.Value) && p.IsActive)
             .AsNoTracking()
             .ToListAsync();
+        var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
 
         var responses = units.Select(u =>
             MapToComprehensiveResponse(u,
-                generalPolicies.Where(p => p.UnitId == u.Id).ToList())).ToList();
+                generalPolicies.Where(p => p.UnitId == u.Id).ToList(), defaultCurrencyCode)).ToList();
 
         return Result.Success<IEnumerable<UnitComprehensiveResponse>>(responses);
     }
@@ -348,7 +605,6 @@ public class UnitService(
             var unit = await _context.Units
                 .Include(u => u.City)
                 .Include(u => u.UnitType)
-                .Include(u => u.CancellationPolicy)
                 .Include(u => u.Admins)
                 .Include(u => u.Images.Where(i => !i.IsDeleted))
                 .FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
@@ -777,7 +1033,7 @@ public class UnitService(
             return Result.Failure(
                 new Error("PolicyNotFound", "Cancellation policy not found", 404));
 
-        unit.CancellationPolicyId = policyId;
+        //unit.CancellationPolicyId = policyId;
         await _context.SaveChangesAsync();
         return Result.Success();
     }
@@ -789,7 +1045,7 @@ public class UnitService(
         if (unit == null)
             return Result.Failure(new Error("NotFound", "Unit not found", 404));
 
-        unit.CancellationPolicyId = null;
+        //unit.CancellationPolicyId = null;
         await _context.SaveChangesAsync();
         return Result.Success();
     }
@@ -992,7 +1248,6 @@ public class UnitService(
             .Include(u => u.CustomPolicies.Where(p => p.IsActive))
             .Include(u => u.City)
             .Include(u => u.UnitType)
-            .Include(u => u.CancellationPolicy)
             .Include(u => u.Admins.Where(a => a.IsActive))
                 .ThenInclude(a => a.User)
             .Include(u => u.Images.Where(i => !i.IsDeleted))
@@ -1041,9 +1296,11 @@ public class UnitService(
             .Where(p => unitIds.Contains(p.UnitId.Value) && p.IsActive)
             .AsNoTracking().ToListAsync();
 
+        var defaultCurrencyCode = await GetDefaultCurrencyCodeAsync();
+
         var responses = units.Select(u =>
             MapToComprehensiveResponse(u,
-                generalPolicies.Where(p => p.UnitId == u.Id).ToList())).ToList();
+                generalPolicies.Where(p => p.UnitId == u.Id).ToList(), defaultCurrencyCode)).ToList();
 
         return Result.Success<IEnumerable<UnitComprehensiveResponse>>(responses);
     }
@@ -1103,7 +1360,7 @@ public class UnitService(
     // ─────────────────────────────────────────────────────────────────────────
 
     private static UnitComprehensiveResponse MapToComprehensiveResponse(
-        Domain.Entities.Unit unit, List<GeneralPolicy> generalPolicies)
+        Domain.Entities.Unit unit, List<GeneralPolicy> generalPolicies , string? defaultCurrencyCode)
     {
         var admins = unit.Admins?.Select(a => new UnitAdminInfo(
             a.UserId, a.User?.FullName ?? "N/A", a.User?.Email ?? "N/A",
@@ -1149,18 +1406,6 @@ public class UnitService(
             IsHighlighted = p.IsHighlighted,
             CancellationPolicyName = p.CancellationPolicy?.Name
         }).ToList();
-
-        CancellationPolicyDetail? cancellationPolicy = unit.CancellationPolicy != null
-            ? new CancellationPolicyDetail
-            {
-                Id = unit.CancellationPolicy.Id,
-                Name = unit.CancellationPolicy.Name,
-                Description = unit.CancellationPolicy.Description,
-                FullRefundDays = unit.CancellationPolicy.FullRefundDays,
-                PartialRefundDays = unit.CancellationPolicy.PartialRefundDays,
-                PartialRefundPercentage = unit.CancellationPolicy.PartialRefundPercentage
-            }
-            : null;
 
         var subUnits = unit.Rooms?.Where(r => !r.IsDeleted).Select(r => new SubUnitComprehensiveDetail
         {
@@ -1259,14 +1504,13 @@ public class UnitService(
             Images = images,
             Amenities = amenities,
             GeneralPolicies = policies,
-            CancellationPolicy = cancellationPolicy,
             SubUnits = subUnits,
             TotalSubUnits = subUnits.Count,
             AvailableSubUnits = subUnits.Count(s => s.IsAvailable),
             CreatedAt = unit.CreatedAt,
             UpdatedAt = unit.UpdatedAt,
             Options = options,
-            Currency = unit.Currency?.Code,
+            Currency = unit.Currency?.Code ?? defaultCurrencyCode,
             CustomPolicies = customPolicies,
             // ── NEW ────────────────────────────────────────────────────
             OptionValues = MapUnitOptionValues(unit.OptionValues),
@@ -1305,7 +1549,7 @@ public class UnitService(
         };
     }
 
-    private static UnitDetailsResponse MapToDetailsResponse(Domain.Entities.Unit unit)
+    private static UnitDetailsResponse MapToDetailsResponse(Domain.Entities.Unit unit , string? defaultCurrencyCode)
     {
         var admins = unit.Admins?.Select(a => new UnitAdminInfo(
             a.UserId, a.User?.FullName ?? "N/A", a.User?.Email ?? "N/A",
@@ -1353,8 +1597,6 @@ public class UnitService(
             IsVerified = unit.IsVerified,
             AverageRating = unit.AverageRating,
             TotalReviews = unit.TotalReviews,
-            CancellationPolicyId = unit.CancellationPolicyId,
-            CancellationPolicyName = unit.CancellationPolicy?.Name,
             Admins = admins,
             Images = images,
             Amenities = amenities,
@@ -1363,7 +1605,9 @@ public class UnitService(
             UpdatedAt = unit.UpdatedAt,
             // ── NEW ────────────────────────────────────────────────────
             OptionValues = MapUnitOptionValues(unit.OptionValues),
-            IsStandAlone = unit.UnitType!.IsStandalone
+            IsStandAlone = unit.UnitType!.IsStandalone,
+            Currency = unit.Currency?.Code ?? defaultCurrencyCode,
+            IsFeatured = unit.IsFeatured,
         };
     }
 

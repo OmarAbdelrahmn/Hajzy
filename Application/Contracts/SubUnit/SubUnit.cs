@@ -107,6 +107,8 @@ public class SubUnitResponse
     public int? Bathrooms { get; init; }
     public decimal? Size { get; init; }
     public string? Description { get; init; }
+    public string? SubunitTypeName { get; init; }
+    public string? Currency  { get; init; }
     public bool IsAvailable { get; init; }
     public string? PrimaryImageUrl { get; init; }
     public List<OptionValueResponse> OptionValues { get; init; } = new();
@@ -129,6 +131,8 @@ public class SubUnitDetailsResponse
     public List<SubUnitImageResponse> Images { get; init; } = new();
     public List<AmenityInfo> Amenities { get; init; } = new();
     public List<OptionValueResponse> OptionValues { get; init; } = new();
+    public string? SubunitTypeName { get; init; }
+    public string? Currency { get; init; }
 
 }
 
