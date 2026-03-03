@@ -33,6 +33,10 @@ public class SubUnitService(
             // ── NEW: option values ──────────────────────────────────────
             .Include(s => s.OptionValues)
                 .ThenInclude(ov => ov.SubUnitTypeOption)
+                .Include(s => s.Unit)
+    .ThenInclude(u => u.UnitType)
+.Include(s => s.Unit)
+    .ThenInclude(u => u.Currency)
             // ────────────────────────────────────────────────────────────
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
@@ -57,6 +61,10 @@ public class SubUnitService(
             // ── NEW: option values ──────────────────────────────────────
             .Include(s => s.OptionValues)
                 .ThenInclude(ov => ov.SubUnitTypeOption)
+                .Include(s => s.Unit)
+    .ThenInclude(u => u.UnitType)
+.Include(s => s.Unit)
+    .ThenInclude(u => u.Currency)
             // ────────────────────────────────────────────────────────────
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == subUnitId && !s.IsDeleted);
@@ -81,6 +89,10 @@ public class SubUnitService(
                 .ThenInclude(ov => ov.SubUnitTypeOption)
             // ────────────────────────────────────────────────────────────
             .Where(s => s.UnitId == unitId && !s.IsDeleted)
+                    .Include(s => s.Unit)
+            .ThenInclude(u => u.UnitType)        // ← add this
+        .Include(s => s.Unit)
+            .ThenInclude(u => u.Currency)
             .AsNoTracking()
             .ToListAsync();
 

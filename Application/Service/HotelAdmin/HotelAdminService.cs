@@ -10,6 +10,7 @@ using Application.Service.Currency;
 using Application.Service.S3Image;
 using Domain;
 using Domain.Entities;
+using Hangfire;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -24,7 +25,8 @@ public class HotelAdminService(
     IAvailabilityService availabilityService,
     IS3ImageService service,
     IAmazonS3 _s3Client,
-    ICurrencyService currencyService
+    ICurrencyService currencyService,
+    IBackgroundJobClient backgroundJobClient   // ← add this
     ) : IHotelAdminService
 {
     private readonly ApplicationDbcontext _context = context;
@@ -33,6 +35,7 @@ public class HotelAdminService(
     private readonly IS3ImageService service = service;
     private readonly IAmazonS3 s3Client = _s3Client;
     private readonly ICurrencyService currencyService = currencyService;
+    private readonly IBackgroundJobClient backgroundJobClient = backgroundJobClient;
     private const string CloudFrontUrl = "";
     private const string BucketName = "hujjzy-bucket";
 
@@ -3275,6 +3278,9 @@ public class HotelAdminService(
 
             _context.Offers.Add(offer);
             await _context.SaveChangesAsync();
+
+            backgroundJobClient.Enqueue<OfferEmailJob>(
+            j => j.SendOfferEmailsAsync(offer.Id));
 
             var unitName = await _context.Units
                 .Where(u => u.Id == unitId)

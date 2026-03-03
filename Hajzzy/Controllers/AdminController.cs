@@ -30,6 +30,7 @@ public class AdminController(IAdminService service, IUserService service1) : Con
     }
 
     [HttpGet("users")]
+    [Authorize(Roles = "SuperAdmin,CityAdmin,HotelAdmin")]
     public async Task<IActionResult> GetUsers([FromQuery] int Page = 1, [FromQuery] int Pagesize = 10, string? searchTerm = null)
     {
         var users = await service.GetAllUsers(Page, Pagesize,searchTerm);

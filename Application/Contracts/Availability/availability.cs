@@ -30,20 +30,20 @@ public record BlockDatesRequest(
     int SubUnitId,
     List<DateRange> DateRanges,
     UnavailabilityReason Reason,
-    string UpdatedByUserId
+    string? UpdatedByUserId
 );
 
 public record BlockUnitDatesRequest(
     int UnitId,
     List<DateRange> DateRanges,
     UnavailabilityReason Reason,
-    string UpdatedByUserId
+    string? UpdatedByUserId
 );
 
 public record SetSpecialPricingRequest(
     int SubUnitId,
     List<PriceRange> PriceRanges,
-    string UpdatedByUserId
+    string? UpdatedByUserId
 );
 
 public record DateRange(
