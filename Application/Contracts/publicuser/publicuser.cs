@@ -179,7 +179,8 @@ public record PublicImageInfo
 public record PublicAmenityInfo(
     string Name,
     string? Description,
-    string Category
+    string Category,
+    string? Icon
 );
 
 public record PublicSubUnitSummary(

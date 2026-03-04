@@ -46,7 +46,8 @@ public class AmenityService(
                 a.Id,
                 a.Name,
                 a.Description,
-                a.Category
+                a.Category,
+                a.Icon
             )).ToList();
 
             var paginatedResult = CreatePaginatedResponse(responses, totalCount, page, pageSize);
@@ -103,7 +104,8 @@ public class AmenityService(
             a.Id,
             a.Name,
             a.Description,
-            a.Category
+            a.Category,
+            a.Icon
         )).ToList();
 
         return Result.Success<IEnumerable<AmenityResponse>>(responses);
@@ -126,7 +128,8 @@ public class AmenityService(
                 // You'll need to parse the enum values
                 Name = request.Name,
                 Category = request.Category,
-                Description = request.Description
+                Description = request.Description,
+                Icon = request.Icon,
             };
 
             await _context.Set<Domain.Entities.Amenity>().AddAsync(amenity);
@@ -138,7 +141,8 @@ public class AmenityService(
                 amenity.Id,
                 amenity.Name,
                 amenity.Description,
-                amenity.Category
+                amenity.Category,
+                amenity.Icon
             );
 
             return Result.Success(response);
@@ -194,7 +198,8 @@ public class AmenityService(
                 amenity.Id,
                 amenity.Name,
                 amenity.Description,
-                amenity.Category
+                amenity.Category,
+                amenity.Icon
             );
 
             return Result.Success(response);
@@ -280,7 +285,8 @@ public class AmenityService(
             a.Id,
             a.Name,
             a.Description,
-            a.Category
+            a.Category,
+            a.Icon
         )).ToList();
 
         return Result.Success<IEnumerable<AmenityResponse>>(responses);

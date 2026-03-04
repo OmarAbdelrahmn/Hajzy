@@ -35,6 +35,7 @@ public class SubUnitAmenityService(
             sa.Amenity.Name.ToString(),
             sa.Amenity.Description,
             sa.Amenity.Category.ToString(),
+            sa.Amenity.Icon,
             sa.IsAvailable
         )).ToList();
 

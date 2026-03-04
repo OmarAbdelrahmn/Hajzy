@@ -247,7 +247,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                     .Select(ua => new PublicAmenityInfo(
                         ua.Amenity.Name.ToString(),
                         ua.Amenity.Description,
-                        ua.Amenity.Category.ToString())).ToList() ?? new(),
+                        ua.Amenity.Category.ToString(), ua.Amenity.Icon)).ToList() ?? new(),
                 SubUnits = subUnits.Select(r => new PublicSubUnitSummary(
                     r.Id, r.RoomNumber, r.SubUnitTypeId, r.PricePerNight, r.MaxOccupancy,
                     r.IsAvailable,
@@ -719,7 +719,7 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
 
         return Result.Success<IEnumerable<AmenityResponse>>(
             amenities.Select(a => new AmenityResponse(
-                a.Id, a.Name, a.Description, a.Category)).ToList());
+                a.Id, a.Name, a.Description, a.Category,a.Icon)).ToList());
     }
 
     #endregion
@@ -854,7 +854,8 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                 .Select(sa => new PublicAmenityInfo(
                     sa.Amenity.Name.ToString(),
                     sa.Amenity.Description,
-                    sa.Amenity.Category.ToString())).ToList() ?? new(),
+                    sa.Amenity.Category.ToString(),
+                    sa.Amenity.Icon)).ToList() ?? new(),
             // ── NEW ──────────────────────────────────────────────────────
             OptionValues = MapSubUnitOptionValues(subUnit.OptionValues),
 

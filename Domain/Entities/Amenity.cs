@@ -15,6 +15,8 @@ public class Amenity
 
     public string Category { get; set; }  // Basic, Entertainment, Safety
 
+    public string? Icon { get; set; }  // URL or icon name for UI representation
+
     // Navigation
     public ICollection<UnitAmenity> UnitAmenities { get; set; } = [];
 }

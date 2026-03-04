@@ -84,6 +84,28 @@ public class UnitRegistrationService(
 
         try
         {
+
+            // ✅ NEW: Check if email is already a unit admin
+            var existingUser = await _userManager.FindByEmailAsync(request.OwnerEmail);
+            if (existingUser != null)
+            {
+                var isUnitAdmin = await _context.Set<UniteAdmin>()
+                    .AnyAsync(ua => ua.UserId == existingUser.Id && ua.IsActive);
+
+                if (isUnitAdmin)
+                    return Result.Failure<int>(
+                        new Error("AlreadyUnitAdmin",
+                            "This email is already associated with an existing unit admin", 400));
+
+                // Also block if they hold the HotelAdmin role but have no unit yet (edge case)
+                var roles = await _userManager.GetRolesAsync(existingUser);
+                if (roles.Contains(DefaultRoles.HotelAdmin))
+                    return Result.Failure<int>(
+                        new Error("AlreadyHotelAdmin",
+                            "This email already has a hotel admin account", 400));
+            }
+
+
             // 1. Check for existing pending request
             var existingRequest = await _context.Set<UnitRegistrationRequest>()
                 .AnyAsync(r => r.OwnerEmail == request.OwnerEmail &&

@@ -28,6 +28,7 @@ public record AmenityResponse(
     string Name,
     string? Description,
     string Category,
+    string? Icon,
     bool IsAvailable = true
 );
 
@@ -39,6 +40,7 @@ public record CreateAmenityRequest
     public string Name { get; init; } = string.Empty;
     public string? Description { get; init; }
     public string Category { get; init; } = string.Empty;
+    public string? Icon { get; init; } = string.Empty;
 }
 
 // Application/Contracts/Amenity/UpdateAmenityRequest.cs

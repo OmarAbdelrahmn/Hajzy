@@ -23,7 +23,8 @@ public class UnitAmenityService(
             a.Id,
             a.Name.ToString(),
             a.Description,
-            a.Category.ToString()
+            a.Category.ToString(),
+            a.Icon
         )).ToList();
 
         return Result.Success<IEnumerable<AmenityResponse>>(responses);
@@ -49,6 +50,7 @@ public class UnitAmenityService(
             ua.Amenity.Name.ToString(),
             ua.Amenity.Description,
             ua.Amenity.Category.ToString(),
+            ua.Amenity.Icon,
             ua.IsAvailable
         )).ToList();
 

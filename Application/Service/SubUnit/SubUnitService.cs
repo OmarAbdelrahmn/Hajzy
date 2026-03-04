@@ -703,7 +703,8 @@ public class SubUnitService(
             sa.AmenityId,
             sa.Amenity?.Name.ToString() ?? "",
             sa.Amenity?.Category.ToString() ?? "",
-            sa.IsAvailable
+            sa.IsAvailable,
+            sa.Amenity?.Icon
         )).ToList() ?? new List<AmenityInfo>();
 
 

@@ -120,6 +120,8 @@ public class AmenityDetail
     public string? Description { get; set; }
     public string Category { get; set; } = string.Empty;
     public bool IsAvailable { get; set; }
+    public string? Icon { get; set; }
+
 }
 
 /// <summary>
@@ -393,7 +395,8 @@ public record AmenityInfo(
     int Id,
     string Name,
     string Category,
-    bool IsAvailable
+    bool IsAvailable,
+    string? Icon
 );
 
 public record SubUnitSummary(

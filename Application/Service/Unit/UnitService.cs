@@ -1391,7 +1391,8 @@ public class UnitService(
             Name = ua.Amenity?.Name.ToString() ?? "",
             Description = ua.Amenity?.Description,
             Category = ua.Amenity?.Category.ToString() ?? "",
-            IsAvailable = ua.IsAvailable
+            IsAvailable = ua.IsAvailable,
+            Icon = ua.Amenity?.Icon
         }).ToList() ?? new List<AmenityDetail>();
 
         var policies = generalPolicies.Select(p => new GeneralPolicyDetail
@@ -1439,7 +1440,8 @@ public class UnitService(
                 Name = sa.Amenity?.Name.ToString() ?? "",
                 Description = sa.Amenity?.Description,
                 Category = sa.Amenity?.Category.ToString() ?? "",
-                IsAvailable = sa.IsAvailable
+                IsAvailable = sa.IsAvailable,
+                Icon = sa.Amenity?.Icon
             }).ToList() ?? new List<AmenityDetail>(),
             CurrentAvailability = r.SubUnitAvailabilities?
                 .Where(a => a.StartDate <= DateTime.UtcNow && a.EndDate >= DateTime.UtcNow)
@@ -1570,7 +1572,8 @@ public class UnitService(
 
         var amenities = unit.UnitAmenities?.Select(ua => new AmenityInfo(
             ua.AmenityId, ua.Amenity?.Name.ToString() ?? "",
-            ua.Amenity?.Category.ToString() ?? "", ua.IsAvailable)).ToList()
+            ua.Amenity?.Category.ToString() ?? "", ua.IsAvailable ,
+            ua.Amenity?.Icon)).ToList()
             ?? new List<AmenityInfo>();
 
         var rooms = unit.Rooms?.Where(r => !r.IsDeleted).Select(r => new SubUnitSummary(

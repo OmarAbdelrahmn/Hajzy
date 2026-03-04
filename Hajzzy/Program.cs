@@ -64,20 +64,20 @@ var scopeFactory = app.Services.GetRequiredService<IServiceScopeFactory>();
 using var scope = scopeFactory.CreateScope();
 var notificationService = scope.ServiceProvider.GetRequiredService<INotinficationService>();
 
-RecurringJob.AddOrUpdate<INotinficationService>(
-    "daily-news",
-    x => x.SendPharmacyNotification(),
-    Cron.Daily);
+//RecurringJob.AddOrUpdate<INotinficationService>(
+//    "daily-news",
+//    x => x.SendPharmacyNotification(),
+//    Cron.Daily);
 
-RecurringJob.AddOrUpdate<INotinficationService>(
-    "weekly-news",
-    x => x.SendPharmacyNotification(),
-    Cron.Weekly);
+//RecurringJob.AddOrUpdate<INotinficationService>(
+//    "weekly-news",
+//    x => x.SendPharmacyNotification(),
+//    Cron.Weekly);
 
-RecurringJob.AddOrUpdate<INotinficationService>(
-    "monthly-news",
-    x => x.SendPharmacyNotification(),
-    Cron.Monthly);
+//RecurringJob.AddOrUpdate<INotinficationService>(
+//    "monthly-news",
+//    x => x.SendPharmacyNotification(),
+//    Cron.Monthly);
 
 BackgroundJobsConfiguration.ConfigureRecurringJobs();
 
