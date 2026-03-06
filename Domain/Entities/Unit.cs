@@ -35,7 +35,6 @@ public class Unit
     public bool IsFeatured { get; set; } = false;
 
     public string OptionsJson { get; set; } = "[]"; // Store as JSON array
-
     [Range(1, 5)]
     public int? Rank { get; set; }
 
@@ -55,7 +54,7 @@ public class Unit
     // Navigation
     public Department City { get; set; } = default!;
     public UnitType UnitType { get; set; } = default!;
-
+    public ICollection<Package> Packages { get; set; } = [];
     public ICollection<UniteAdmin> Admins { get; set; } = [];
     public ICollection<UnitImage> Images { get; set; } = [];
     public ICollection<UnitAmenity> UnitAmenities { get; set; } = [];

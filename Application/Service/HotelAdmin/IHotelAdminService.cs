@@ -798,19 +798,7 @@ public interface IHotelAdminService
     // ============= UNIT OPTIONS MANAGEMENT =============
 
     /// <summary>
-    /// Get unit options
-    /// </summary>
-    Task<Result<List<string>>> GetUnitOptionsAsync(
-        string userId,
-        int unitId);
 
-    /// <summary>
-    /// Update unit options
-    /// </summary>
-    Task<Result> UpdateUnitOptionsAsync(
-        string userId,
-        int unitId,
-        UpdateUnitOptionsRequest request);
 
     // ============= UNIT CURRENCY MANAGEMENT =============
 
@@ -864,4 +852,18 @@ public interface IHotelAdminService
     Task<Result> SaveSubUnitOptionValuesAsync(
         string userId, int subUnitId, SaveSubUnitOptionValuesRequest request);
 
+    // ============= PACKAGE MANAGEMENT =============
+
+    Task<Result<IEnumerable<PackageResponse>>> GetUnitPackagesAsync(string userId, int unitId);
+
+    //Task<Result<PackageResponse>> GetPackageByIdAsync(string userId, int packageId);
+
+    Task<Result<PackageResponse>> CreatePackageAsync(string userId, int unitId, CreatePackageRequest request);
+
+    Task<Result<PackageResponse>> UpdatePackageAsync(string userId, int packageId, UpdatePackageRequest request);
+
+    Task<Result> DeletePackageAsync(string userId, int packageId);
+
+
 }
+

@@ -9,6 +9,7 @@ namespace Application.Service.publicuser;
 
 public interface IPublicServise
 {
+    Task<Result<IEnumerable<Contracts.hoteladmincont.PackageResponse>>> GetUnitPackagesAsync(int unitId);
     Task<Result<List<PublicImageInfo>>> GetUnitImagesAsync(int unitId);
 
     /// <summary>Get only the images for a subunit.</summary>

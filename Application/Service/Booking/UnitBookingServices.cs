@@ -10,6 +10,7 @@ using Hangfire;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace Application.Service.Booking;
 
@@ -49,26 +50,6 @@ public class UnitBookingService(
             if (unit == null)
                 return Result.Failure<UnitBookingResponse>(
                     new Error("UnitNotFound", "Unit not found", 404));
-
-
-            // NEW: Validate selected options
-            if (request.SelectedOptions?.Any() == true)
-            {
-                var optionsValidation = await ValidateSelectedOptionsAsync(new ValidateOptionsRequest
-                {
-                    UnitId = request.UnitId,
-                    SelectedOptions = request.SelectedOptions
-                });
-
-                if (!optionsValidation.IsSuccess || !optionsValidation.Value.IsValid)
-                {
-                    return Result.Failure<UnitBookingResponse>(
-                        new Error("InvalidOptions",
-                            optionsValidation.Value?.ErrorMessage ?? "Some selected options are invalid",
-                            400));
-                }
-            }
-
 
             // NEW: Determine if this is a standalone unit
             var isStandaloneUnit = !unit.Rooms.Any();
@@ -111,6 +92,24 @@ public class UnitBookingService(
             decimal originalPrice = isStandaloneUnit
                 ? unit.BasePrice * nights
                 : await CalculateUnitWithRoomsPriceAsync(unit, request.CheckInDate, request.CheckOutDate);
+
+            decimal packagePrice = 0;
+            Package? selectedPackage = null;
+
+            if (request.SelectedPackageId.HasValue)
+            {
+                selectedPackage = await _context.Set<Package>()
+                    .FirstOrDefaultAsync(p => p.Id == request.SelectedPackageId.Value
+                                              && p.UnitId == request.UnitId
+                                              && p.IsActive);
+
+                if (selectedPackage == null)
+                    return Result.Failure<UnitBookingResponse>(
+                        new Error("InvalidPackage", "Selected package not found or inactive", 400));
+
+                packagePrice = selectedPackage.Price;
+                originalPrice += packagePrice; // package price is added BEFORE coupon calculation
+            }
 
             decimal finalPrice = originalPrice;
             decimal discountAmount = 0;
@@ -167,9 +166,8 @@ public class UnitBookingService(
                 SpecialRequests = request.SpecialRequests,
                 CreatedAt = DateTime.UtcNow.AddHours(3),
                 // NEW: Store selected options
-                SelectedOptionsJson = System.Text.Json.JsonSerializer.Serialize(
-                    request.SelectedOptions ?? new List<SelectedOptionDto>()),
-
+                SelectedPackageId = selectedPackage?.Id,
+                PackagePrice = packagePrice,
                 GuestFirstName = request.GuestFirstName,
                 GuestLastName = request.GuestLastName,
                 GuestEmail = request.GuestEmail,
@@ -509,6 +507,7 @@ public class UnitBookingService(
     public async Task<Result<UnitBookingDetailsResponse>> GetUnitBookingByIdAsync(int bookingId)
     {
         var booking = await _context.Bookings
+            .Include(c => c.SelectedPackage)
             .Include(b => b.Unit)
             .Include(b => b.User)
             .Include(b => b.Payments)
@@ -526,6 +525,7 @@ public class UnitBookingService(
     public async Task<Result<UnitBookingDetailsResponse>> GetUnitBookingByNumberAsync(string bookingNumber)
     {
         var booking = await _context.Bookings
+            .Include(c => c.SelectedPackage)
             .Include(b => b.Unit)
             .Include(b => b.User)
             .Include(b => b.Payments)
@@ -545,6 +545,7 @@ public class UnitBookingService(
         BookingFilter filter)
     {
         var query = _context.Bookings
+            .Include(c=>c.SelectedPackage)
             .Include(b => b.Unit)
             .Where(b => b.UserId == userId && b.BookingType == BookingType.UnitBooking)
             .AsQueryable();
@@ -577,6 +578,7 @@ public class UnitBookingService(
         BookingFilter filter)
     {
         var query = _context.Bookings
+            .Include(c => c.SelectedPackage)
             .Include(b => b.Unit)
             .Include(b => b.User)
             .Where(b => b.UnitId == unitId && b.BookingType == BookingType.UnitBooking)
@@ -808,8 +810,6 @@ public class UnitBookingService(
             .AsNoTracking()
             .FirstOrDefaultAsync(bc => bc.BookingId == booking.Id);
 
-        var selectedOptions = System.Text.Json.JsonSerializer.Deserialize<List<SelectedOptionDto>>(
-            booking.SelectedOptionsJson) ?? new List<SelectedOptionDto>();
 
 
         return new UnitBookingResponse
@@ -831,7 +831,16 @@ public class UnitBookingService(
             CreatedAt = booking.CreatedAt,
             AppliedCouponCode = bookingCoupon?.Coupon?.Code ?? "non",
             CouponDiscount = bookingCoupon?.DiscountApplied.ToString() ?? "non",
-            SelectedOptions = selectedOptions,
+            SelectedPackage = booking.SelectedPackage == null ? null : new Contracts.hoteladmincont.PackageResponse
+            {
+                Id = booking.SelectedPackage.Id,
+                Name = booking.SelectedPackage.Name,
+                Price = booking.SelectedPackage.Price,
+                Features = JsonSerializer.Deserialize<List<string>>(booking.SelectedPackage.FeaturesJson) ?? [],
+                Description = booking.SelectedPackage.Description,
+                IsActive = booking.SelectedPackage.IsActive,
+            },
+            PackagePrice = booking.PackagePrice,
             GuestFirstName = booking.GuestFirstName,
             GuestLastName = booking.GuestLastName,
             GuestEmail = booking.GuestEmail,
@@ -846,10 +855,6 @@ public class UnitBookingService(
             .Include(bc => bc.Coupon)
             .AsNoTracking()
             .FirstOrDefaultAsync(bc => bc.BookingId == booking.Id);
-
-        // Deserialize selected options
-        var selectedOptions = System.Text.Json.JsonSerializer.Deserialize<List<SelectedOptionDto>>(
-            booking.SelectedOptionsJson) ?? new List<SelectedOptionDto>();
 
 
         return new UnitBookingDetailsResponse
@@ -885,7 +890,16 @@ public class UnitBookingService(
             UpdatedAt = booking.UpdatedAt,
             AppliedCouponCode = bookingCoupon?.Coupon?.Code,
             CouponDiscount = bookingCoupon?.DiscountApplied.ToString(),
-            SelectedOptions = selectedOptions,
+            SelectedPackage = booking.SelectedPackage == null ? null : new Contracts.hoteladmincont.PackageResponse
+            {
+                Id = booking.SelectedPackage.Id,
+                Name = booking.SelectedPackage.Name,
+                Price = booking.SelectedPackage.Price,
+                Features = JsonSerializer.Deserialize<List<string>>(booking.SelectedPackage.FeaturesJson) ?? [],
+                Description = booking.SelectedPackage.Description,
+                IsActive = booking.SelectedPackage.IsActive,
+            },
+            PackagePrice = booking.PackagePrice,
             GuestFirstName = booking.GuestFirstName,
             GuestLastName = booking.GuestLastName,
             GuestEmail = booking.GuestEmail,
@@ -924,59 +938,6 @@ public class UnitBookingService(
 
     #endregion
 
-    #region VALIDATE OPTIONS (NEW SECTION)
-
-    public async Task<Result<ValidateOptionsResponse>> ValidateSelectedOptionsAsync(
-        ValidateOptionsRequest request)
-    {
-        try
-        {
-            // Get unit's available options
-            var unit = await _context.Units
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == request.UnitId && !u.IsDeleted);
-
-            if (unit == null)
-                return Result.Failure<ValidateOptionsResponse>(
-                    new Error("UnitNotFound", "Unit not found", 404));
-
-            var availableOptions = System.Text.Json.JsonSerializer.Deserialize<List<string>>(
-                unit.OptionsJson) ?? new List<string>();
-
-            // Validate each selected option
-            var invalidOptions = new List<string>();
-            foreach (var selectedOption in request.SelectedOptions)
-            {
-                if (!availableOptions.Contains(selectedOption.OptionName))
-                {
-                    invalidOptions.Add(selectedOption.OptionName);
-                }
-            }
-
-            var isValid = !invalidOptions.Any();
-            var errorMessage = isValid
-                ? null
-                : $"Invalid options: {string.Join(", ", invalidOptions)}";
-
-            var response = new ValidateOptionsResponse
-            {
-                IsValid = isValid,
-                AvailableOptions = availableOptions,
-                InvalidOptions = invalidOptions,
-                ErrorMessage = errorMessage
-            };
-
-            return Result.Success(response);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error validating options for unit {UnitId}", request.UnitId);
-            return Result.Failure<ValidateOptionsResponse>(
-                new Error("ValidationFailed", "Failed to validate options", 500));
-        }
-    }
-
-    #endregion
 
 
 }

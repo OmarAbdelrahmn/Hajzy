@@ -17,7 +17,41 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
     private readonly ApplicationDbcontext _context = context;
 
 
+    public async Task<Result<IEnumerable<Contracts.hoteladmincont.PackageResponse>>> GetUnitPackagesAsync(int unitId)
+    {
+        try
+        {
+            var unitExists = await _context.Units
+                .AnyAsync(u => u.Id == unitId && !u.IsDeleted && u.IsActive && u.IsVerified);
 
+            if (!unitExists)
+                return Result.Failure<IEnumerable<Contracts.hoteladmincont.PackageResponse>>(
+                    new Error("NotFound", "Unit not found or not available", 404));
+
+            var packages = await _context.Set<Package>()
+                .Where(p => p.UnitId == unitId && p.IsActive)
+                .Select(p => new Contracts.hoteladmincont.PackageResponse
+                {
+                    Id = p.Id,
+                    UnitId = p.UnitId,
+                    Name = p.Name,
+                    Description = p.Description,
+                    Price = p.Price,
+                    Features = System.Text.Json.JsonSerializer.Deserialize<List<string>>(p.FeaturesJson) ?? new(),
+                    IsActive = p.IsActive,
+                    CreatedAt = p.CreatedAt
+                }).AsNoTracking()
+                .ToListAsync(); 
+                
+
+            return Result.Success<IEnumerable<Contracts.hoteladmincont.PackageResponse>>(packages);
+        }
+        catch
+        {
+            return Result.Failure<IEnumerable<Contracts.hoteladmincont.PackageResponse>>(
+                new Error("GetFailed", "Failed to retrieve unit packages", 500));
+        }
+    }
     public async Task<Result<List<PublicImageInfo>>> GetUnitImagesAsync(int unitId)
     {
         try
@@ -201,8 +235,6 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                 return Result.Failure<PublicUnitDetailsResponses>(
                     new Error("NotFound", "Unit not found or not available", 404));
 
-            var options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(
-                unit.OptionsJson) ?? new List<string>();
 
             var policies = await _context.GeneralPolicies
                 .Where(p => p.UnitId == unitId && p.IsActive)
@@ -269,7 +301,6 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
                     }).ToList() ?? new(),
                 Policies = policies.Select(p => new PublicPolicyInfo(
                     p.Title, p.Description, p.PolicyType.ToString(), p.IsMandatory)).ToList(),
-                Options = options,
                 Currency = unit.Currency?.Code ?? defaultCurrencyCode,
                 CustomPolicies = unit.CustomPolicies
                     .OrderBy(p => p.DisplayOrder)
@@ -778,13 +809,6 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
 
     private PublicUnitResponse MapToPublicResponse(Domain.Entities.Unit unit, string? defaultCurrencyCode = null)
     {
-        var options = new List<string>();
-        try
-        {
-            options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(
-                unit.OptionsJson) ?? new List<string>();
-        }
-        catch { options = new List<string>(); }
 
         return new PublicUnitResponse
         {
@@ -806,7 +830,6 @@ public class PublicService(ApplicationDbcontext context) : IPublicServise
             PrimaryImageUrl = unit.Images?.FirstOrDefault()?.ImageUrl,
             IsAvailable = unit.IsActive && unit.IsVerified,
             IsFeatured = unit.AverageRating >= 4.5m && unit.TotalReviews >= 10,
-            Options = options,
             Currency = unit.Currency?.Code ?? defaultCurrencyCode,
             CustomPolicies = unit.CustomPolicies
                 .OrderBy(p => p.DisplayOrder)

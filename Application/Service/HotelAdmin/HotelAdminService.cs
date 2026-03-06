@@ -16,6 +16,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Webp;
+using System.Text.Json;
 
 namespace Application.Service.HotelAdmin;
 
@@ -3670,67 +3671,105 @@ public class HotelAdminService(
         }
     }
 
-    // =========================================================================
-    // UNIT OPTIONS MANAGEMENT
-    // =========================================================================
+    #region PACKAGE MANAGEMENT
 
-    public async Task<Result<List<string>>> GetUnitOptionsAsync(string userId, int unitId)
+    public async Task<Result<IEnumerable<PackageResponse>>> GetUnitPackagesAsync(
+        string userId, int unitId)
     {
-        try
-        {
-            var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
-            if (!hasAccess.Value)
-                return Result.Failure<List<string>>(
-                    new Error("NoAccess", "You do not have access to this unit", 403));
+        var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
+        if (!hasAccess.Value)
+            return Result.Failure<IEnumerable<PackageResponse>>(
+                new Error("NoAccess", "You do not have access to this unit", 403));
 
-            var optionsJson = await _context.Units
-                .Where(u => u.Id == unitId && !u.IsDeleted)
-                .Select(u => u.OptionsJson)
-                .FirstOrDefaultAsync();
+        var packages = await _context.Set<Package>()
+            .Where(p => p.UnitId == unitId)
+            .AsNoTracking()
+            .ToListAsync();
 
-            if (optionsJson == null)
-                return Result.Failure<List<string>>(new Error("NotFound", "Unit not found", 404));
-
-            var options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(optionsJson)
-                          ?? [];
-            return Result.Success(options);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting options for unit {UnitId}", unitId);
-            return Result.Failure<List<string>>(
-                new Error("GetOptionsFailed", "Failed to retrieve unit options", 500));
-        }
+        return Result.Success(packages.Select(MapToPackageResponse));
     }
 
-    public async Task<Result> UpdateUnitOptionsAsync(
-        string userId, int unitId, UpdateUnitOptionsRequest request)
+    public async Task<Result<PackageResponse>> CreatePackageAsync(
+        string userId, int unitId, CreatePackageRequest request)
     {
-        try
-        {
-            var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
-            if (!hasAccess.Value)
-                return Result.Failure(new Error("NoAccess", "You do not have access to this unit", 403));
+        var hasAccess = await IsAdminOfUnitAsync(userId, unitId);
+        if (!hasAccess.Value)
+            return Result.Failure<PackageResponse>(
+                new Error("NoAccess", "You do not have access to this unit", 403));
 
-            var unit = await _context.Units.FirstOrDefaultAsync(u => u.Id == unitId && !u.IsDeleted);
-            if (unit == null)
-                return Result.Failure(new Error("NotFound", "Unit not found", 404));
-
-            unit.OptionsJson = System.Text.Json.JsonSerializer.Serialize(request.Options);
-            unit.UpdatedAt = DateTime.UtcNow.AddHours(3);
-            await _context.SaveChangesAsync();
-            return Result.Success();
-        }
-        catch (Exception ex)
+        var package = new Package
         {
-            _logger.LogError(ex, "Error updating options for unit {UnitId}", unitId);
-            return Result.Failure(new Error("UpdateOptionsFailed", "Failed to update unit options", 500));
-        }
+            UnitId = unitId,
+            Name = request.Name,
+            Description = request.Description,
+            Price = request.Price,
+            FeaturesJson = JsonSerializer.Serialize(request.Features),
+            IsActive = request.IsActive,
+            CreatedAt = DateTime.UtcNow.AddHours(3)
+        };
+
+        _context.Set<Package>().Add(package);
+        await _context.SaveChangesAsync();
+
+        return Result.Success(MapToPackageResponse(package));
     }
 
-    // =========================================================================
-    // UNIT CURRENCY MANAGEMENT
-    // =========================================================================
+    public async Task<Result<PackageResponse>> UpdatePackageAsync(
+        string userId, int packageId, UpdatePackageRequest request)
+    {
+        var package = await _context.Set<Package>()
+            .FirstOrDefaultAsync(p => p.Id == packageId);
+
+        if (package == null)
+            return Result.Failure<PackageResponse>(
+                new Error("NotFound", "Package not found", 404));
+
+        var hasAccess = await IsAdminOfUnitAsync(userId, package.UnitId);
+        if (!hasAccess.Value)
+            return Result.Failure<PackageResponse>(
+                new Error("NoAccess", "You do not have access to this package", 403));
+
+        if (request.Name != null) package.Name = request.Name;
+        if (request.Description != null) package.Description = request.Description;
+        if (request.Price.HasValue) package.Price = request.Price.Value;
+        if (request.Features != null) package.FeaturesJson = JsonSerializer.Serialize(request.Features);
+        if (request.IsActive.HasValue) package.IsActive = request.IsActive.Value;
+        package.UpdatedAt = DateTime.UtcNow.AddHours(3);
+
+        await _context.SaveChangesAsync();
+        return Result.Success(MapToPackageResponse(package));
+    }
+
+    public async Task<Result> DeletePackageAsync(string userId, int packageId)
+    {
+        var package = await _context.Set<Package>()
+            .FirstOrDefaultAsync(p => p.Id == packageId);
+
+        if (package == null)
+            return Result.Failure(new Error("NotFound", "Package not found", 404));
+
+        var hasAccess = await IsAdminOfUnitAsync(userId, package.UnitId);
+        if (!hasAccess.Value)
+            return Result.Failure(new Error("NoAccess", "You do not have access to this package", 403));
+
+        _context.Set<Package>().Remove(package);
+        await _context.SaveChangesAsync();
+        return Result.Success();
+    }
+
+    private static PackageResponse MapToPackageResponse(Package p) => new()
+    {
+        Id = p.Id,
+        UnitId = p.UnitId,
+        Name = p.Name,
+        Description = p.Description,
+        Price = p.Price,
+        Features = JsonSerializer.Deserialize<List<string>>(p.FeaturesJson) ?? [],
+        IsActive = p.IsActive,
+        CreatedAt = p.CreatedAt
+    };
+
+    #endregion
 
     public async Task<Result<CurrencyResponse>> GetUnitCurrencyAsync(string userId, int unitId)
     {
@@ -4181,12 +4220,6 @@ public class HotelAdminService(
     private UnitComprehensiveResponse MapToComprehensiveResponse(
         Domain.Entities.Unit unit, List<GeneralPolicy> policies, string? defaultCurrencyCode = null)
     {
-        List<string> options;
-        try
-        {
-            options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(unit.OptionsJson) ?? [];
-        }
-        catch { options = []; }
 
         var customPolicies = unit.CustomPolicies?
             .Where(p => p.IsActive)
@@ -4248,7 +4281,6 @@ public class HotelAdminService(
             }).ToList(),
             CreatedAt = unit.CreatedAt,
             UpdatedAt = unit.UpdatedAt,
-            Options = options,
             Currency = unit.Currency?.Code ?? defaultCurrencyCode,
             CustomPolicies = customPolicies,
             OptionValues = MapUnitOptionValues(unit.OptionValues),

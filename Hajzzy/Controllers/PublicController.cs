@@ -23,6 +23,17 @@ public class PublicController(IPublicServise service, IOfferService service1, IA
     private readonly IAdminService service2 = service2;
     private readonly ICityAdminService _cityAdminService = cityAdminService;
 
+    /// <summary>
+    /// Get available packages for a specific unit
+    /// </summary>
+    [HttpGet("units/{unitId}/packages")]
+    public async Task<IActionResult> GetUnitPackages(int unitId)
+    {
+        var result = await _service.GetUnitPackagesAsync(unitId);
+        return result.IsSuccess
+            ? Ok(result.Value)
+            : result.ToProblem();
+    }
 
     [HttpGet("units/{unitId:int}/images")]
     public async Task<IActionResult> GetUnitImages(int unitId)

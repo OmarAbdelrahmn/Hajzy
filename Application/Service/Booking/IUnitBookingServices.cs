@@ -6,11 +6,7 @@ namespace Application.Service.Booking;
 
 public interface IUnitBookingServices
 {
-    /// <summary>
-    /// Validate selected options against unit's available options
-    /// </summary>
-    Task<Result<ValidateOptionsResponse>> ValidateSelectedOptionsAsync(
-        ValidateOptionsRequest request);
+ 
 
     /// <summary>
     /// Create a booking for an entire unit (all rooms)

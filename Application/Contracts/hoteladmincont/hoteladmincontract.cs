@@ -14,6 +14,34 @@ namespace Application.Contracts.hoteladmincont;
 // ============================================================================
 
 
+public record CreatePackageRequest(
+    string Name,
+    string? Description,
+    decimal Price,
+    List<string> Features,
+    bool IsActive = true,
+    int DisplayOrder = 0);
+
+public record UpdatePackageRequest(
+    string? Name,
+    string? Description,
+    decimal? Price,
+    List<string>? Features,
+    bool? IsActive,
+    int? DisplayOrder);
+
+public class PackageResponse
+{
+    public int Id { get; set; }
+    public int UnitId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public decimal Price { get; set; }
+    public List<string> Features { get; set; } = [];
+    public bool IsActive { get; set; }
+    public int DisplayOrder { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
 public class AddUnitAdminRequest
 {
     /// <summary>Email or UserId of the user to add as admin</summary>

@@ -1265,33 +1265,46 @@ public class HotelAdminController(IHotelAdminService hotelAdminService) : Contro
     // ============================================================================
     // UNIT OPTIONS MANAGEMENT ENDPOINTS
     // ============================================================================
+    #region Package Management
 
-    #region Unit Options Management
-
-    /// <summary>
-    /// Get options for a unit
-    /// </summary>
-    [HttpGet("units/{unitId}/options")]
-    public async Task<IActionResult> GetUnitOptions(int unitId)
+    [HttpGet("units/{unitId}/packages")]
+    public async Task<IActionResult> GetUnitPackages(int unitId)
     {
         var userId = User.GetUserId();
-        var result = await _hotelAdminService.GetUnitOptionsAsync(userId!, unitId);
+        var result = await _hotelAdminService.GetUnitPackagesAsync(userId!, unitId);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
-    /// <summary>
-    /// Update options for a unit
-    /// </summary>
-    [HttpPut("units/{unitId}/options")]
-    public async Task<IActionResult> UpdateUnitOptions(
-        int unitId,
-        [FromBody] UpdateUnitOptionsRequest request)
+    //[HttpGet("packages/{packageId}")]
+    //public async Task<IActionResult> GetPackageById(int packageId)
+    //{
+    //    var userId = User.GetUserId();
+    //    var result = await _hotelAdminService.GetPackageByIdAsync(userId!, packageId);
+    //    return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    //}
+
+    [HttpPost("units/{unitId}/packages")]
+    public async Task<IActionResult> CreatePackage(int unitId, [FromBody] CreatePackageRequest request)
     {
         var userId = User.GetUserId();
-        var result = await _hotelAdminService.UpdateUnitOptionsAsync(userId!, unitId, request);
-        return result.IsSuccess
-            ? Ok(new { message = "Unit options updated successfully" })
-            : result.ToProblem();
+        var result = await _hotelAdminService.CreatePackageAsync(userId!, unitId, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    [HttpPut("packages/{packageId}")]
+    public async Task<IActionResult> UpdatePackage(int packageId, [FromBody] UpdatePackageRequest request)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.UpdatePackageAsync(userId!, packageId, request);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    [HttpDelete("packages/{packageId}")]
+    public async Task<IActionResult> DeletePackage(int packageId)
+    {
+        var userId = User.GetUserId();
+        var result = await _hotelAdminService.DeletePackageAsync(userId!, packageId);
+        return result.IsSuccess ? Ok(new { message = "Package deleted successfully" }) : result.ToProblem();
     }
 
     #endregion

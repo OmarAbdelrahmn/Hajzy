@@ -3,6 +3,7 @@ using Application.Contracts.Availability;
 using Application.Contracts.Bookin;
 using Application.Contracts.SubUnit;
 using Domain;
+using Domain.Entities;
 using System.ComponentModel.DataAnnotations;
 
 namespace Application.Service.Avilabilaties;
@@ -150,7 +151,8 @@ public record CreateUnitBookingRequest(
     DateTime CheckInDate,
     DateTime CheckOutDate,
     int NumberOfGuests,
-    List<SelectedOptionDto>? SelectedOptions,
+    int? SelectedPackageId,
+    //List<SelectedOptionDto>? SelectedOptions,
      string? GuestFirstName,
      string? GuestLastName,
      string? GuestEmail,
@@ -159,6 +161,7 @@ public record CreateUnitBookingRequest(
     string? CouponCode,  // ADDED: Optional coupon code
     string? SpecialRequests = null
 );
+
 
 public record CalculateUnitBookingPriceRequest(
     int UnitId,
@@ -203,6 +206,8 @@ public record UnitBookingResponse
     public string? GuestEmail { get; set; }
     public string? GuestPhone { get; set; }
     public string? SpecialRequests { get; set; }
+    public Contracts.hoteladmincont.PackageResponse? SelectedPackage { get; set; }
+    public decimal PackagePrice { get; set; }
 
 }
 

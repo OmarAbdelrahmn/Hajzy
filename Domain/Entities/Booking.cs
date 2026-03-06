@@ -46,7 +46,6 @@ public class Booking
 
     public string? SelectedOptionsJson { get; set; } = "[]";
 
-
     [MaxLength(1000)]
     public string? CancellationReason { get; set; }
 
@@ -66,6 +65,11 @@ public class Booking
     public ICollection<Payment> Payments { get; set; } = [];
     public Review? Review { get; set; }
     public ICollection<BookingCoupon> BookingCoupons { get; set; } = [];
+    public int? SelectedPackageId { get; set; }
+    public decimal PackagePrice { get; set; } = 0;
+
+    // Navigation
+    public Package? SelectedPackage { get; set; }
 }
 
 public enum BookingType
